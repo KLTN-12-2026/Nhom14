@@ -14,3 +14,10 @@ The React Compiler is not enabled on this template because of its impact on dev 
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+## Hướng dẫn cài đặt
+Bước 1: Clone repository: git clone https://github.com/KLTN-12-2026/Nhom14.git
+Bước 2: cd Nhom14/frontend
+Bước 3: npm install
+Bước 4: npm run dev
+Sau đó mở URL được hiển thị trong Terminal.
