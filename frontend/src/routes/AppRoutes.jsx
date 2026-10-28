@@ -1,8 +1,8 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 import TrangChu from '../pages/TrangChu';
-import DangKy from '../pages/DangKy';
-import DangNhap from '../pages/DangNhap';
+import DangKy from '../pages/Auth/DangKy';
+import DangNhap from '../pages/Auth/DangNhap';
 
 export default function AppRoutes() {
   return (
