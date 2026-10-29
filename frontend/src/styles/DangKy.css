@@ -1,0 +1,153 @@
+
+.dangky-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 32px 16px;
+  background: #f5f6f8;
+  font-family: Arial, sans-serif;
+}
+
+.dangky-card {
+  width: 100%;
+  max-width: 480px;
+  padding: 32px;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.07);
+}
+
+.dangky-logo {
+  display: block;
+  margin-bottom: 24px;
+  text-align: center;
+  color: #111;
+  font-family: Georgia, serif;
+  font-size: 30px;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.dangky-logo span {
+  color: #f0b400;
+}
+
+.dangky-card h1 {
+  margin: 0 0 10px;
+  color: #222;
+  text-align: center;
+  font-size: 27px;
+}
+
+.dangky-subtitle {
+  margin: 0 0 24px;
+  color: #707784;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.dangky-group {
+  margin-bottom: 16px;
+}
+
+.dangky-group label {
+  display: block;
+  margin-bottom: 7px;
+  color: #333;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dangky-group input {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px;
+  border: 1px solid #d5d9df;
+  border-radius: 7px;
+  background: #fff;
+  color: #222;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.dangky-group input::placeholder {
+  color: #a0a5ad;
+}
+
+.dangky-group input:focus {
+  border-color: #e9b800;
+  box-shadow: 0 0 0 3px rgba(255, 221, 25, 0.2);
+}
+
+.dangky-button {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 4px;
+  border: none;
+  border-radius: 7px;
+  background: #ffdf19;
+  color: #222;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.dangky-button:hover {
+  background: #f2cd00;
+}
+
+.dangky-message {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.dangky-message.error {
+  color: #dc2626;
+}
+
+.dangky-message.success {
+  color: #15803d;
+}
+
+.dangky-login {
+  margin: 22px 0 16px;
+  color: #666;
+  text-align: center;
+  font-size: 14px;
+}
+
+.dangky-login a {
+  color: #a67c00;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.dangky-login a:hover,
+.dangky-home:hover {
+  text-decoration: underline;
+}
+
+.dangky-home {
+  display: block;
+  color: #777;
+  text-align: center;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+@media (max-width: 480px) {
+  .dangky-card {
+    padding: 24px 20px;
+  }
+
+  .dangky-logo {
+    font-size: 26px;
+  }
+}
