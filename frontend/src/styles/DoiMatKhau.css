@@ -1,0 +1,142 @@
+
+.doimatkhau-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 30px 16px;
+  background: #f5f6f8;
+  font-family: Arial, sans-serif;
+}
+
+.doimatkhau-card {
+  width: 100%;
+  max-width: 460px;
+  padding: 32px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.07);
+}
+
+.doimatkhau-logo {
+  display: block;
+  margin-bottom: 24px;
+  color: #111111;
+  text-align: center;
+  font-family: Georgia, serif;
+  font-size: 29px;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.doimatkhau-logo span {
+  color: #f0b400;
+}
+
+.doimatkhau-icon {
+  margin-bottom: 12px;
+  text-align: center;
+  font-size: 40px;
+}
+
+.doimatkhau-card h1 {
+  margin: 0 0 10px;
+  color: #222222;
+  text-align: center;
+  font-size: 27px;
+}
+
+.doimatkhau-description {
+  margin: 0 0 26px;
+  color: #707784;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.doimatkhau-group {
+  margin-bottom: 18px;
+}
+
+.doimatkhau-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #333333;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.doimatkhau-group input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 46px;
+  padding: 12px;
+  border: 1px solid #d5d9df;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #222222;
+  font-size: 14px;
+  outline: none;
+}
+
+.doimatkhau-group input:focus {
+  border-color: #e9b800;
+  box-shadow: 0 0 0 3px rgba(255, 221, 25, 0.2);
+}
+
+.doimatkhau-group input::placeholder {
+  color: #a0a5ad;
+}
+
+.doimatkhau-button {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 4px;
+  border: none;
+  border-radius: 7px;
+  background: #ffdf19;
+  color: #222222;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.doimatkhau-button:hover {
+  background: #f2cd00;
+}
+
+.doimatkhau-message {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.doimatkhau-message.error {
+  color: #dc2626;
+}
+
+.doimatkhau-message.success {
+  color: #15803d;
+}
+
+.doimatkhau-back {
+  display: block;
+  margin-top: 24px;
+  color: #777777;
+  text-align: center;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.doimatkhau-back:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+  .doimatkhau-card {
+    padding: 24px 20px;
+  }
+}
