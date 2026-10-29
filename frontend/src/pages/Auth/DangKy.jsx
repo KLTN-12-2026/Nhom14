@@ -170,6 +170,4 @@ function DangKy() {
     </div>
   );
 }
-
-
 export default DangKy;
