@@ -6,6 +6,7 @@ import DangKy from '../pages/Auth/DangKy';
 import DangNhap from '../pages/Auth/DangNhap';
 import TaoBaiDang from '../pages/Post/TaoBaiDang';
 import CapNhatBaiDang from '../pages/Post/CapNhatBaiDang';
+import DoiMatKhau from '../pages/Account/DoiMatKhau';
 
 export default function AppRoutes() {
   return (
@@ -14,7 +15,7 @@ export default function AppRoutes() {
         <Route path="/" element={<TrangChu />} />
         <Route path="/dang-ky" element={<DangKy />} />
         <Route path="/dang-nhap" element={<DangNhap />} />
-
+        <Route path="/doi-mat-khau" element={<DoiMatKhau />} />
         <Route path="/bai-dang/tao-moi" element={<TaoBaiDang />} />
         <Route
           path="/bai-dang/:id/chinh-sua"
