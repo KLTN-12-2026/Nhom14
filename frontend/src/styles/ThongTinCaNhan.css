@@ -1,0 +1,219 @@
+
+.thongtin-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 30px 16px;
+  background: #f5f6f8;
+  font-family: Arial, sans-serif;
+}
+
+.thongtin-card {
+  width: 100%;
+  max-width: 520px;
+  padding: 32px;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.07);
+}
+
+.thongtin-logo {
+  display: block;
+  margin-bottom: 20px;
+  color: #111111;
+  text-align: center;
+  font-family: Georgia, serif;
+  font-size: 29px;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.thongtin-logo span {
+  color: #f0b400;
+}
+
+.thongtin-avatar {
+  width: 74px;
+  height: 74px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 4px solid #ffdf19;
+  border-radius: 50%;
+  background: #feefaa;
+  color: #a17300;
+  font-size: 30px;
+  font-weight: bold;
+}
+
+.thongtin-card h1 {
+  margin: 0 0 10px;
+  color: #222222;
+  text-align: center;
+  font-size: 27px;
+}
+
+.thongtin-description {
+  margin: 0 0 22px;
+  color: #707784;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Phần chỉ xem: tài khoản + số dư (không cho sửa) */
+.thongtin-viewonly {
+  margin: 0 0 22px;
+  border: 1px dashed #d9d9cf;
+  border-radius: 9px;
+  background: #fcfcf6;
+  padding: 4px 14px;
+}
+
+.thongtin-viewonly-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  font-size: 14px;
+}
+
+.thongtin-viewonly-row + .thongtin-viewonly-row {
+  border-top: 1px solid #efefe4;
+}
+
+.thongtin-viewonly-label {
+  color: #707784;
+  font-weight: 600;
+}
+
+.thongtin-viewonly-value {
+  color: #222222;
+  font-weight: bold;
+}
+
+.thongtin-so-du {
+  color: #a17300;
+}
+
+.thongtin-row {
+  display: flex;
+  gap: 14px;
+}
+
+.thongtin-row .thongtin-group {
+  flex: 1;
+}
+
+.thongtin-group {
+  margin-bottom: 18px;
+}
+
+.thongtin-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #333333;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.thongtin-group input,
+.thongtin-group select {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 46px;
+  padding: 12px;
+  border: 1px solid #d5d9df;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #222222;
+  font-size: 14px;
+  outline: none;
+}
+
+.thongtin-group input:focus,
+.thongtin-group select:focus {
+  border-color: #e9b800;
+  box-shadow: 0 0 0 3px rgba(255, 221, 25, 0.2);
+}
+
+.thongtin-group input::placeholder {
+  color: #a0a5ad;
+}
+
+.thongtin-button {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 4px;
+  border: none;
+  border-radius: 7px;
+  background: #ffdf19;
+  color: #222222;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.thongtin-button:hover {
+  background: #f2cd00;
+}
+
+.thongtin-message {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.thongtin-message.error {
+  color: #dc2626;
+}
+
+.thongtin-message.success {
+  color: #15803d;
+}
+
+.thongtin-links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 22px;
+  text-align: center;
+}
+
+.thongtin-link {
+  color: #a17300;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.thongtin-link:hover {
+  text-decoration: underline;
+}
+
+.thongtin-back {
+  color: #777777;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.thongtin-back:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+  .thongtin-card {
+    padding: 24px 18px;
+  }
+
+  .thongtin-row {
+    flex-direction: column;
+    gap: 0;
+  }
+}

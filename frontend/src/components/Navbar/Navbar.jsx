@@ -1,56 +1,42 @@
-import { Link } from 'react-router-dom'
+// Navbar bản thiết kế trang chủ: chỉ giao diện, chưa gắn chức năng.
+const menuItems = ['Trang chủ', 'Sự kiện', 'Tài Nguyên', 'Về Chúng Tôi'];
 
-
-const Navbar = () => {
+export default function Navbar() {
   return (
-    
-    <nav className="border-b">
-        <div className="max-w-7xl mx-auto flex items-center h-20">
-            <div className="justify-start">
-                <Link to="/">
-                    <h1 className="text-2xl font-bold font-inknut">
-                        Rising <span className="text-yellow-500">Idea</span>
-                    </h1>
-                </Link>
-            </div>
+    <nav className="sticky top-0 z-40 border-b border-gray-200 bg-white">
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 md:px-6">
+        <a href="#" className="shrink-0 text-2xl font-bold font-inknut">
+          Rising <span className="text-yellow-500">Idea</span>
+        </a>
 
-            <div className="flex flex-1 gap-2 justify-end">
-                <ul className="flex gap-2 ">
-                    <li className="border-r px-4 hover:underline hover:bg-gray-300 transition-all duration-300">
-                        <Link to="/" className="px-2 font-inknut text-sm ">
-                            Sự kiện
-                        </Link>
-                    </li>
+        <ul className="hidden items-center gap-1 md:flex">
+          {menuItems.map((label) => (
+            <li key={label}>
+              <a
+                href="#"
+                className="rounded-lg px-4 py-2 text-sm font-inknut text-gray-700 transition hover:bg-gray-100"
+              >
+                {label}
+              </a>
+            </li>
+          ))}
+        </ul>
 
-                    <li className="border-r px-4">
-                        <Link to="/" className="px-2 font-inknut text-sm">
-                            Tài Nguyên
-                        </Link>
-                    </li>
-
-                    <li className="border-r px-4">
-                        <Link to="/" className="px-2 font-inknut text-sm">
-                            Về Chúng Tôi
-                        </Link>
-                    </li>
-
-                    <li className="border-r px-4">
-                        <Link to="/" className="px-2 font-inknut text-sm">
-                            Bài Đăng
-                        </Link>
-                    </li>
-                </ul>
-
-            </div>
-
-            <div>
-                <Link to="/dang-nhap" className="px-4 font-bold">
-                    Đăng nhập
-                </Link>
-            </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <a
+            href="#"
+            className="rounded-lg px-4 py-2 text-sm font-bold text-gray-700 transition hover:bg-gray-100"
+          >
+            Đăng nhập
+          </a>
+          <a
+            href="#"
+            className="rounded-lg bg-yellow-400 px-4 py-2 text-sm font-bold text-gray-900 shadow-sm transition hover:bg-yellow-500"
+          >
+            Đăng ký
+          </a>
         </div>
+      </div>
     </nav>
-  )
+  );
 }
-
-export default Navbar

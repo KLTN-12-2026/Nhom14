@@ -13,12 +13,19 @@ const InformationSection = () => {
     }
   ];
   return (
-    <section className="py-10">
-      <div className="flex justify-center">
+    <section className="mx-auto max-w-7xl px-4 pb-14 md:px-6">
+      <h2 className="text-center font-inknut text-2xl font-bold text-gray-900 md:text-3xl">
+        Ba hình thức trên nền tảng
+      </h2>
+      <p className="mt-2 text-center text-sm text-gray-600">
+        Hiểu rõ CrowdFund, Donation và Invest trước khi bắt đầu.
+      </p>
+
+      <div className="mt-8 grid gap-4 text-left md:grid-cols-3">
         {informationData.map((item, index) => (
-          <InformationCard 
-            key={index} 
-            information={item.information} 
+          <InformationCard
+            key={index}
+            information={item.information}
           />
         ))}
       </div>
