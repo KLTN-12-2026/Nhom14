@@ -4,16 +4,13 @@ import Hero from '../components/Home/Hero';
 import FeatureSection from '../components/Home/FeatureSection';
 import InformationSection from '../components/InformationSection/InformationSection';
 
-// Trang chủ bản thiết kế FE: chỉ trình bày giao diện,
-// chưa gắn chức năng hay chuyển trang (các nút/menu là placeholder).
 const TrangChu = () => {
   return (
-    <div className="bg-white">
+    <div>
       <Navbar />
       <Hero />
       <FeatureSection />
       <InformationSection />
-
       {/* Footer tĩnh của trang chủ (bản thiết kế) */}
       <footer className="border-t border-gray-200 bg-gray-50">
         <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 text-left md:grid-cols-3 md:px-6">
@@ -71,6 +68,6 @@ const TrangChu = () => {
       </button>
     </div>
   );
-};
+}
 
 export default TrangChu;
