@@ -1,20 +1,11 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import chatbot from '../assets/chatbot.png';
 import hero from '../assets/hero.png';
 import Navbar from '../components/Navbar/Navbar';
 import Hero from '../components/Home/Hero';
 import FeatureSection from '../components/Home/FeatureSection';
+import SupportCreatorSection from '../components/Home/SupportCreatorSection';
 import InformationSection from '../components/InformationSection/InformationSection';
 import Button from '../components/Button/Button';
-import { getTypeOption } from '../data/mockPosts';
-import { getPosts } from '../services/postService';
-
-const VND = new Intl.NumberFormat('vi-VN', {
-  style: 'currency',
-  currency: 'VND',
-  maximumFractionDigits: 0,
-});
 
 const steps = [
   {
@@ -38,15 +29,6 @@ const steps = [
 ];
 
 const TrangChu = () => {
-  // "Dự án nổi bật": 3 bài đăng mới nhất đọc từ localStorage (bản FE, chưa có backend).
-  const [baiNoiBat] = useState(() =>
-    getPosts()
-      .slice()
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 3)
-  );
-  const [now] = useState(() => Date.now());
-
   return (
     <div>
       <Navbar />
@@ -104,91 +86,7 @@ const TrangChu = () => {
 
       <FeatureSection />
 
-      {/* Dự án nổi bật — hiển thị 3 dự án minh họa */}
-      <section className="mx-auto max-w-7xl px-4 pb-4 md:px-6">
-        <div className="text-center">
-          <h2 className="font-inknut text-2xl font-bold text-gray-900 md:text-3xl">
-            Dự án nổi bật
-          </h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Những ý tưởng và hoàn cảnh đang cần sự đồng hành từ cộng đồng.
-          </p>
-        </div>
-
-        <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {baiNoiBat.map((post) => {
-            const typeOption = getTypeOption(post.type);
-            const ngayConLai = Math.ceil(
-              (new Date(post.deadline).getTime() - now) / (24 * 60 * 60 * 1000)
-            );
-
-            return (
-              <Link
-                key={post.id}
-                to={`/bai-dang/${post.id}`}
-                className="flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white text-left shadow-sm transition hover:-translate-y-1 hover:shadow-md"
-              >
-                <div className="relative h-44 w-full bg-gray-100">
-                  <img
-                    src={post.image}
-                    alt={post.title}
-                    className="h-full w-full object-cover"
-                  />
-                  <span
-                    className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-bold ${typeOption.badgeClass}`}
-                  >
-                    {typeOption.label}
-                  </span>
-                </div>
-
-                <div className="flex flex-1 flex-col gap-2 p-4">
-                  <h3 className="font-bold leading-snug text-gray-900">
-                    {post.title}
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    Đăng bởi{' '}
-                    <span className="font-semibold text-gray-700">
-                      {post.creator}
-                    </span>
-                  </p>
-                  <p className="line-clamp-2 text-sm leading-6 text-gray-600">
-                    {post.description}
-                  </p>
-
-                  <div className="mt-auto pt-2">
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                      <div
-                        className="h-full rounded-full bg-yellow-400"
-                        style={{
-                          width: `${Math.min(
-                            100,
-                            Math.round(((post.raised || 0) / post.goal) * 100)
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                    <div className="mt-2 flex items-end justify-between text-sm">
-                      <div>
-                        <p className="font-bold text-gray-900">
-                          {VND.format(post.raised || 0)}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          mục tiêu {VND.format(post.goal)}
-                        </p>
-                      </div>
-                      <p className="text-xs font-semibold text-gray-600">
-                        {ngayConLai > 0
-                          ? `Còn ${ngayConLai} ngày`
-                          : 'Đã hết hạn'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
+      <SupportCreatorSection />
 
       {/* Hoạt động thế nào — 3 bước đơn giản */}
       <section className="mx-auto max-w-7xl px-4 py-14 md:px-6">
