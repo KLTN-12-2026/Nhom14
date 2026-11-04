@@ -1,4 +1,4 @@
-# Rising Idea — Nền tảng gọi vốn cộng đồng tích hợp trợ lý AI
+# Nền tảng gọi vốn cộng đồng tích hợp trợ lý AI
 
 > Đồ án tốt nghiệp — **Nhóm 14** · GVHD: ThS. Nguyễn Phúc Minh Tú
 
