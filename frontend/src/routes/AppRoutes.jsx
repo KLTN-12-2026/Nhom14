@@ -9,6 +9,7 @@ import CapNhatBaiDang from '../pages/Post/CapNhatBaiDang';
 import DoiMatKhau from '../pages/Account/DoiMatKhau';
 import ThongTinCaNhan from '../pages/Account/ThongTinCaNhan';
 import DuyetBaiDang from '../pages/Admin/DuyetBaiDang';
+import ChiTietBaiDang from '../pages/Post/ChiTietBaiDang';
 
 export default function AppRoutes() {
   return (
@@ -24,6 +25,7 @@ export default function AppRoutes() {
           path="/bai-dang/:id/chinh-sua"
           element={<CapNhatBaiDang />}
         />
+        <Route path="/bai-dang/:id" element={<ChiTietBaiDang />} />
         <Route path="/admin/duyet-bai" element={<DuyetBaiDang />} />
       </Routes>
     </BrowserRouter>

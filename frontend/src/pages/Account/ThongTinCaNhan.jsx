@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { getUser, updateUser } from "../../services/userService";
+import Button from "../../components/Button/Button";
 import "../../styles/ThongTinCaNhan.css";
 
 const VND = new Intl.NumberFormat("vi-VN", {
@@ -188,9 +189,9 @@ function ThongTinCaNhan() {
             </p>
           )}
 
-          <button type="submit" className="thongtin-button">
+          <Button type="submit" size="lg" className="w-full">
             Lưu thay đổi
-          </button>
+          </Button>
         </form>
 
         <div className="thongtin-links">

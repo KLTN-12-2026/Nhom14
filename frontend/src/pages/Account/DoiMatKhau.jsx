@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import Button from "../../components/Button/Button";
 import "../../styles/DoiMatKhau.css";
 
 function DoiMatKhau() {
@@ -123,9 +124,9 @@ function DoiMatKhau() {
             </p>
           )}
 
-          <button type="submit" className="doimatkhau-button">
+          <Button type="submit" size="lg" className="w-full">
             Cập nhật mật khẩu
-          </button>
+          </Button>
         </form>
 
         <Link to="/" className="doimatkhau-back">

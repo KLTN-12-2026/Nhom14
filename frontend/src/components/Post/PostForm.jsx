@@ -1,8 +1,11 @@
 
 import { useEffect, useState } from 'react';
+import Button from '../Button/Button';
+import { TYPE_OPTIONS } from '../../data/mockPosts';
 
 const emptyForm = {
   title: '',
+  type: 'crowdfund',
   creator: '',
   description: '',
   goal: '',
@@ -23,6 +26,7 @@ export default function PostForm({
       setForm({
         ...emptyForm,
         ...initialData,
+        type: initialData.type || emptyForm.type,
         goal: initialData.goal ?? '',
       });
     } else {
@@ -114,6 +118,31 @@ export default function PostForm({
           placeholder="Nhập tên dự án"
           className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100"
         />
+      </div>
+
+      <div>
+        <label
+          htmlFor="type"
+          className="mb-2 block text-sm font-semibold text-gray-800"
+        >
+          Loại bài đăng <span className="text-red-500">*</span>
+        </label>
+        <select
+          id="type"
+          name="type"
+          value={form.type}
+          onChange={handleChange}
+          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100"
+        >
+          {TYPE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs text-gray-500">
+          {TYPE_OPTIONS.find((option) => option.value === form.type)?.hint}
+        </p>
       </div>
 
       <div>
@@ -225,15 +254,15 @@ export default function PostForm({
               alt="Xem trước ảnh dự án"
               className="max-h-64 w-full rounded-lg border border-gray-200 object-contain"
             />
-            <button
-              type="button"
+            <Button
+              variant="link"
+              className="mt-2"
               onClick={() =>
                 setForm((current) => ({ ...current, image: '' }))
               }
-              className="mt-2 text-sm font-medium text-red-600 hover:underline"
             >
               Xóa ảnh
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -245,19 +274,16 @@ export default function PostForm({
       )}
 
       <div className="flex flex-wrap justify-end gap-3 border-t border-gray-200 pt-5">
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="lg"
           onClick={() => window.history.back()}
-          className="rounded-lg border border-gray-300 px-5 py-3 font-semibold text-gray-700 hover:bg-gray-50"
         >
           Quay lại
-        </button>
-        <button
-          type="submit"
-          className="rounded-lg bg-yellow-400 px-6 py-3 font-bold text-gray-900 transition hover:bg-yellow-500"
-        >
+        </Button>
+        <Button type="submit" size="lg">
           {submitLabel}
-        </button>
+        </Button>
       </div>
     </form>
   );
