@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Button from '../Button/Button';
 import { TYPE_OPTIONS } from '../../data/mockPosts';
 
@@ -13,26 +13,30 @@ const emptyForm = {
   image: '',
 };
 
+// Đưa dữ liệu bài đăng vào form (dùng khi cập nhật bài đã đăng).
+function khoiTaoForm(data) {
+  if (!data) {
+    return { ...emptyForm };
+  }
+
+  return {
+    ...emptyForm,
+    ...data,
+    type: data.type || emptyForm.type,
+    goal: data.goal ?? '',
+  };
+}
+
 export default function PostForm({
   initialData,
   onSubmit,
   submitLabel = 'Lưu bài đăng',
 }) {
-  const [form, setForm] = useState(emptyForm);
+  // Khởi tạo form một lần từ initialData. Trang cập nhật truyền key={post.id}
+  // nên khi đổi bài đăng, component được tạo lại với dữ liệu mới —
+  // không cần useEffect (tránh lỗi react-hooks/set-state-in-effect).
+  const [form, setForm] = useState(() => khoiTaoForm(initialData));
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (initialData) {
-      setForm({
-        ...emptyForm,
-        ...initialData,
-        type: initialData.type || emptyForm.type,
-        goal: initialData.goal ?? '',
-      });
-    } else {
-      setForm(emptyForm);
-    }
-  }, [initialData]);
 
   function handleChange(event) {
     const { name, value } = event.target;

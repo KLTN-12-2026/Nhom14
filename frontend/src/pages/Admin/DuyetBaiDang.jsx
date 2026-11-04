@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/Button/Button';
 import { getAllPostsForReview, reviewPost } from '../../services/adminService';
@@ -9,7 +9,7 @@ const money = (value) => Number(value || 0).toLocaleString('vi-VN') + ' đ';
 const date = (value) => value ? new Date(value).toLocaleDateString('vi-VN') : '—';
 
 export default function DuyetBaiDang() {
-  const [posts, setPosts] = useState([]);
+  const [posts, setPosts] = useState(() => getAllPostsForReview());
   const [filter, setFilter] = useState('pending');
   const [keyword, setKeyword] = useState('');
   const [selected, setSelected] = useState(null);
@@ -17,7 +17,6 @@ export default function DuyetBaiDang() {
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
   const refresh = () => setPosts(getAllPostsForReview());
-  useEffect(() => { refresh(); }, []);
   const counts = useMemo(() => ({
     all: posts.length,
     pending: posts.filter(p => p.status === 'pending').length,
