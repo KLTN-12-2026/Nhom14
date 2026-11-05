@@ -1,196 +1,198 @@
-import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import Button from "../../components/Button/Button";
-import HoTroModal from "../../components/Post/HoTroModal";
+
+import { useParams } from "react-router-dom";
+
 import Navbar from "../../components/Navbar/Navbar";
-import { getTypeOption } from "../../data/mockPosts";
-import { getPostById, tangTienHuyDong } from "../../services/postService";
-import { getUser } from "../../services/userService";
+import Hero from "../../components/Home/Hero";
+import ViewSidebar from "../../components/View/ViewSidebar";
 
-const VND = new Intl.NumberFormat("vi-VN", {
-  style: "currency",
-  currency: "VND",
-  maximumFractionDigits: 0,
-});
+import { posts } from "../../data/PostDemo/posts";
 
-const MOT_NGAY = 24 * 60 * 60 * 1000;
-
-// Trang chi tiết bài đăng — nơi diễn ra Góp vốn (US13) và Quyên góp (US14).
-// Bản FE đọc dữ liệu từ localStorage qua postService.
-function ChiTietBaiDang() {
+const ChiTietBaiDang = () => {
+  // Lấy ID bài đăng từ URL
   const { id } = useParams();
 
-  // Khởi tạo một lần (lazy initializer). Các useState phải đứng TRƯỚC
-  // early-return "không tìm thấy" để giữ đúng thứ tự hooks.
-  const [post, setPost] = useState(() => getPostById(id));
-  const [soDu, setSoDu] = useState(() => getUser().soDu);
-  const [now] = useState(() => Date.now());
-  const [modalMo, setModalMo] = useState(false);
+  // Tìm bài đăng tương ứng với ID
+  const baiDang = posts.find(
+    (item) => item._id === id
+  );
 
-  if (!post) {
+  // Kiểm tra bài đăng có tồn tại không
+  if (!baiDang) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-50 px-4 text-center">
-        <p className="text-5xl">🔍</p>
-        <h1 className="text-xl font-bold text-gray-900">
-          Không tìm thấy bài đăng
-        </h1>
-        <p className="text-sm text-gray-600">
-          Bài đăng có thể đã bị xóa hoặc địa chỉ không đúng.
-        </p>
-        <Link
-          to="/"
-          className="rounded-lg bg-yellow-400 px-5 py-2.5 font-bold text-gray-900 transition hover:bg-yellow-500"
-        >
-          Về trang chủ
-        </Link>
+      <div className="min-h-screen bg-white">
+        <Navbar />
+        <Hero />
+        <ViewSidebar />
+
+        <div className="p-10 text-center">
+          <h2 className="text-xl font-semibold">
+            Không tìm thấy bài đăng!
+          </h2>
+        </div>
       </div>
     );
   }
 
-  const typeOption = getTypeOption(post.type);
-  const nhan = typeOption.actionLabel;
+  // Lấy danh sách hình ảnh thuộc bài đăng
+  const danhSachHinhAnh = [...(baiDang.hinh_anh || [])].sort(
+  (a, b) => a.thu_tu_hien_thi - b.thu_tu_hien_thi
+);
 
-  const thoiHan = new Date(post.deadline).getTime();
-  const hetHan = thoiHan <= now;
-  const ngayConLai = Math.ceil((thoiHan - now) / MOT_NGAY);
-  const phanTram =
-    post.goal > 0
-      ? Math.min(100, Math.round(((post.raised || 0) / post.goal) * 100))
-      : 0;
+  // Tìm thông tin người đăng
+  const nguoiDang = baiDang.ten_nguoi_dang;
 
-  // Được gọi khi giao dịch trong modal thành công:
-  // cộng tiền huy động vào bài đăng + cập nhật số dư hiển thị.
-  const handleThanhCong = (soDuMoi, soTien) => {
-    const daCapNhat = tangTienHuyDong(post.id, soTien);
-    if (daCapNhat) {
-      setPost(daCapNhat);
-    }
-    setSoDu(soDuMoi);
-  };
+  // Tính phần trăm tiến độ
+  const tienDo = baiDang.muc_tieu
+    ? Math.min(
+        (baiDang.so_tien_da_gop / baiDang.muc_tieu) * 100,
+        100
+      )
+    : 0;
+
+  // Định dạng tiền tệ
+  const dinhDangTien = (soTien) =>
+    new Intl.NumberFormat("vi-VN").format(soTien ?? 0);
+
+  // Định dạng ngày tháng
+  const dinhDangNgay = (ngay) =>
+    new Date(ngay).toLocaleDateString("vi-VN");
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
+      {/* Navbar */}
       <Navbar />
 
-      <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
-        {/* Thanh điều hướng */}
-        <nav className="mb-6 text-sm text-gray-500">
-          <Link to="/" className="transition hover:text-yellow-600">
-            Trang chủ
-          </Link>
-          <span className="mx-2">/</span>
-          <span className="font-semibold text-gray-800">
-            Chi tiết bài đăng
-          </span>
-        </nav>
+      {/* Thanh màu vàng */}
+      <div className="h-7 bg-yellow-400"></div>
 
-        <div className="grid items-start gap-8 lg:grid-cols-3">
-          {/* Nội dung chính của bài đăng */}
-          <article className="lg:col-span-2">
-            <img
-              src={post.image}
-              alt={post.title}
-              className="h-64 w-full rounded-2xl object-cover shadow-sm md:h-80"
-            />
-
-            <span
-              className={`mt-6 inline-block rounded-full px-3 py-1 text-xs font-bold ${typeOption.badgeClass}`}
-            >
-              {typeOption.label}
-            </span>
-
-            <h1 className="mt-3 text-2xl font-bold leading-snug text-gray-900 md:text-3xl">
-              {post.title}
-            </h1>
-
-            <p className="mt-2 text-sm text-gray-500">
-              Đăng bởi{" "}
-              <span className="font-semibold text-gray-700">
-                {post.creator}
-              </span>
-              {" · "}
-              {new Date(post.createdAt).toLocaleDateString("vi-VN")}
-            </p>
-
-            <p className="mt-6 whitespace-pre-line text-base leading-7 text-gray-700">
-              {post.description}
-            </p>
-          </article>
-
-          {/* Cột phải: tiến độ gây quỹ + nút hỗ trợ */}
-          <aside className="lg:sticky lg:top-6">
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <p className="text-3xl font-bold text-gray-900">
-                {VND.format(post.raised || 0)}
-              </p>
-              <p className="mt-1 text-sm text-gray-500">
-                mục tiêu {VND.format(post.goal)}
-              </p>
-
-              <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                <div
-                  className="h-full rounded-full bg-yellow-400"
-                  style={{ width: `${phanTram}%` }}
-                />
-              </div>
-              <p className="mt-2 text-sm font-semibold text-gray-700">
-                {phanTram}% hoàn thành
-              </p>
-
-              <dl className="mt-5 space-y-3 border-t border-gray-100 pt-5 text-sm">
-                <div className="flex items-center justify-between gap-4">
-                  <dt className="text-gray-500">Hạn gây quỹ</dt>
-                  <dd className="font-semibold text-gray-800">
-                    {new Date(post.deadline).toLocaleDateString("vi-VN")}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <dt className="text-gray-500">Thời gian</dt>
-                  <dd
-                    className={`font-semibold ${
-                      hetHan ? "text-red-600" : "text-gray-800"
-                    }`}
-                  >
-                    {hetHan ? "Đã hết hạn" : `Còn ${ngayConLai} ngày`}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <dt className="text-gray-500">Số dư của bạn</dt>
-                  <dd className="font-semibold text-yellow-700">
-                    {VND.format(soDu)}
-                  </dd>
-                </div>
-              </dl>
-
-              <Button
-                disabled={hetHan}
-                onClick={() => setModalMo(true)}
-                size="lg"
-                className="mt-6 w-full"
+      <div className="flex min-h-[calc(100vh-68px)]">
+        {/* Sidebar */}
+        <aside className="w-28 shrink-0 border-r border-gray-400 bg-yellow-100">
+          {["Gọi Vốn", "Quyên Góp", "Đầu Tư"].map(
+            (loai) => (
+              <div
+                key={loai}
+                className={`border-b border-gray-400 px-2 py-5 text-center text-sm ${
+                  baiDang.loai_bai_dang === loai
+                    ? "bg-yellow-200"
+                    : ""
+                }`}
               >
-                {hetHan ? "Đã hết hạn gây quỹ" : `${nhan} ngay`}
-              </Button>
+                {loai}
+              </div>
+            )
+          )}
+        </aside>
 
-              {hetHan && (
-                <p className="mt-2 text-center text-xs text-gray-500">
-                  Chiến dịch đã kết thúc, cảm ơn bạn đã quan tâm!
+        {/* Nội dung chi tiết bài đăng */}
+        <main className="min-w-0 flex-1 p-4">
+          <div className="mx-auto max-w-3xl border border-gray-400 p-5">
+
+            {/* Thông tin người đăng */}
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-200 text-2xl">
+                👤
+              </div>
+
+              <div>
+                <p className="font-medium">
+                  {nguoiDang || "Người dùng"}
                 </p>
-              )}
-            </div>
-          </aside>
-        </div>
-      </div>
 
-      {modalMo && (
-        <HoTroModal
-          post={post}
-          soDu={soDu}
-          onClose={() => setModalMo(false)}
-          onSuccess={handleThanhCong}
-        />
-      )}
+                <p className="text-xs text-gray-500">
+                  {dinhDangNgay(baiDang.ngay_tao)}
+                </p>
+              </div>
+            </div>
+
+            {/* Tiêu đề và nội dung */}
+            <div className="mb-4">
+              <h1 className="mb-2 text-xl font-semibold">
+                {baiDang.tieu_de}
+              </h1>
+
+              <p className="mb-2 text-sm text-gray-600">
+                {baiDang.loai_bai_dang} ·{" "}
+                {baiDang.trang_thai}
+              </p>
+
+              <p className="whitespace-pre-line text-sm leading-relaxed">
+                {baiDang.noi_dung}
+              </p>
+            </div>
+
+            {/* Danh sách hình ảnh */}
+            <div className="mb-5 space-y-3">
+              {danhSachHinhAnh.map((hinhAnh) => (
+                <img
+                  key={hinhAnh._id}
+                  src={hinhAnh.duong_dan_hinh_anh}
+                  alt={baiDang.tieu_de}
+                  className="max-h-112.5 w-full object-contain"
+                />
+              ))}
+            </div>
+
+            {/* Thông tin mục tiêu và tiến độ */}
+            <div className="px-3 py-2">
+              <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm">
+                <span>
+                  {dinhDangTien(baiDang.so_tien_da_gop)}{" "}
+                  {baiDang.don_vi_tien_te}
+                </span>
+
+                <span>
+                  {dinhDangTien(baiDang.muc_tieu)}{" "}
+                  {baiDang.don_vi_tien_te}
+                </span>
+              </div>
+
+              {/* Thanh tiến độ */}
+              <div className="h-5 overflow-hidden rounded-full bg-gray-300">
+                <div
+                  className="flex h-full items-center justify-end rounded-full bg-green-500 pr-1 text-[10px] text-white"
+                  style={{
+                    width: `${tienDo}%`,
+                  }}
+                >
+                  {Math.round(tienDo)}%
+                </div>
+              </div>
+
+              {/* Thời gian bắt đầu và kết thúc */}
+              <div className="mt-4 flex flex-wrap justify-between gap-2 text-xs text-gray-500">
+                <span>
+                  Bắt đầu:{" "}
+                  {dinhDangNgay(
+                    baiDang.thoi_gian_bat_dau
+                  )}
+                </span>
+
+                <span>
+                  Kết thúc:{" "}
+                  {dinhDangNgay(
+                    baiDang.thoi_gian_ket_thuc
+                  )}
+                </span>
+              </div>
+            </div>
+
+            {/* Nút góp vốn / quyên góp */}
+            <div className="mt-8 flex justify-center">
+              <button className="rounded-xl border border-yellow-600 bg-yellow-300 px-7 py-2 text-sm hover:bg-yellow-400">
+                {baiDang.loai_bai_dang === "Gọi Vốn"
+                  ? "Góp vốn"
+                  : baiDang.loai_bai_dang === "Quyên Góp"
+                    ? "Quyên góp"
+                    : "Đầu tư"}
+              </button>
+            </div>
+
+          </div>
+        </main>
+      </div>
     </div>
   );
-}
+};
 
 export default ChiTietBaiDang;

@@ -40,7 +40,7 @@ const Navbar = () => {
             Về chúng tôi
           </Link>
 
-          <Link to="/" className={itemClass}>
+          <Link to="/xem-bai-dang" className={itemClass}>
             Bài đăng
           </Link>
 

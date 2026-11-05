@@ -11,6 +11,7 @@ import DuyetBaiDang from '../pages/Admin/DuyetBaiDang';
 import ChiTietBaiDang from '../pages/Post/ChiTietBaiDang';
 import ProtectedRoute from './ProtectedRoute';
 import AdminRoute from './AdminRoute';
+import XemBaiDang from '../pages/Post/XemBaiDang';
 
 export default function AppRoutes() {
   return (
@@ -21,6 +22,7 @@ export default function AppRoutes() {
         <Route path="/dang-ky" element={<DangKy />} />
         <Route path="/dang-nhap" element={<DangNhap />} />
         <Route path="/bai-dang/:id" element={<ChiTietBaiDang />} />
+        <Route path="/xem-bai-dang" element={<XemBaiDang />} />
 
         {/* Cần đăng nhập */}
         <Route element={<ProtectedRoute />}>
