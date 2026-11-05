@@ -1,173 +1,98 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import AuthForm from "../../components/Auth/AuthForm";
+import Navbar from "../../components/Navbar/Navbar";
+import Hero from "../../components/Home/Hero";
 
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import "../../styles/DangKy.css";
+const SLIDE_MS = 500;
 
-function DangKy() {
-  const [form, setForm] = useState({
-    hoTen: "",
-    email: "",
-    soDienThoai: "",
-    matKhau: "",
-    xacNhanMatKhau: "",
-  });
+export default function DangKy() {
+  const navigate = useNavigate();
+  const [ready, setReady] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
-  const [thongBao, setThongBao] = useState("");
-  const [thanhCong, setThanhCong] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  function goToLogin() {
+    if (leaving) return;
+    setLeaving(true);
+    setTimeout(() => navigate("/dang-nhap"), SLIDE_MS);
+  }
 
-    setForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+  function handleSubmit(event) {
+    event.preventDefault();
 
-    setThongBao("");
-    setThanhCong(false);
-  };
+    const formData = new FormData(event.currentTarget);
+    const password = formData.get("password");
+    const confirmPassword = formData.get("confirmPassword");
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    if (Object.values(form).some((value) => !value.trim())) {
-      setThongBao("Vui lòng nhập đầy đủ thông tin!");
+    if (confirmPassword !== null && password !== confirmPassword) {
+      alert("Mật khẩu xác nhận không khớp!");
       return;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      setThongBao("Email không hợp lệ!");
-      return;
-    }
-
-    if (!/^[0-9]{10,11}$/.test(form.soDienThoai)) {
-      setThongBao("Số điện thoại phải có 10 hoặc 11 chữ số!");
-      return;
-    }
-
-    if (form.matKhau.length < 8) {
-      setThongBao("Mật khẩu phải có ít nhất 8 ký tự!");
-      return;
-    }
-
-    if (form.matKhau !== form.xacNhanMatKhau) {
-      setThongBao("Mật khẩu xác nhận không khớp!");
-      return;
-    }
-
-    setThanhCong(true);
-    setThongBao(
-      "Thông tin hợp lệ! Hãy kết nối backend để tạo tài khoản."
-    );
-  };
+    // TODO: gọi API đăng ký ở đây
+    alert("Đăng ký thành công! Vui lòng đăng nhập.");
+    navigate("/dang-nhap");
+  }
 
   return (
-    <div className="dangky-page">
-      <div className="dangky-card">
-        <Link to="/" className="dangky-logo">
-          Rising <span>Idea</span>
-        </Link>
+    <div>
+      <Navbar />
+      <Hero />
 
-        <h1>Tạo tài khoản</h1>
+      <main className="flex min-h-screen items-center justify-center bg-linear-to-br from-indigo-50 via-white to-purple-100 p-4">
+        <div className="relative min-h-135 w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl shadow-indigo-200/50 sm:flex">
 
-        <p className="dangky-subtitle">
-          Tham gia cộng đồng và chia sẻ ý tưởng của bạn
-        </p>
+          {/* Panel chào mừng (bên trái) */}
+          <section
+            className={`z-10 hidden w-1/2 flex-col items-center justify-center bg-linear-to-br from-indigo-600 to-purple-700 px-8 text-center text-white transition-transform duration-500 ease-in-out sm:flex ${
+              leaving ? "translate-x-full" : "translate-x-0"
+            }`}
+          >
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/30 bg-white/10 text-3xl font-bold">
+              N
+            </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="dangky-group">
-            <label htmlFor="hoTen">Họ và tên</label>
-            <input
-              id="hoTen"
-              name="hoTen"
-              type="text"
-              placeholder="Nhập họ và tên"
-              value={form.hoTen}
-              onChange={handleChange}
-              autoComplete="name"
-            />
-          </div>
+            <h2 className="text-3xl font-bold">Xin chào!</h2>
 
-          <div className="dangky-group">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="example@email.com"
-              value={form.email}
-              onChange={handleChange}
-              autoComplete="email"
-            />
-          </div>
-
-          <div className="dangky-group">
-            <label htmlFor="soDienThoai">Số điện thoại</label>
-            <input
-              id="soDienThoai"
-              name="soDienThoai"
-              type="tel"
-              placeholder="Nhập số điện thoại"
-              value={form.soDienThoai}
-              onChange={handleChange}
-              autoComplete="tel"
-            />
-          </div>
-
-          <div className="dangky-group">
-            <label htmlFor="matKhau">Mật khẩu</label>
-            <input
-              id="matKhau"
-              name="matKhau"
-              type="password"
-              placeholder="Ít nhất 8 ký tự"
-              value={form.matKhau}
-              onChange={handleChange}
-              autoComplete="new-password"
-            />
-          </div>
-
-          <div className="dangky-group">
-            <label htmlFor="xacNhanMatKhau">
-              Xác nhận mật khẩu
-            </label>
-            <input
-              id="xacNhanMatKhau"
-              name="xacNhanMatKhau"
-              type="password"
-              placeholder="Nhập lại mật khẩu"
-              value={form.xacNhanMatKhau}
-              onChange={handleChange}
-              autoComplete="new-password"
-            />
-          </div>
-
-          {thongBao && (
-            <p
-              className={`dangky-message ${
-                thanhCong ? "success" : "error"
-              }`}
-              role="status"
-            >
-              {thongBao}
+            <p className="mt-4 max-w-xs text-sm leading-6 text-indigo-100">
+              Tạo tài khoản để bắt đầu sử dụng hệ thống.
             </p>
-          )}
 
-          <button type="submit" className="dangky-button">
-            Đăng ký
-          </button>
-        </form>
+            <button
+              type="button"
+              onClick={goToLogin}
+              className="mt-8 rounded-full border border-white px-8 py-3 font-semibold transition hover:bg-white hover:text-indigo-700"
+            >
+              Đăng nhập
+            </button>
+          </section>
 
-        <p className="dangky-login">
-          Đã có tài khoản?{" "}
-          <Link to="/dangnhap">Đăng nhập</Link>
-        </p>
+          {/* Form đăng ký (bên phải) */}
+          <section
+            className={`flex w-full items-center justify-center p-7 transition-all duration-500 ease-in-out sm:w-1/2 sm:p-10 ${
+              ready && !leaving ? "opacity-100" : "opacity-0"
+            } ${leaving ? "sm:-translate-x-full" : "sm:translate-x-0"}`}
+          >
+            <AuthForm type="register" onSubmit={handleSubmit} />
+          </section>
 
-        <Link to="/" className="dangky-home">
-          ← Quay lại trang chủ
-        </Link>
-      </div>
+          {/* Nút chuyển đổi trên mobile */}
+          <div className="absolute bottom-3 left-0 z-20 flex w-full justify-center sm:hidden">
+            <button
+              type="button"
+              onClick={goToLogin}
+              className="rounded-full px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50"
+            >
+              Đã có tài khoản? Đăng nhập
+            </button>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
-export default DangKy;
