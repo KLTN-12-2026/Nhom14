@@ -1,20 +1,16 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AuthForm from "../../components/Auth/AuthForm";
 import Navbar from "../../components/Navbar/Navbar";
 import Hero from "../../components/Home/Hero";
+import { register } from "../../services/authService";
 
 const SLIDE_MS = 500;
 
 export default function DangKy() {
   const navigate = useNavigate();
-  const [ready, setReady] = useState(false);
   const [leaving, setLeaving] = useState(false);
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setReady(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
+  const [submitting, setSubmitting] = useState(false);
 
   function goToLogin() {
     if (leaving) return;
@@ -22,19 +18,34 @@ export default function DangKy() {
     setTimeout(() => navigate("/dang-nhap"), SLIDE_MS);
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
+    if (submitting) return;
 
     const formData = new FormData(event.currentTarget);
     const password = formData.get("password");
-    const confirmPassword = formData.get("confirmPassword");
 
-    if (confirmPassword !== null && password !== confirmPassword) {
+    if (password !== formData.get("confirmPassword")) {
       alert("Mật khẩu xác nhận không khớp!");
       return;
     }
 
-    // TODO: gọi API đăng ký ở đây
+    setSubmitting(true);
+
+    const result = await register({
+      hoTen: formData.get("name"),
+      tenTaiKhoan: formData.get("username"),
+      email: formData.get("email"),
+      matKhau: password,
+    });
+
+    setSubmitting(false);
+
+    if (!result.thanhCong) {
+      alert(result.loi);
+      return;
+    }
+
     alert("Đăng ký thành công! Vui lòng đăng nhập.");
     navigate("/dang-nhap");
   }
@@ -74,11 +85,11 @@ export default function DangKy() {
 
           {/* Form đăng ký (bên phải) */}
           <section
-            className={`flex w-full items-center justify-center p-7 transition-all duration-500 ease-in-out sm:w-1/2 sm:p-10 ${
-              ready && !leaving ? "opacity-100" : "opacity-0"
-            } ${leaving ? "sm:-translate-x-full" : "sm:translate-x-0"}`}
+            className={`flex w-full items-center justify-center p-7 pb-14 transition-all duration-500 ease-in-out sm:w-1/2 sm:p-10 ${
+              leaving ? "opacity-0 sm:-translate-x-full" : "opacity-100 sm:translate-x-0"
+            }`}
           >
-            <AuthForm type="register" onSubmit={handleSubmit} />
+            <AuthForm type="register" onSubmit={handleSubmit} disabled={submitting} />
           </section>
 
           {/* Nút chuyển đổi trên mobile */}

@@ -1,7 +1,14 @@
 
 import { getUser, updateUser } from './userService';
+import { getSession } from './authService';
 
-const STORAGE_KEY = 'rising-idea-wallet-transactions';
+const BASE_KEY = 'rising-idea-wallet-transactions';
+
+// Lịch sử giao dịch lưu riêng cho từng tài khoản đang đăng nhập.
+function storageKey() {
+  const session = getSession();
+  return session ? `${BASE_KEY}:${session.tenTaiKhoan}` : BASE_KEY;
+}
 
 // Bản thử nghiệm frontend: quản lý số dư (qua userService) và lịch sử
 // giao dịch trong trình duyệt (localStorage). Phục vụ Góp vốn / Quyên góp
@@ -10,7 +17,7 @@ const STORAGE_KEY = 'rising-idea-wallet-transactions';
 
 function getTransactions() {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const saved = JSON.parse(localStorage.getItem(storageKey()) || '[]');
     return Array.isArray(saved) ? saved : [];
   } catch {
     return [];
@@ -18,7 +25,7 @@ function getTransactions() {
 }
 
 function saveTransactions(transactions) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
+  localStorage.setItem(storageKey(), JSON.stringify(transactions));
 }
 
 // Xem ví: số dư hiện tại + danh sách lịch sử giao dịch (mới nhất trước).
@@ -32,6 +39,13 @@ export function getWallet() {
 // Thực hiện giao dịch trừ số dư: kiểm tra số tiền, trạng thái, ghi nhận
 // mã giao dịch và lịch sử. Chỉ cập nhật số dư khi giao dịch hợp lệ.
 export function thanhToan({ postId, postTitle, soTien, loaiGiaoDich }) {
+  if (!getSession()) {
+    return {
+      thanhCong: false,
+      loi: 'Vui lòng đăng nhập để thực hiện giao dịch.',
+    };
+  }
+
   const user = getUser();
   const amount = Number(soTien);
 

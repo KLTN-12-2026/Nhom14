@@ -33,7 +33,7 @@ triển khai — xem [`backend/Readme.md`](backend/Readme.md).
 ### Quản trị viên
 - **Duyệt bài đăng**: danh sách chờ duyệt, xem chi tiết, phê duyệt hoặc từ chối kèm lý do
 
-> 📝 Bản frontend hiện chưa có xác thực thật và phân quyền máy chủ — dữ liệu lưu tạm trong
+> 📝 Bản frontend hiện đăng nhập/phân quyền giả lập trong trình duyệt (trang cần đăng nhập và trang admin đã được chặn ở phía giao diện), chưa có xác thực và phân quyền máy chủ — dữ liệu lưu tạm trong
 > trình duyệt, dùng cho mục đích trình diễn và phát triển giao diện.
 
 ## 3. Công nghệ
@@ -63,8 +63,15 @@ npm run dev
 ### 2. Bắt đầu sử dụng
 
 1. Mở trình duyệt tại địa chỉ: **http://localhost:5173**
-2. Dùng thử với tài khoản mẫu sẵn có:
-   - Tài khoản: `nhatquang` — Số dư ví: **2.500.000 ₫**
+2. Đăng nhập tại `/dang-nhap` (nhập **tên đăng nhập hoặc email**) bằng tài khoản mẫu:
+
+   | Tài khoản | Mật khẩu | Vai trò | Số dư ví |
+   |---|---|---|---|
+   | `nhatquang` | `Demo123456` | Người dùng | 2.500.000 ₫ |
+   | `demo@gmail.com` | `Demo123456` | Người dùng | 1.000.000 ₫ |
+   | `admin` | `Admin123456` | Quản trị viên | 0 ₫ |
+
+   Có thể tự đăng ký tài khoản mới tại `/dang-ky` (số dư ban đầu 0 ₫).
 3. Kịch bản gợi ý:
    - Vào **Dự án nổi bật** ở trang chủ → chọn một dự án → bấm *Góp vốn ngay / Quyên góp ngay*
    - Nhập số tiền (hoặc bấm nhanh 50K/100K/200K/500K) → xác nhận → xem số dư thay đổi
@@ -100,13 +107,15 @@ npm run preview    # chạy thử bản dựng tại http://localhost:4173
 
 - **Hiện tại không cần biến môi trường hay cấu hình nào** — toàn bộ dữ liệu mô phỏng nằm trong
   localStorage của trình duyệt với các khóa:
-  - `rising-idea-user` — thông tin tài khoản + số dư ví
+  - `rising-idea-accounts` — danh sách tài khoản (mật khẩu băm SHA-256)
+  - `rising-idea-session` — phiên đăng nhập hiện tại
+  - `rising-idea-user:<tên tài khoản>` — thông tin cá nhân + số dư ví của từng tài khoản
   - `rising-idea-posts` — danh sách bài đăng (tự nạp dữ liệu mẫu khi trống)
-  - `rising-idea-wallet-transactions` — lịch sử giao dịch ví
+  - `rising-idea-wallet-transactions:<tên tài khoản>` — lịch sử giao dịch ví của từng tài khoản
 - Muốn "reset" dữ liệu mẫu: mở DevTools (F12) → Application → Local Storage → xóa các khóa trên
 - **Khi backend hoàn thiện**: cấu hình địa chỉ API tại `frontend/src/services/api.js`
-  (hiện mặc định `http://localhost:3000/api`, dự kiến đổi thành `http://localhost:8000/api`
-  khớp với backend FastAPI)
+  (mặc định `http://localhost:8000/api`
+  khớp với backend FastAPI, có thể ghi đè bằng biến `VITE_API_URL`; cần chạy `npm install axios` trước khi dùng)
 
 ## 9. Dừng ứng dụng
 

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import Button from "../../components/Button/Button";
+import { changePassword } from "../../services/authService";
 import "../../styles/DoiMatKhau.css";
 
 function DoiMatKhau() {
@@ -23,7 +24,7 @@ function DoiMatKhau() {
     setThanhCong(false);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (
@@ -50,10 +51,17 @@ function DoiMatKhau() {
       return;
     }
 
-    setThongBao(
-      "Thông tin hợp lệ. Vui lòng kết nối API để cập nhật mật khẩu."
-    );
+    const ketQua = await changePassword(form.matKhauCu, form.matKhauMoi);
+
+    if (!ketQua.thanhCong) {
+      setThongBao(ketQua.loi);
+      setThanhCong(false);
+      return;
+    }
+
+    setThongBao("Đổi mật khẩu thành công!");
     setThanhCong(true);
+    setForm({ matKhauCu: "", matKhauMoi: "", xacNhanMatKhau: "" });
   };
 
   return (

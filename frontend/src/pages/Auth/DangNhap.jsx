@@ -1,21 +1,17 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import AuthForm from "../../components/Auth/AuthForm";
 import Navbar from "../../components/Navbar/Navbar";
 import Hero from "../../components/Home/Hero";
+import { login } from "../../services/authService";
 
 const SLIDE_MS = 500;
 
 export default function DangNhap() {
   const navigate = useNavigate();
-  const [ready, setReady] = useState(false);
+  const location = useLocation();
   const [leaving, setLeaving] = useState(false);
-
-  // Hiệu ứng hiện dần form khi trang vừa mở
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setReady(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
+  const [submitting, setSubmitting] = useState(false);
 
   function goToRegister() {
     if (leaving) return;
@@ -23,20 +19,28 @@ export default function DangNhap() {
     setTimeout(() => navigate("/dang-ky"), SLIDE_MS);
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
+    if (submitting) return;
 
     const formData = new FormData(event.currentTarget);
-    const email = formData.get("email")?.trim().toLowerCase();
-    const password = formData.get("password");
+    setSubmitting(true);
 
-    // Chỉ cho phép đăng nhập bằng tài khoản demo
-    if (email === "demo@gmail.com" && password === "Demo123456") {
-      sessionStorage.setItem("isLoggedIn", "true");
-      navigate("/");
-    } else {
-      alert("Email hoặc mật khẩu không chính xác!");
+    const result = await login(
+      formData.get("account"),
+      formData.get("password")
+    );
+
+    setSubmitting(false);
+
+    if (!result.thanhCong) {
+      alert(result.loi);
+      return;
     }
+
+    // Quay lại trang đang định vào; admin mặc định vào trang duyệt bài.
+    const macDinh = result.role === "admin" ? "/admin/duyet-bai" : "/";
+    navigate(location.state?.from || macDinh, { replace: true });
   }
 
   return (
@@ -49,11 +53,11 @@ export default function DangNhap() {
 
           {/* Form đăng nhập (bên trái) */}
           <section
-            className={`flex w-full items-center justify-center p-7 transition-all duration-500 ease-in-out sm:w-1/2 sm:p-10 ${
-              ready && !leaving ? "opacity-100" : "opacity-0"
-            } ${leaving ? "sm:translate-x-full" : "sm:translate-x-0"}`}
+            className={`flex w-full items-center justify-center p-7 pb-14 transition-all duration-500 ease-in-out sm:w-1/2 sm:p-10 ${
+              leaving ? "opacity-0 sm:translate-x-full" : "opacity-100 sm:translate-x-0"
+            }`}
           >
-            <AuthForm type="login" onSubmit={handleSubmit} />
+            <AuthForm type="login" onSubmit={handleSubmit} disabled={submitting} />
           </section>
 
           {/* Panel chào mừng (bên phải) */}
