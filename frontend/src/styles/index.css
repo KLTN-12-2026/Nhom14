@@ -11,3 +11,7 @@
      Ghi đè --font-sans để toàn bộ app dùng font này theo mặc định. */
   --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
 }
+
+html {
+  scroll-behavior: smooth;
+}

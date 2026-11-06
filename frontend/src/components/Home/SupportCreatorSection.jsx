@@ -18,7 +18,7 @@ const supportItems = [
 
 const SupportCreatorSection = () => {
   return (
-    <section className="bg-white py-14">
+    <section id="ve-chung-toi" className="bg-white py-14 scroll-mt-20">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 md:grid-cols-[1fr_2fr] md:px-6">
         {/* Heading bên trái */}
         <div className="text-center md:text-left">

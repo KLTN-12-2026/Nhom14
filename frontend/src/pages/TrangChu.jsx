@@ -89,6 +89,8 @@ const TrangChu = () => {
 
       <FeatureSection />
 
+      <InformationSection />
+
       <SupportCreatorSection />
 
       {/* Hoạt động thế nào — 3 bước đơn giản */}
@@ -118,7 +120,6 @@ const TrangChu = () => {
         </div>
       </section>
 
-      <InformationSection />
 
       {/* Footer tĩnh của trang chủ (bản thiết kế) */}
       <footer className="border-t border-gray-200 bg-gray-50">

@@ -12,6 +12,7 @@ import ChiTietBaiDang from '../pages/Post/ChiTietBaiDang';
 import ProtectedRoute from './ProtectedRoute';
 import AdminRoute from './AdminRoute';
 import XemBaiDang from '../pages/Post/XemBaiDang';
+import QuenMatKhau from '../pages/Auth/QuenMatKhau';
 
 export default function AppRoutes() {
   return (
@@ -23,6 +24,7 @@ export default function AppRoutes() {
         <Route path="/dang-nhap" element={<DangNhap />} />
         <Route path="/bai-dang/:id" element={<ChiTietBaiDang />} />
         <Route path="/xem-bai-dang" element={<XemBaiDang />} />
+        <Route path="/quen-mat-khau" element={<QuenMatKhau />} />
 
         {/* Cần đăng nhập */}
         <Route element={<ProtectedRoute />}>

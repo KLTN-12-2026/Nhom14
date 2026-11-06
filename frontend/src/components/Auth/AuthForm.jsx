@@ -114,7 +114,7 @@ export default function AuthForm({ type, onSubmit, disabled = false }) {
         <button
           type="button"
           className="self-end text-sm text-indigo-600 hover:underline"
-          onClick={() => alert("Chức năng quên mật khẩu sẽ được bổ sung sau.")}
+          onClick={() => window.location.href = "/quen-mat-khau"}
         >
           Quên mật khẩu?
         </button>

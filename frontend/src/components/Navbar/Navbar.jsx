@@ -36,9 +36,9 @@ const Navbar = () => {
             Tài nguyên
           </Link>
 
-          <Link to="/" className="flex items-center border-l border-gray-300 px-2 text-[10px] hover:bg-gray-100">
+          <a href="/#ve-chung-toi" className="flex items-center border-l border-gray-300 px-2 text-[10px] hover:bg-gray-100">
             Về chúng tôi
-          </Link>
+          </a>
 
           <Link to="/xem-bai-dang" className={itemClass}>
             Bài đăng
