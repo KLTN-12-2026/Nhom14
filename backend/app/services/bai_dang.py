@@ -216,7 +216,7 @@ async def cap_nhat_bai_dang(id_bai_dang: str, du_lieu: dict,
     }
 
     if not du_lieu_moi:
-        return lay_bai_dang_theo_id(id_bai_dang)
+        return await lay_bai_dang_theo_id(id_bai_dang)
 
     if "thoi_gian_bat_dau" in du_lieu_moi:
         du_lieu_moi["thoi_gian_bat_dau"] = _date_to_datetime(
@@ -259,7 +259,7 @@ async def cap_nhat_bai_dang(id_bai_dang: str, du_lieu: dict,
             du_lieu["hinh_anh"] or []
         )
 
-    return lay_bai_dang_theo_id(id_bai_dang)
+    return await lay_bai_dang_theo_id(id_bai_dang)
 
 
 async def xoa_bai_dang(id_bai_dang: str, id_nguoi_dang: ObjectId) -> None:
@@ -335,7 +335,7 @@ async def duyet_bai_dang(id_bai_dang: str, hanh_dong: str,
         "ngay_tao": now,
     })
 
-    return lay_bai_dang_theo_id(id_bai_dang)
+    return await lay_bai_dang_theo_id(id_bai_dang)
 
 
 async def doc_lich_su_duyet(id_bai_dang: str) -> list:
