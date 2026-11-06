@@ -13,6 +13,7 @@ import ProtectedRoute from './ProtectedRoute';
 import AdminRoute from './AdminRoute';
 import XemBaiDang from '../pages/Post/XemBaiDang';
 import QuenMatKhau from '../pages/Auth/QuenMatKhau';
+import BaiDangCuaToi from "../pages/Post/BaiDangCuaToi";
 
 export default function AppRoutes() {
   return (
@@ -31,6 +32,7 @@ export default function AppRoutes() {
           <Route path="/doi-mat-khau" element={<DoiMatKhau />} />
           <Route path="/thong-tin-ca-nhan" element={<ThongTinCaNhan />} />
           <Route path="/bai-dang/tao-moi" element={<TaoBaiDang />} />
+          <Route path="/bai-dang-cua-toi" element={<BaiDangCuaToi />} />
           <Route
             path="/bai-dang/:id/chinh-sua"
             element={<CapNhatBaiDang />}

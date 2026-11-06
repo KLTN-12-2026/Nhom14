@@ -50,7 +50,11 @@ const Navbar = () => {
                 <Link to="/admin/duyet-bai" className={itemClass}>
                   Quản trị
                 </Link>
+                
               )}
+              <Link to="/bai-dang-cua-toi" className={itemClass}>
+              Bài đăng của tôi
+              </Link>
 
               <Link to="/thong-tin-ca-nhan" className={itemClass}>
                 {session.tenTaiKhoan}

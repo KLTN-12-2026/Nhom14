@@ -62,6 +62,7 @@ export function createPost(postData) {
     id_nguoi_dang: session?.tenTaiKhoan || '',
     ngay_tao: ngayTao,
     createdAt: ngayTao,
+    status: "pending",
   };
 
   savePosts([...posts, newPost]);
@@ -111,3 +112,37 @@ export function tangTienHuyDong(id, soTien) {
 
   return updatedPost;
 }
+
+export function deletePost(id) {
+  const session = getSession();
+
+  if (!session) {
+    throw new Error("Vui lòng đăng nhập!");
+  }
+
+  const posts = getPosts();
+
+  const post = posts.find(
+    (item) => String(item.id) === String(id)
+  );
+
+  if (!post) {
+    throw new Error("Không tìm thấy bài đăng!");
+  }
+
+  if (post.id_nguoi_dang !== session.tenTaiKhoan) {
+    throw new Error("Bạn không có quyền xóa bài này!");
+  }
+
+  const updatedPosts = posts.filter(
+    (item) => String(item.id) !== String(id)
+  );
+
+  localStorage.setItem(
+    "rising-idea-posts",
+    JSON.stringify(updatedPosts)
+  );
+
+  return true;
+}
+
