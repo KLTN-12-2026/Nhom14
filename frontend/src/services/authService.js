@@ -202,6 +202,9 @@ export async function register({ hoTen, tenTaiKhoan, email, matKhau }) {
         soDu: 0,
         role: 'user',
         matKhauHash,
+        // Ràng buộc theo tài liệu DB (collection nguoi_dung)
+        ngay_tao: new Date().toISOString(),
+        ngay_cap_nhat: new Date().toISOString(),
       },
     ]);
     return { thanhCong: true };
@@ -233,6 +236,7 @@ export async function changePassword(matKhauCu, matKhauMoi) {
     accounts[index] = {
       ...accounts[index],
       matKhauHash: await bamMatKhau(matKhauMoi),
+      ngay_cap_nhat: new Date().toISOString(),
     };
     saveAccounts(accounts);
     return { thanhCong: true };

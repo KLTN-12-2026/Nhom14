@@ -1,4 +1,5 @@
 
+import { getSession } from './authService';
 import { MOCK_POSTS, TYPE_OPTIONS } from '../data/mockPosts';
 
 const STORAGE_KEY = 'rising-idea-posts';
@@ -47,11 +48,20 @@ export function getPostById(id) {
 export function createPost(postData) {
   const posts = getPosts();
 
+  // Trường mới theo tài liệu DB (collection bai_dang):
+  // don_vi_tien_te, id_nguoi_dang, ngay_tao. id_nguoi_dang lưu tên tài
+  // khoản đang đăng nhập (MongoDB sẽ là ObjectId sau khi có backend).
+  const session = getSession();
+  const ngayTao = new Date().toISOString();
+
   const newPost = {
     raised: 0,
     ...postData,
     id: crypto.randomUUID(),
-    createdAt: new Date().toISOString(),
+    don_vi_tien_te: 'VND',
+    id_nguoi_dang: session?.tenTaiKhoan || '',
+    ngay_tao: ngayTao,
+    createdAt: ngayTao,
   };
 
   savePosts([...posts, newPost]);
@@ -71,6 +81,8 @@ export function updatePost(id, postData) {
     ...postData,
     id,
     updatedAt: new Date().toISOString(),
+    // Theo tài liệu DB (collection bai_dang)
+    ngay_cap_nhat: new Date().toISOString(),
   };
 
   posts[index] = updatedPost;
@@ -91,6 +103,7 @@ export function tangTienHuyDong(id, soTien) {
   const updatedPost = {
     ...posts[index],
     raised: (posts[index].raised || 0) + soTien,
+    ngay_cap_nhat: new Date().toISOString(),
   };
 
   posts[index] = updatedPost;

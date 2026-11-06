@@ -5,6 +5,7 @@ import Navbar from "../../components/Navbar/Navbar";
 import Hero from "../../components/Home/Hero";
 import ViewSidebar from "../../components/View/ViewSidebar";
 import HoTroModal from "../../components/Post/HoTroModal";
+import LienHeDauTu from "../../components/Post/LienHeDauTu";
 
 import { isLoggedIn } from "../../services/authService";
 import { getUser } from "../../services/userService";
@@ -60,6 +61,7 @@ const ChiTietBaiDang = () => {
   // lanLamMoi để tải lại dữ liệu khi người dùng vừa góp xong
   const [lanLamMoi, setLanLamMoi] = useState(0);
   const [moHoTro, setMoHoTro] = useState(false);
+  const [moLienHeDauTu, setMoLienHeDauTu] = useState(false);
 
   const baiDang = useMemo(
     () => timBaiDang(),
@@ -96,14 +98,23 @@ const ChiTietBaiDang = () => {
   // Tính phần trăm tiến độ
   const tienDo = layTienDoPhanTram(baiDang);
 
-  // Nhấn nút góp vốn / quyên góp / đầu tư: cần đăng nhập để mở modal
+  // Nhấn nút hành động theo loại bài đăng:
+  //   - Đầu Tư: KHÔNG nhận vốn qua hệ thống → mở modal hướng dẫn liên hệ
+  //     trực tiếp với nhóm (không cần đăng nhập, không lưu dữ liệu vào ví).
+  //   - Góp vốn / Quyên góp: cần đăng nhập và thanh toán qua ví.
   const handleHoTro = () => {
+    if (loaiInfo.value === "invest") {
+      setMoLienHeDauTu(true);
+      return;
+    }
+
     if (!isLoggedIn()) {
       navigate("/dang-nhap", {
         state: { from: location.pathname },
       });
       return;
     }
+
     setMoHoTro(true);
   };
 
@@ -239,7 +250,9 @@ const ChiTietBaiDang = () => {
               </button>
             </div>
 
-            {/* Danh sách người đã góp theo loại bài đăng */}
+            {/* Danh sách người đã góp — chỉ cho Góp vốn / Quyên góp.
+                Loại Đầu Tư liên hệ trực tiếp nên không có danh sách góp. */}
+            {loaiInfo.value !== "invest" && (
             <div className="mt-8 border-t border-gray-300 pt-4">
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="text-base font-semibold">
@@ -253,7 +266,7 @@ const ChiTietBaiDang = () => {
                     <span className="font-semibold text-gray-700">
                       {dinhDangTien(
                         danhSachGop.reduce(
-                          (tong, gop) => tong + (Number(gop.soTien) || 0),
+                          (tong, gop) => tong + (Number(gop.so_tien) || 0),
                           0
                         )
                       )}{" "}
@@ -279,7 +292,7 @@ const ChiTietBaiDang = () => {
                         <div className="flex min-w-0 items-start gap-2.5">
                           {/* Chữ cái đầu của tên hiển thị làm avatar */}
                           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-yellow-200 font-semibold text-yellow-800">
-                            {gop.anDanh
+                            {gop.an_danh
                               ? "🫥"
                               : (gop.ten || "?").charAt(0).toUpperCase()}
                           </div>
@@ -290,25 +303,25 @@ const ChiTietBaiDang = () => {
                             </p>
                             <p className="text-[11px] text-gray-500">
                               {gop.loai || "Góp vốn"} ·{" "}
-                              {dinhDangThoiDiem(gop.thoiGian)}
+                              {dinhDangThoiDiem(gop.ngay_tao)}
                             </p>
 
-                            {gop.soHuPhanTram && (
+                            {gop.so_huu_phan_tram && (
                               <p className="mt-1 w-fit rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
-                                ≈ {gop.soHuPhanTram}%
+                                ≈ {gop.so_huu_phan_tram}%
                               </p>
                             )}
 
-                            {gop.loiNhac && (
+                            {gop.loi_nhac && (
                               <p className="mt-1 italic text-gray-600">
-                                “{gop.loiNhac}”
+                                “{gop.loi_nhac}”
                               </p>
                             )}
                           </div>
                         </div>
 
                         <p className="shrink-0 font-bold text-green-700">
-                          +{dinhDangTien(gop.soTien)}{" "}
+                          +{dinhDangTien(gop.so_tien)}{" "}
                           {baiDang.don_vi_tien_te || "VND"}
                         </p>
                       </div>
@@ -317,18 +330,27 @@ const ChiTietBaiDang = () => {
                 </ul>
               )}
             </div>
+            )}
 
           </div>
         </main>
       </div>
 
-      {/* Modal góp vốn / quyên góp / đầu tư */}
+      {/* Modal góp vốn / quyên góp (qua ví) */}
       {moHoTro && (
         <HoTroModal
           post={baiDang}
           soDu={getUser().soDu}
           onClose={() => setMoHoTro(false)}
           onSuccess={handleHoTroThanhCong}
+        />
+      )}
+
+      {/* Modal liên hệ đầu tư (loại Đầu Tư — không qua hệ thống) */}
+      {moLienHeDauTu && (
+        <LienHeDauTu
+          post={baiDang}
+          onClose={() => setMoLienHeDauTu(false)}
         />
       )}
     </div>

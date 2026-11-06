@@ -1,6 +1,7 @@
 import { getTypeOption } from '../data/mockPosts';
-import { tangTienHuyDong as tangTienPostService } from './postService';
+import { getSession } from './authService';
 import { getUser } from './userService';
+import { tangTienHuyDong as tangTienPostService } from './postService';
 
 const BASE_KEY = 'rising-idea-contributions';
 
@@ -105,7 +106,9 @@ export function layDanhSachHinhAnh(post) {
 function docDanhSach(postId) {
   try {
     const saved = JSON.parse(localStorage.getItem(`${BASE_KEY}:${postId}`) || '[]');
-    return Array.isArray(saved) ? saved : [];
+    const danhSach = Array.isArray(saved) ? saved : [];
+    // Chuẩn hóa bản ghi cũ (schema camelCase trước khi đổi theo tài liệu DB).
+    return danhSach.map(chuanHoaGop).filter(Boolean);
   } catch {
     return [];
   }
@@ -115,6 +118,38 @@ function luuDanhSach(postId, danhSach) {
   localStorage.setItem(`${BASE_KEY}:${postId}`, JSON.stringify(danhSach));
 }
 
+// Chuẩn hóa 1 bản ghi góp về cấu trúc theo tài liệu DB
+// (khoan_gop_von / khoan_quyen_gop / khoan_dau_tu).
+// Chấp nhận cả bản ghi cũ từ các phiên trước (camelCase) để không mất dữ liệu.
+const BO_DOI_NHAN_LOAI = {
+  'Góp vốn': 'gop_von',
+  'Quyên góp': 'quyen_gop',
+  'Đầu tư': 'dau_tu',
+};
+
+export function chuanHoaGop(gop) {
+  if (!gop || typeof gop !== 'object') return null;
+
+  return {
+    id: gop.id || `GV-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+    ma_loai: gop.ma_loai || BO_DOI_NHAN_LOAI[gop.loai] || 'gop_von',
+    loai: gop.loai || '',
+    id_bai_dang: gop.id_bai_dang || '',
+    id_nguoi_gop: gop.id_nguoi_gop || '',
+    ten: gop.ten || 'Người ủng hộ',
+    so_tien: Number(gop.so_tien ?? gop.soTien) || 0,
+    trang_thai: gop.trang_thai || 'Thanh_cong',
+    ngay_tao: gop.ngay_tao || gop.thoiGian || '',
+    thoi_gian_hoan_tat: gop.thoi_gian_hoan_tat || gop.ngay_tao || gop.thoiGian || '',
+    id_giao_dich: gop.id_giao_dich || '',
+    // Ba trường này FE có nhưng tài liệu DB chưa liệt kê —
+    // đề xuất bổ sung vào DB khi làm backend.
+    an_danh: Boolean(gop.an_danh ?? gop.anDanh),
+    loi_nhac: gop.loi_nhac ?? gop.loiNhac ?? '',
+    so_huu_phan_tram: gop.so_huu_phan_tram ?? gop.soHuPhanTram ?? gop.so_hu_phan_tram ?? null,
+  };
+}
+
 export function layDanhSachGop(postId) {
   if (!postId) return [];
   return docDanhSach(postId);
@@ -122,7 +157,7 @@ export function layDanhSachGop(postId) {
 
 export function layTongTienGop(postId) {
   return layDanhSachGop(postId).reduce(
-    (tong, gop) => tong + (Number(gop.soTien) || 0),
+    (tong, gop) => tong + (Number(gop.so_tien) || 0),
     0
   );
 }
@@ -146,26 +181,45 @@ export function layTienDoPhanTram(post) {
 }
 
 // Ghi nhận một lần góp thành công: lưu vào danh sách người góp và cập nhật
-// số tiền đã huy động của bài (với bài từ form); lộ bài demo là bất biến.
-export function ghiNhanGop({ post, soTien, loai, loiNhac = '', anDanh = false, soHuPhanTram = null }) {
+// số tiền đã huy động của bài (với bài từ form); bài demo là bất biến.
+// Cấu trúc bản ghi theo tài liệu DB: khoan_gop_von / khoan_quyen_gop /
+// khoan_dau_tu (id_bai_dang, id_nguoi_gop, id_giao_dich, so_tien,
+// trang_thai, ngay_tao, thoi_gian_hoan_tat).
+export function ghiNhanGop({
+  post,
+  soTien,
+  loai,
+  loiNhac = '',
+  anDanh = false,
+  soHuuPhanTram = null,
+  idGiaoDich = '',
+}) {
   const postId = layMaBaiDang(post);
   if (!postId) return null;
 
+  const thoiDiem = new Date().toISOString();
+
   const gop = {
     id: `GV-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
-    ten: getUser().hoTen || 'Người ủng hộ',
-    soTien: Number(soTien) || 0,
+    ma_loai: layLoaiInfo(post).value,
     loai,
-    loiNhac: String(loiNhac || '').trim(),
-    anDanh: Boolean(anDanh),
-    soHuPhanTram,
-    thoiGian: new Date().toISOString(),
+    id_bai_dang: postId,
+    id_nguoi_gop: getSession()?.tenTaiKhoan || '',
+    ten: getUser().hoTen || 'Người ủng hộ',
+    so_tien: Number(soTien) || 0,
+    trang_thai: 'Thanh_cong',
+    ngay_tao: thoiDiem,
+    thoi_gian_hoan_tat: thoiDiem,
+    id_giao_dich: idGiaoDich,
+    an_danh: Boolean(anDanh),
+    loi_nhac: String(loiNhac || '').trim(),
+    so_huu_phan_tram: soHuuPhanTram,
   };
 
   luuDanhSach(postId, [gop, ...docDanhSach(postId)]);
 
   if (!laBaiDangDemo(post)) {
-    tangTienPostService(postId, gop.soTien);
+    tangTienPostService(postId, gop.so_tien);
   }
 
   return gop;

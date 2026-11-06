@@ -56,7 +56,12 @@ export function getUser() {
 
 export function updateUser(newData) {
   const current = getUser();
-  const updated = { ...current, ...newData };
+  const updated = {
+    ...current,
+    ...newData,
+    // Theo tài liệu DB (collection nguoi_dung)
+    ngay_cap_nhat: new Date().toISOString(),
+  };
 
   localStorage.setItem(storageKey(), JSON.stringify(updated));
   return updated;

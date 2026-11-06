@@ -114,7 +114,8 @@ function HoTroModal({ post, soDu, onClose, onSuccess }) {
       loai: nhan,
       loiNhac,
       anDanh: loaiLaDon ? anDanh : false,
-      soHuPhanTram: !loaiLaDon && soHuDanhGia ? Number(soHuDanhGia.toFixed(1)) : null,
+      soHuuPhanTram: !loaiLaDon && soHuDanhGia ? Number(soHuDanhGia.toFixed(1)) : null,
+      idGiaoDich: ketQuaGiaoDich.giaoDich.id_giao_dich,
     });
 
     setKetQua(ketQuaGiaoDich);
@@ -435,13 +436,13 @@ function HoTroModal({ post, soDu, onClose, onSuccess }) {
               <div className="flex justify-between gap-4">
                 <dt className="text-gray-500">Mã giao dịch</dt>
                 <dd className="font-mono font-bold text-gray-900">
-                  {ketQua.giaoDich.ma}
+                  {ketQua.giaoDich.id_giao_dich}
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-gray-500">Số tiền</dt>
                 <dd className="font-semibold text-gray-800">
-                  {VND.format(ketQua.giaoDich.soTien)}
+                  {VND.format(ketQua.giaoDich.so_tien)}
                 </dd>
               </div>
               {loaiLaDon && anDanh && (

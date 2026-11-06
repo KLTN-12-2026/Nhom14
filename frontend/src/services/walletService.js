@@ -73,18 +73,51 @@ export function thanhToan({ postId, postTitle, soTien, loaiGiaoDich }) {
   const soDuSau = user.soDu - amount;
   updateUser({ soDu: soDuSau });
 
+  // Cấu trúc theo tài liệu DB (collection giao_dich + bien_dong_so_du).
+  // id_so_du tạm dùng định danh ví dạng chữ; khi có backend sẽ thay
+  // bằng ObjectId của collection so_du. postId/postTitle giữ lại để
+  // hiển thị dẫn về bài đăng trên giao diện.
+  const thoiDiem = new Date().toISOString();
+  const maGiaoDich = `GD-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+
   const giaoDich = {
-    ma: `GD-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
-    loai: loaiGiaoDich,
+    id_giao_dich: maGiaoDich,
+    id_so_du: `so-du:${user.tenTaiKhoan}`,
+    loai_giao_dich: loaiGiaoDich,
+    so_tien: amount,
+    trang_thai: 'Thanh_cong',
+    mo_ta: `${loaiGiaoDich} cho bài đăng "${postTitle}"`,
+    ngay_tao: thoiDiem,
+    thoi_gian_hoan_tat: thoiDiem,
+    // Collection bien_dong_so_du được nhúng ở bản FE; backend tách riêng.
+    bien_dong_so_du: {
+      id_giao_dich: maGiaoDich,
+      loai_bien_dong: 'Giam',
+      so_tien: amount,
+      so_du: soDuSau,
+      ngay_tao: thoiDiem,
+    },
+    // Dữ liệu hiển thị FE (không có trong tài liệu DB, chỉ dùng dẫn chiếu)
     postId,
     postTitle,
-    soTien: amount,
-    soDuSauGiaoDich: soDuSau,
-    trangThai: 'Thành công',
-    createdAt: new Date().toISOString(),
   };
 
   saveTransactions([giaoDich, ...getTransactions()]);
 
   return { thanhCong: true, soDuMoi: soDuSau, giaoDich };
+}
+
+// Snapshot số dư theo cấu trúc collection so_du trong tài liệu DB
+// (chuẩn bị cho backend: id_so_du/id_nguoi_dung, don_vi_tien_te, trang_thai...).
+export function getSoDu() {
+  const user = getUser();
+  return {
+    id_so_du: `so-du:${user.tenTaiKhoan || 'khach'}`,
+    id_nguoi_dung: user.tenTaiKhoan || '',
+    don_vi_tien_te: 'VND',
+    so_du: user.soDu || 0,
+    trang_thai: 'Hoat_Dong',
+    ngay_tao: '',
+    ngay_cap_nhat: '',
+  };
 }
