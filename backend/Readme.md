@@ -38,7 +38,9 @@ backend/
 └── requirements.txt
 ```
 
-## 4. API hiện có (người dùng — collection `nguoi_dung`)
+## 4. API hiện có
+
+### Người dùng — collection `nguoi_dung`
 
 | Phương thức | Endpoint | Mô tả | Xác thực |
 |---|---|---|---|
@@ -47,6 +49,27 @@ backend/
 | GET | `/api/users/me` | Xem hồ sơ cá nhân | Bearer token |
 | PUT | `/api/users/me` | Cập nhật hồ sơ (auto `ngay_cap_nhat` trong DB) | Bearer token |
 | PUT | `/api/users/change-password` | Đổi mật khẩu (sai mật khẩu cũ → **401**) | Bearer token |
+
+### Bài đăng — collections `bai_dang`, `hinh_anh_bai_dang`, `lich_su_duyet_bai`
+
+| Phương thức | Endpoint | Mô tả | Xác thực |
+|---|---|---|---|
+| POST | `/api/bai-dang` | Tạo bài mới (→ trạng thái `Cho_Duyet`) | Bearer token |
+| GET | `/api/bai-dang` | Danh sách công khai, chỉ bài `Da_Duyet`; query `loai`, `tim_kiem`, `skip`, `limit` | — |
+| GET | `/api/bai-dang/cua-toi` | Bài của người dùng hiện tại, mọi trạng thái | Bearer token |
+| GET | `/api/bai-dang/{id}` | Chi tiết bài + mảng `hinh_anh` | — |
+| PUT | `/api/bai-dang/{id}` | Sửa bài (chỉ chủ bài; đã duyệt → về `Cho_Duyet`) | Bearer token |
+| DELETE | `/api/bai-dang/{id}` | Xóa bài (chỉ chủ bài) | Bearer token |
+| GET | `/api/admin/bai-dang` | Quản lý bài, lọc `trang_thai` | Bearer token **admin** |
+| PUT | `/api/admin/bai-dang/{id}/duyet` | Duyệt / từ chối (body: `hanh_dong`, `ly_do`) + ghi `lich_su_duyet_bai` | Bearer token **admin** |
+| GET | `/api/admin/bai-dang/{id}/lich-su-duyet` | Lịch sử xét duyệt của bài | Bearer token **admin** |
+
+Trạng thái bài dùng chuẩn không dấu: `Cho_Duyet` / `Da_Duyet` / `Tu_Choi` / `Da_An`.
+
+> 🔐 **Phân quyền admin**: qua 2 collection `chuc_vu` (`ten_cv`) + `nguoi_dung_cv`
+> (`id_nguoi_dung`, `id_chuc_vu`) theo tài liệu database. Muốn một tài khoản là admin,
+> cần chèn dữ liệu: một bản ghi `chuc_vu` với `ten_cv` = **`Quan_Tri_Vien`** và một bản ghi
+> `nguoi_dung_cv` trỏ `id_nguoi_dung` (ObjectId của tài khoản) + `id_chuc_vu`.
 
 Chi tiết request/response có sẵn tại trang tài liệu tự sinh **`http://localhost:8000/docs`**
 (Swagger UI).
@@ -59,12 +82,11 @@ Mật khẩu lưu trong MongoDB dạng **argon2 hash**; tên trường dùng đ�
 
 | Nhóm | Endpoint (dự kiến) | Mô tả |
 |---|---|---|
-| Bài đăng | `GET/POST /api/bai-dang`, `GET/PUT/DELETE /api/bai-dang/:id` | CRUD bài đăng, kèm 3 loại (gọi vốn / quyên góp / đầu tư) |
-| Kiểm duyệt | `GET /api/admin/bai-dang`, `PUT /api/admin/bai-dang/:id/duyet` | Duyệt / từ chối bài đăng |
-| Giao dịch | `POST /api/giao-dich`, `GET /api/giao-dich` | Góp vốn, quyên góp; lịch sử ví |
-| Nạp số dư | `POST /api/so-du/nap` | Nạp tiền vào ví |
-| Tố cáo | `POST /api/to-cao` | Tố cáo bài đăng |
-| Chatbot AI | `POST /api/chatbot` | Tra cứu và hỏi đáp |
+| Giao dịch | `POST /api/giao-dich`, `GET /api/giao-dich` | Góp vốn, quyên góp (`khoan_gop_von`, `khoan_quyen_gop`); lịch sử ví |
+| Số dư | `POST /api/so-du/nap`, `GET /api/so-du` | Nạp tiền (`so_du`, `giao_dich`, `bien_dong_so_du`) |
+| Tố cáo | `POST /api/to-cao`, admin xử lý | Tố cáo bài đăng (`to_cao_bai_dang`) |
+| Quản lý người dùng | `GET /api/admin/nguoi-dung` | Quản trị tài khoản (khóa/mở khóa) |
+| Chatbot AI | `POST /api/chatbot` | Tra cứu và hỏi đáp (`cuoc_hoi_thoai`, `tin_nhan_chatbot`) |
 
 ## 6. Hướng dẫn chạy
 

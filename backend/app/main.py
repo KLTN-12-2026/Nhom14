@@ -9,6 +9,8 @@ from app.config.database import (
 )
 
 from app.routers.nguoi_dung import router as nguoi_dung_router
+from app.routers.bai_dang import router as bai_dang_router
+from app.routers.admin import router as admin_bai_dang_router
 
 
 @asynccontextmanager
@@ -29,6 +31,8 @@ app = FastAPI(
 
 
 app.include_router(nguoi_dung_router)
+app.include_router(bai_dang_router)
+app.include_router(admin_bai_dang_router)
 
 
 @app.get("/")
