@@ -107,6 +107,7 @@ Trước lần chạy đầu: copy `backend/.env.example` thành `backend/.env` 
 | `http://localhost:5173/doi-mat-khau` | Đổi mật khẩu |
 | `http://localhost:5173/thong-tin-ca-nhan` | Thông tin cá nhân |
 | `http://localhost:5173/bai-dang/tao-moi` | Tạo bài đăng |
+| `http://localhost:5173/bai-dang-cua-toi` | Bài đăng của tôi (quản lý bài đã đăng) |
 | `http://localhost:5173/bai-dang/:id` | Chi tiết bài đăng (góp vốn / quyên góp / đầu tư) |
 | `http://localhost:5173/bai-dang/:id/chinh-sua` | Cập nhật bài đăng |
 | `http://localhost:5173/admin/duyet-bai` | Quản trị — duyệt bài đăng |
