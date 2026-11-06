@@ -83,9 +83,16 @@ function saveAccounts(accounts) {
 
 // ---- Phiên đăng nhập ----
 
+// Phiên lưu trong sessionStorage — gắn với tab đang đăng nhập:
+// tắt tab / đóng trình duyệt là tự đăng xuất, mở lại localhost
+// sẽ ở trạng thái chưa đăng nhập. (F5 giữa chừng vẫn giữ phiên.)
+// Khi backend (Python + FastAPI) có API, thay bằng token JWT lưu tương tự.
 export function getSession() {
+  // Dọn phiên cũ còn sót từ thời dùng localStorage.
+  localStorage.removeItem(SESSION_KEY);
+
   try {
-    const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+    const session = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
     if (session && typeof session.tenTaiKhoan === 'string') {
       return session;
     }
@@ -116,7 +123,7 @@ export function getCurrentAccount() {
 }
 
 export function logout() {
-  localStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(SESSION_KEY);
 }
 
 // ---- Đăng nhập / đăng ký / đổi mật khẩu ----
@@ -140,7 +147,7 @@ export async function login(taiKhoan, matKhau) {
       return { thanhCong: false, loi: LOI_DANG_NHAP };
     }
 
-    localStorage.setItem(
+    sessionStorage.setItem(
       SESSION_KEY,
       JSON.stringify({ tenTaiKhoan: account.tenTaiKhoan, role: account.role })
     );

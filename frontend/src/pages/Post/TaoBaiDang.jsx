@@ -9,8 +9,10 @@ export default function TaoBaiDang() {
 
   function handleCreate(formData) {
     createPost(formData);
-    window.alert('Tạo bài đăng thành công trên bản thử nghiệm!');
-    navigate('/');
+    window.alert(
+      'Tạo bài đăng thành công! Bài của bạn đang chờ quản trị viên duyệt — xem tại trang Bài đăng.'
+    );
+    navigate('/xem-bai-dang');
   }
 
   return (

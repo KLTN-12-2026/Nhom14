@@ -41,9 +41,13 @@ export default function PostForm({
   function handleChange(event) {
     const { name, value } = event.target;
 
+    // Ô nhập tiền chỉ nhận chữ số — cho phép gõ số bình thường,
+    // tránh hành vi khó chịu của input type="number" (mũi tên, chấp nhận 'e'...).
+    const giaTri = name === 'goal' ? value.replace(/\D/g, '') : value;
+
     setForm((current) => ({
       ...current,
-      [name]: value,
+      [name]: giaTri,
     }));
   }
 
@@ -202,15 +206,20 @@ export default function PostForm({
         <input
           id="goal"
           name="goal"
-          type="number"
-          min="1"
-          step="1000"
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
           value={form.goal}
           onChange={handleChange}
           required
           placeholder="Ví dụ: 50000000"
           className="w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-100"
         />
+        {form.goal && (
+          <p className="mt-1 text-xs text-gray-500">
+            ≈ {new Intl.NumberFormat('vi-VN').format(Number(form.goal))} VNĐ
+          </p>
+        )}
       </div>
 
       <div>

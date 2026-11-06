@@ -1,22 +1,73 @@
-
-import { useParams } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import Navbar from "../../components/Navbar/Navbar";
 import Hero from "../../components/Home/Hero";
 import ViewSidebar from "../../components/View/ViewSidebar";
+import HoTroModal from "../../components/Post/HoTroModal";
 
-import { posts } from "../../data/PostDemo/posts";
+import { isLoggedIn } from "../../services/authService";
+import { getUser } from "../../services/userService";
+import { getPostById } from "../../services/postService";
+import {
+  layDanhSachGop,
+  layDanhSachHinhAnh,
+  layLoaiInfo,
+  layLoaiMenu,
+  layMaBaiDang,
+  layNguoiDang,
+  layNoiDung,
+  layMucTieu,
+  layTienDaGop,
+  layTienDoPhanTram,
+  layThoiGian,
+  layTieuDe,
+  layTrangThai,
+} from "../../services/contributionService";
+
+import { posts as postsDemo } from "../../data/PostDemo/posts";
+
+// Định dạng số tiền, ngày tháng và thời điểm
+const dinhDangTien = (soTien) =>
+  new Intl.NumberFormat("vi-VN").format(Math.round(soTien ?? 0));
+
+const dinhDangNgay = (ngay) =>
+  ngay ? new Date(ngay).toLocaleDateString("vi-VN") : "—";
+
+const dinhDangThoiDiem = (ngay) =>
+  new Intl.DateTimeFormat("vi-VN", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(new Date(ngay));
+
+// Nhãn danh sách ủng hộ hiển thị riêng theo loại bài đăng
+const TIEU_DE_DANH_SACH = {
+  donation: "Người đã ủng hộ",
+  crowdfund: "Danh sách góp vốn",
+  invest: "Danh sách nhà đầu tư",
+};
 
 const ChiTietBaiDang = () => {
   // Lấy ID bài đăng từ URL
   const { id } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  // Tìm bài đăng tương ứng với ID
-  const baiDang = posts.find(
-    (item) => item._id === id
+  // Tìm bài đăng: ưu tiên bộ demo, sau đó là bài người dùng tạo từ form.
+  const timBaiDang = () =>
+    postsDemo.find((item) => item._id === id) || getPostById(id);
+
+  // lanLamMoi để tải lại dữ liệu khi người dùng vừa góp xong
+  const [lanLamMoi, setLanLamMoi] = useState(0);
+  const [moHoTro, setMoHoTro] = useState(false);
+
+  const baiDang = useMemo(
+    () => timBaiDang(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [id, lanLamMoi]
   );
 
-  // Kiểm tra bài đăng có tồn tại không
+  // Bài đăng không tồn tại
   if (!baiDang) {
     return (
       <div className="min-h-screen bg-white">
@@ -33,29 +84,33 @@ const ChiTietBaiDang = () => {
     );
   }
 
-  // Lấy danh sách hình ảnh thuộc bài đăng
-  const danhSachHinhAnh = [...(baiDang.hinh_anh || [])].sort(
-  (a, b) => a.thu_tu_hien_thi - b.thu_tu_hien_thi
-);
-
-  // Tìm thông tin người đăng
-  const nguoiDang = baiDang.ten_nguoi_dang;
+  // Dữ liệu chuẩn hóa, dùng được cho cả bài demo lẫn bài tạo từ form
+  const loaiInfo = layLoaiInfo(baiDang);
+  const soTienDaGop = layTienDaGop(baiDang);
+  const mucTieu = layMucTieu(baiDang);
+  const thoiDiem = layThoiGian(baiDang);
+  const danhSachHinhAnh = layDanhSachHinhAnh(baiDang);
+  const danhSachGop = layDanhSachGop(layMaBaiDang(baiDang));
+  const loaiMenu = layLoaiMenu(baiDang);
 
   // Tính phần trăm tiến độ
-  const tienDo = baiDang.muc_tieu
-    ? Math.min(
-        (baiDang.so_tien_da_gop / baiDang.muc_tieu) * 100,
-        100
-      )
-    : 0;
+  const tienDo = layTienDoPhanTram(baiDang);
 
-  // Định dạng tiền tệ
-  const dinhDangTien = (soTien) =>
-    new Intl.NumberFormat("vi-VN").format(soTien ?? 0);
+  // Nhấn nút góp vốn / quyên góp / đầu tư: cần đăng nhập để mở modal
+  const handleHoTro = () => {
+    if (!isLoggedIn()) {
+      navigate("/dang-nhap", {
+        state: { from: location.pathname },
+      });
+      return;
+    }
+    setMoHoTro(true);
+  };
 
-  // Định dạng ngày tháng
-  const dinhDangNgay = (ngay) =>
-    new Date(ngay).toLocaleDateString("vi-VN");
+  // Sau khi góp thành công: nạp lại danh sách người góp + thanh tiến độ
+  const handleHoTroThanhCong = () => {
+    setLanLamMoi((lan) => lan + 1);
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -73,7 +128,7 @@ const ChiTietBaiDang = () => {
               <div
                 key={loai}
                 className={`border-b border-gray-400 px-2 py-5 text-center text-sm ${
-                  baiDang.loai_bai_dang === loai
+                  loaiMenu === loai
                     ? "bg-yellow-200"
                     : ""
                 }`}
@@ -96,11 +151,11 @@ const ChiTietBaiDang = () => {
 
               <div>
                 <p className="font-medium">
-                  {nguoiDang || "Người dùng"}
+                  {layNguoiDang(baiDang)}
                 </p>
 
                 <p className="text-xs text-gray-500">
-                  {dinhDangNgay(baiDang.ngay_tao)}
+                  {dinhDangNgay(baiDang.ngay_tao || baiDang.createdAt)}
                 </p>
               </div>
             </div>
@@ -108,16 +163,16 @@ const ChiTietBaiDang = () => {
             {/* Tiêu đề và nội dung */}
             <div className="mb-4">
               <h1 className="mb-2 text-xl font-semibold">
-                {baiDang.tieu_de}
+                {layTieuDe(baiDang)}
               </h1>
 
               <p className="mb-2 text-sm text-gray-600">
-                {baiDang.loai_bai_dang} ·{" "}
-                {baiDang.trang_thai}
+                {loaiInfo.label} ·{" "}
+                {layTrangThai(baiDang)}
               </p>
 
               <p className="whitespace-pre-line text-sm leading-relaxed">
-                {baiDang.noi_dung}
+                {layNoiDung(baiDang)}
               </p>
             </div>
 
@@ -127,7 +182,7 @@ const ChiTietBaiDang = () => {
                 <img
                   key={hinhAnh._id}
                   src={hinhAnh.duong_dan_hinh_anh}
-                  alt={baiDang.tieu_de}
+                  alt={layTieuDe(baiDang)}
                   className="max-h-112.5 w-full object-contain"
                 />
               ))}
@@ -137,13 +192,13 @@ const ChiTietBaiDang = () => {
             <div className="px-3 py-2">
               <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm">
                 <span>
-                  {dinhDangTien(baiDang.so_tien_da_gop)}{" "}
-                  {baiDang.don_vi_tien_te}
+                  {dinhDangTien(soTienDaGop)}{" "}
+                  {baiDang.don_vi_tien_te || "VND"}
                 </span>
 
                 <span>
-                  {dinhDangTien(baiDang.muc_tieu)}{" "}
-                  {baiDang.don_vi_tien_te}
+                  {dinhDangTien(mucTieu)}{" "}
+                  {baiDang.don_vi_tien_te || "VND"}
                 </span>
               </div>
 
@@ -163,34 +218,119 @@ const ChiTietBaiDang = () => {
               <div className="mt-4 flex flex-wrap justify-between gap-2 text-xs text-gray-500">
                 <span>
                   Bắt đầu:{" "}
-                  {dinhDangNgay(
-                    baiDang.thoi_gian_bat_dau
-                  )}
+                  {dinhDangNgay(thoiDiem.batDau)}
                 </span>
 
                 <span>
                   Kết thúc:{" "}
-                  {dinhDangNgay(
-                    baiDang.thoi_gian_ket_thuc
-                  )}
+                  {dinhDangNgay(thoiDiem.ketThuc)}
                 </span>
               </div>
             </div>
 
-            {/* Nút góp vốn / quyên góp */}
+            {/* Nút góp vốn / quyên góp / đầu tư */}
             <div className="mt-8 flex justify-center">
-              <button className="rounded-xl border border-yellow-600 bg-yellow-300 px-7 py-2 text-sm hover:bg-yellow-400">
-                {baiDang.loai_bai_dang === "Gọi Vốn"
-                  ? "Góp vốn"
-                  : baiDang.loai_bai_dang === "Quyên Góp"
-                    ? "Quyên góp"
-                    : "Đầu tư"}
+              <button
+                type="button"
+                onClick={handleHoTro}
+                className="rounded-xl border border-yellow-600 bg-yellow-300 px-7 py-2 text-sm font-medium transition hover:bg-yellow-400"
+              >
+                {loaiInfo.actionLabel}
               </button>
+            </div>
+
+            {/* Danh sách người đã góp theo loại bài đăng */}
+            <div className="mt-8 border-t border-gray-300 pt-4">
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className="text-base font-semibold">
+                  {TIEU_DE_DANH_SACH[loaiInfo.value] || "Danh sách ủng hộ"}{" "}
+                  ({danhSachGop.length})
+                </h2>
+
+                {danhSachGop.length > 0 && (
+                  <p className="text-xs text-gray-500">
+                    Tổng đã ghi nhận qua hệ thống:{" "}
+                    <span className="font-semibold text-gray-700">
+                      {dinhDangTien(
+                        danhSachGop.reduce(
+                          (tong, gop) => tong + (Number(gop.soTien) || 0),
+                          0
+                        )
+                      )}{" "}
+                      VND
+                    </span>
+                  </p>
+                )}
+              </div>
+
+              {danhSachGop.length === 0 ? (
+                <p className="py-4 text-center text-sm text-gray-500">
+                  Chưa có ai {loaiInfo.actionLabel.toLowerCase()} — hãy là{" "}
+                  <span className="font-semibold">người đầu tiên</span>!
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {danhSachGop.map((gop) => (
+                    <li
+                      key={gop.id}
+                      className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-start gap-2.5">
+                          {/* Chữ cái đầu của tên hiển thị làm avatar */}
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-yellow-200 font-semibold text-yellow-800">
+                            {gop.anDanh
+                              ? "🫥"
+                              : (gop.ten || "?").charAt(0).toUpperCase()}
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="font-medium">
+                              {gop.ten}
+                            </p>
+                            <p className="text-[11px] text-gray-500">
+                              {gop.loai || "Góp vốn"} ·{" "}
+                              {dinhDangThoiDiem(gop.thoiGian)}
+                            </p>
+
+                            {gop.soHuPhanTram && (
+                              <p className="mt-1 w-fit rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
+                                ≈ {gop.soHuPhanTram}%
+                              </p>
+                            )}
+
+                            {gop.loiNhac && (
+                              <p className="mt-1 italic text-gray-600">
+                                “{gop.loiNhac}”
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <p className="shrink-0 font-bold text-green-700">
+                          +{dinhDangTien(gop.soTien)}{" "}
+                          {baiDang.don_vi_tien_te || "VND"}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
           </div>
         </main>
       </div>
+
+      {/* Modal góp vốn / quyên góp / đầu tư */}
+      {moHoTro && (
+        <HoTroModal
+          post={baiDang}
+          soDu={getUser().soDu}
+          onClose={() => setMoHoTro(false)}
+          onSuccess={handleHoTroThanhCong}
+        />
+      )}
     </div>
   );
 };

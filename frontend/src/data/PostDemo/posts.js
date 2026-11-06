@@ -64,4 +64,34 @@ export const posts = [
       },
     ],
   },
+
+  {
+    _id: "post003",
+    loai_bai_dang: "Đầu Tư",
+    tieu_de: "Gọi đầu tư chuỗi cửa hàng nông sản sạch",
+    noi_dung:
+      "Kế hoạch kết nối trực tiếp vùng trồng với người tiêu dùng thành phố: thu mua theo chuẩn rõ ràng, đóng gói đạt quy định và phân phối qua các điểm bán đầu mối. Quỹ đầu tư dùng cho nhà sơ chế, kho tối giản, phương tiện vận chuyển và bước đầu phát triển ứng dụng đặt hàng.\n\nNhà đầu tư nhận phần trăm lợi nhuận theo thỏa thuận ký kết trong vòng 24 tháng đầu tiên, cập nhật báo cáo kinh doanh mỗi quý.",
+    trang_thai: "Đang diễn ra",
+    muc_tieu: 300000000,
+    don_vi_tien_te: "VND",
+    thoi_gian_bat_dau: "2026-10-05T00:00:00.000Z",
+    thoi_gian_ket_thuc: "2027-02-28T23:59:59.000Z",
+    id_nguoi_dang: "user004",
+    id_nguoi_duyet: "user002",
+    ngay_tao: "2026-09-30T09:00:00.000Z",
+    ngay_cap_nhat: "2026-10-22T08:00:00.000Z",
+
+    // Dữ liệu demo bổ sung
+    ten_nguoi_dang: "Startup Nông Sạch Việt",
+    so_tien_da_gop: 95000000,
+
+    hinh_anh: [
+      {
+        _id: "image004",
+        duong_dan_hinh_anh:
+          "https://placehold.co/800x600/d1fae5/065f46?text=Nong+san+sach",
+        thu_tu_hien_thi: 1,
+      },
+    ],
+  },
 ];

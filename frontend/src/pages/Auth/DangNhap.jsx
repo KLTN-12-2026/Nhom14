@@ -13,6 +13,17 @@ export default function DangNhap() {
   const [leaving, setLeaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Đường dẫn người dùng định vào trước khi bị yêu cầu đăng nhập
+  // (từ ProtectedRoute, ví dụ /bai-dang/tao-moi).
+  const troVe = location.state?.from || "";
+
+  const thongBaoTheoTuyen = {
+    "/bai-dang/tao-moi": "Đăng nhập để tiếp tục tạo bài đăng của bạn.",
+    "/bai-dang/chinh-sua": "Đăng nhập để tiếp tục cập nhật bài đăng của bạn.",
+    "/thong-tin-ca-nhan": "Đăng nhập để xem thông tin cá nhân.",
+    "/doi-mat-khau": "Đăng nhập để đổi mật khẩu.",
+  };
+
   function goToRegister() {
     if (leaving) return;
     setLeaving(true);
@@ -40,7 +51,7 @@ export default function DangNhap() {
 
     // Quay lại trang đang định vào; admin mặc định vào trang duyệt bài.
     const macDinh = result.role === "admin" ? "/admin/duyet-bai" : "/";
-    navigate(location.state?.from || macDinh, { replace: true });
+    navigate(troVe || macDinh, { replace: true });
   }
 
   return (
@@ -48,7 +59,18 @@ export default function DangNhap() {
       <Navbar />
       <Hero />
 
-      <main className="flex min-h-screen items-center justify-center bg-linear-to-br from-indigo-50 via-white to-purple-100 p-4">
+      <main className="flex min-h-screen flex-col items-center justify-center bg-linear-to-br from-indigo-50 via-white to-purple-100 p-4">
+        {/* Thông báo khi bị yêu cầu đăng nhập từ trang khác, ví dụ Tạo bài đăng */}
+        {troVe && (
+          <div className="mb-4 flex w-full max-w-4xl items-center gap-2 rounded-xl border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-gray-800">
+            <span aria-hidden="true">🔐</span>
+            <span>
+              <span className="font-semibold">Yêu cầu đăng nhập.</span>{" "}
+              {thongBaoTheoTuyen[troVe] || "Vui lòng đăng nhập để tiếp tục."}
+            </span>
+          </div>
+        )}
+
         <div className="relative min-h-135 w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl shadow-indigo-200/50 sm:flex">
 
           {/* Form đăng nhập (bên trái) */}

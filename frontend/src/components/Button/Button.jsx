@@ -10,6 +10,7 @@
 //   <Button variant="ghost" size="sm">Bỏ chọn</Button>
 //   <Button variant="link" onClick={...}>Xóa ảnh</Button>  → nút dạng liên kết
 //   <Button type="submit" disabled className="w-full">Đăng bài</Button>
+//   <Button as={Link} to="/bai-dang/tao-moi">Tạo bài đăng</Button> → nút dẫn link
 
 const VARIANTS = {
   primary:
@@ -31,6 +32,7 @@ const SIZES = {
 };
 
 function Button({
+  as: Tag = 'button',
   variant = 'primary',
   size = 'md',
   type = 'button',
@@ -41,16 +43,20 @@ function Button({
   // Nút dạng liên kết (link) không dùng đệm của size.
   const sizeClass = variant === 'link' ? '' : SIZES[size] || SIZES.md;
 
+  // Khi render thành component khác (ví dụ Link của react-router-dom),
+  // bỏ thuộc tính type — chỉ thuộc của thẻ <button>.
+  const typeProps = Tag === 'button' ? { type } : {};
+
   return (
-    <button
-      type={type}
+    <Tag
       className={`inline-flex items-center justify-center gap-2 rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ffdf19] disabled:cursor-not-allowed disabled:opacity-50 ${
         VARIANTS[variant] || VARIANTS.primary
       } ${sizeClass} ${className}`}
+      {...typeProps}
       {...otherProps}
     >
       {children}
-    </button>
+    </Tag>
   );
 }
 

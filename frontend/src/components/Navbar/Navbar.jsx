@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { getSession, logout } from '../../services/authService'
 
 const itemClass =
-  'flex items-center border-l border-gray-300 px-3 font-serif text-[10px] hover:bg-gray-100'
+  'flex items-center border-l border-gray-300 px-3 text-[10px] hover:bg-gray-100'
 
 const Navbar = () => {
   const navigate = useNavigate()
@@ -21,7 +21,7 @@ const Navbar = () => {
 
         {/* Logo bên trái */}
         <div className="flex shrink-0 items-center px-3">
-          <Link to="/" className="font-serif text-xs">
+          <Link to="/" className="text-xs font-semibold tracking-wide">
             Rising <span className="text-yellow-500">Idea</span>
           </Link>
         </div>
@@ -36,7 +36,7 @@ const Navbar = () => {
             Tài nguyên
           </Link>
 
-          <Link to="/" className="flex items-center border-l border-gray-300 px-2 font-serif text-[10px] hover:bg-gray-100">
+          <Link to="/" className="flex items-center border-l border-gray-300 px-2 text-[10px] hover:bg-gray-100">
             Về chúng tôi
           </Link>
 
@@ -59,15 +59,15 @@ const Navbar = () => {
               <button
                 type="button"
                 onClick={handleLogout}
-                className="flex items-center border-l border-gray-300 px-4 font-serif text-[10px] hover:bg-gray-100"
+                className="flex items-center gap-1 border-l border-gray-300 px-4 text-[10px] text-red-600 hover:bg-red-50 hover:text-red-700"
               >
-                Đăng xuất
+                ⏻ Đăng xuất
               </button>
             </>
           ) : (
             <Link
               to="/dang-nhap"
-              className="flex items-center border-l border-gray-300 px-4 font-serif text-[10px] hover:bg-gray-100"
+              className="flex items-center border-l border-gray-300 px-4 text-[10px] hover:bg-gray-100"
             >
               Sign In
             </Link>

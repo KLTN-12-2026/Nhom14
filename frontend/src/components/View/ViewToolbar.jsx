@@ -1,8 +1,9 @@
 import { useState } from "react";
 
-const ViewToolbar = () => {
+const CAC_SAP_XEP = ["Phù hợp nhất", "Mới nhất"];
+
+const ViewToolbar = ({ tuKhoa = "", onTuKhoa, sapXep = "Phù hợp nhất", onSapXep }) => {
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState("Phù hợp nhất");
 
   return (
     <div className="flex items-center justify-between gap-3 border-b border-gray-300 p-3">
@@ -12,9 +13,22 @@ const ViewToolbar = () => {
 
         <input
           type="text"
+          value={tuKhoa}
+          onChange={(e) => onTuKhoa?.(e.target.value)}
           placeholder="Tìm kiếm bài đăng..."
           className="w-full bg-transparent text-sm outline-none"
         />
+
+        {tuKhoa && (
+          <button
+            type="button"
+            onClick={() => onTuKhoa?.("")}
+            aria-label="Xóa từ khóa"
+            className="text-sm text-gray-400 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {/* Bộ lọc */}
@@ -23,7 +37,7 @@ const ViewToolbar = () => {
           onClick={() => setShowFilters(!showFilters)}
           className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-100"
         >
-          <span>{selectedFilter}</span>
+          <span>{sapXep}</span>
           <span>⌄</span>
         </button>
 
@@ -33,20 +47,18 @@ const ViewToolbar = () => {
               SẮP XẾP THEO
             </p>
 
-            {["Phù hợp nhất", "Mới nhất"].map((filter) => (
+            {CAC_SAP_XEP.map((opTuyChon) => (
               <button
-                key={filter}
+                key={opTuyChon}
                 onClick={() => {
-                  setSelectedFilter(filter);
+                  onSapXep?.(opTuyChon);
                   setShowFilters(false);
                 }}
                 className={`w-full rounded-md px-3 py-2 text-left text-sm hover:bg-gray-100 ${
-                  selectedFilter === filter
-                    ? "bg-gray-100 font-semibold"
-                    : ""
+                  sapXep === opTuyChon ? "bg-gray-100 font-semibold" : ""
                 }`}
               >
-                {filter}
+                {opTuyChon}
               </button>
             ))}
 

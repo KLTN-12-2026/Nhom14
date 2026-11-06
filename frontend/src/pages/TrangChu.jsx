@@ -1,5 +1,6 @@
 import chatbot from '../assets/chatbot.png';
 import hero from '../assets/hero.png';
+import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar/Navbar';
 import Hero from '../components/Home/Hero';
 import FeatureSection from '../components/Home/FeatureSection';
@@ -52,8 +53,10 @@ const TrangChu = () => {
             </p>
 
             <div className="mt-8 flex flex-wrap justify-center gap-3 md:justify-start">
-              <Button size="lg">Khám phá dự án</Button>
-              <Button variant="outline-dark" size="lg">
+              <Button as={Link} to="/xem-bai-dang" size="lg">
+                Khám phá dự án
+              </Button>
+              <Button as={Link} to="/bai-dang/tao-moi" variant="outline-dark" size="lg">
                 Tạo bài đăng
               </Button>
             </div>
