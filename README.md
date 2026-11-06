@@ -17,16 +17,18 @@ và lịch sử giao dịch được hiển thị minh bạch. Trợ lý AI hỗ
 tra cứu và sử dụng nền tảng.
 
 **Hiện trạng:** Frontend đã hoàn thiện các tính năng chính và đang chạy bằng **dữ liệu mô phỏng
-trong localStorage** của trình duyệt. Backend (Python + FastAPI + MongoDB) đang trong giai đoạn
-triển khai — xem [`backend/Readme.md`](backend/Readme.md).
+trong localStorage** của trình duyệt. Backend Python + FastAPI đã có mã nguồn phần **tài khoản
+(đăng ký, đăng nhập, hồ sơ, đổi mật khẩu)** và đã **kết nối MongoDB Atlas** thành công —
+chi tiết xem [`backend/Readme.md`](backend/Readme.md).
 
 ## 2. Tính năng
 
 ### Người dùng
 - **Trang chủ**: giới thiệu nền tảng, dự án nổi bật (đọc từ dữ liệu bài đăng), cách hoạt động
-- **Tài khoản**: đăng ký, đăng nhập, đổi mật khẩu, thông tin cá nhân (xem/sửa hồ sơ, xem số dư)
-- **Bài đăng**: tạo bài mới (kèm chọn **loại bài đăng**), cập nhật bài đã đăng, xem chi tiết
-  (ảnh, mô tả, tiến độ huy động, hạn gây quỹ, số ngày còn lại)
+- **Tài khoản**: đăng ký, đăng nhập, quên mật khẩu (3 bước xác minh qua email), đổi mật khẩu,
+  thông tin cá nhân (xem/sửa hồ sơ, xem số dư)
+- **Bài đăng**: tạo bài mới (kèm chọn **loại bài đăng**), cập nhật bài đã đăng, quản lý **Bài đăng
+  của tôi**, xem chi tiết (ảnh, mô tả, tiến độ huy động, hạn gây quỹ, số ngày còn lại)
 - **Góp vốn / Quyên góp / Đầu tư**: thanh toán qua Ví Rising Idea với quy trình 3 bước
   (nhập tiền → xác nhận → hoàn tất), trừ số dư, cập nhật tiến độ và ghi lịch sử giao dịch
 
@@ -41,14 +43,15 @@ triển khai — xem [`backend/Readme.md`](backend/Readme.md).
 | Thành phần | Công nghệ |
 |---|---|
 | Frontend | [React 19](https://react.dev), [Vite 8](https://vite.dev), [React Router 7](https://reactrouter.com), [Tailwind CSS 4](https://tailwindcss.com), ESLint 10 |
-| Backend (đang xây dựng) | Python + FastAPI + MongoDB |
+| Backend (đang triển khai) | Python 3.11 + FastAPI, MongoDB **Atlas** (pymongo async), JWT (`PyJWT`) + argon2 |
 | Dữ liệu (giai đoạn FE) | localStorage của trình duyệt |
 
 ## 4. Yêu cầu môi trường
 
 - **Node.js ≥ 20.19** (khuyến nghị bản LTS mới nhất) kèm **npm** — để chạy frontend
+- **Python 3.11+** — để chạy backend (không bắt buộc khi chỉ làm việc với frontend)
+- **MongoDB Atlas** — cluster cloud của nhóm (đã kết nối; thông tin trong file `.env` của backend)
 - Trình duyệt hiện đại (Chrome, Edge, Firefox…)
-- *(Khi backend hoàn thiện: Python 3.11+ và MongoDB sẽ được bổ sung vào mục này)*
 
 ## 5. Chạy ứng dụng
 
@@ -60,7 +63,21 @@ npm install     # chỉ cần chạy lần đầu (hoặc khi đổi Dependencie
 npm run dev
 ```
 
-### 2. Bắt đầu sử dụng
+### 2. Khởi động backend — tùy chọn (frontend vẫn chạy được độc lập)
+
+```bash
+cd backend
+python -m venv .venv            # chỉ cần chạy lần đầu
+.venv\Scripts\activate          # PowerShell / CMD trên Windows
+pip install -r requirements.txt # chỉ cần chạy lần đầu
+uvicorn app.main:app --reload --port 8000
+```
+
+Trước lần chạy đầu: copy `backend/.env.example` thành `backend/.env` rồi điền
+`MONGODB_URI` (MongoDB Atlas của nhóm), `SECRET_KEY`… — hướng dẫn đầy đủ tại
+[`backend/Readme.md`](backend/Readme.md) mục 6.
+
+### 3. Bắt đầu sử dụng
 
 1. Mở trình duyệt tại địa chỉ: **http://localhost:5173**
 2. Đăng nhập tại `/dang-nhap` (nhập **tên đăng nhập hoặc email**) bằng tài khoản mẫu:
@@ -86,14 +103,17 @@ npm run dev
 | `http://localhost:5173/` | Trang chủ |
 | `http://localhost:5173/dang-ky` | Đăng ký |
 | `http://localhost:5173/dang-nhap` | Đăng nhập |
+| `http://localhost:5173/quen-mat-khau` | Quên mật khẩu |
 | `http://localhost:5173/doi-mat-khau` | Đổi mật khẩu |
 | `http://localhost:5173/thong-tin-ca-nhan` | Thông tin cá nhân |
 | `http://localhost:5173/bai-dang/tao-moi` | Tạo bài đăng |
 | `http://localhost:5173/bai-dang/:id` | Chi tiết bài đăng (góp vốn / quyên góp / đầu tư) |
 | `http://localhost:5173/bai-dang/:id/chinh-sua` | Cập nhật bài đăng |
 | `http://localhost:5173/admin/duyet-bai` | Quản trị — duyệt bài đăng |
-
-*(Backend chưa có nên chưa có địa chỉ API — sẽ bổ sung khi triển khai.)*
+| `http://localhost:8000` | Backend — thông báo API đang chạy |
+| `http://localhost:8000/health` | Backend — kiểm tra tình trạng máy chủ |
+| `http://localhost:8000/docs` | Backend — tài liệu API (Swagger UI) |
+| `http://localhost:8000/api/users/*` | Backend — API người dùng (đăng ký, đăng nhập, hồ sơ) |
 
 ## 7. Chạy frontend từ bản build
 
@@ -105,7 +125,7 @@ npm run preview    # chạy thử bản dựng tại http://localhost:4173
 
 ## 8. Cấu hình dịch vụ
 
-- **Hiện tại không cần biến môi trường hay cấu hình nào** — toàn bộ dữ liệu mô phỏng nằm trong
+- **Frontend — không cần biến môi trường**: toàn bộ dữ liệu mô phỏng nằm trong
   localStorage của trình duyệt với các khóa:
   - `rising-idea-accounts` — danh sách tài khoản (mật khẩu băm SHA-256)
   - `rising-idea-session` — phiên đăng nhập hiện tại
@@ -113,7 +133,12 @@ npm run preview    # chạy thử bản dựng tại http://localhost:4173
   - `rising-idea-posts` — danh sách bài đăng (tự nạp dữ liệu mẫu khi trống)
   - `rising-idea-wallet-transactions:<tên tài khoản>` — lịch sử giao dịch ví của từng tài khoản
 - Muốn "reset" dữ liệu mẫu: mở DevTools (F12) → Application → Local Storage → xóa các khóa trên
-- **Khi backend hoàn thiện**: cấu hình địa chỉ API tại `frontend/src/services/api.js`
+- **Backend — file `backend/.env`** (copy từ `.env.example`):
+  - `MONGODB_URI` — connection string **MongoDB Atlas** của nhóm (đã kết nối thành công)
+  - `DATABASE_NAME` — tên database (mặc định `crowdfunding_db`)
+  - `SECRET_KEY` — khóa ký JWT; `ACCESS_TOKEN_EXPIRE_MINUTES` — thời hạn token (mặc định 60)
+  - Các biến môi trường này đã bị `.gitignore` chặn — không commit giá trị thật lên git
+- **Khi nối API**: cấu hình địa chỉ API tại `frontend/src/services/api.js`
   (mặc định `http://localhost:8000/api`
   khớp với backend FastAPI, có thể ghi đè bằng biến `VITE_API_URL`; cần chạy `npm install axios` trước khi dùng)
 
