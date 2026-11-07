@@ -5,6 +5,19 @@
 
 const ACCOUNTS_KEY = 'rising-idea-accounts';
 const SESSION_KEY = 'rising-idea-session';
+// Trạng thái khóa tài khoản do trang Quản lý người dùng (PB17) lưu — cùng key
+// với adminUserService.js. Đọc trực tiếp để tránh import vòng qua lại.
+const TRANG_THAI_TK_KEY = 'rising-idea-trang-thai-tai-khoan';
+
+// Tài khoản bị khóa (Bi_Khoa) không được phép đăng nhập.
+function biKhoa(tenTaiKhoan) {
+  try {
+    const bang = JSON.parse(localStorage.getItem(TRANG_THAI_TK_KEY) || '{}');
+    return bang[tenTaiKhoan] === 'Bi_Khoa';
+  } catch {
+    return false;
+  }
+}
 
 // Tài khoản mẫu để nhóm thử chức năng (mật khẩu đã băm SHA-256).
 //   nhatquang / Demo123456   (người dùng, số dư 2.500.000 ₫)
@@ -145,6 +158,13 @@ export async function login(taiKhoan, matKhau) {
 
     if (!account || account.matKhauHash !== hash) {
       return { thanhCong: false, loi: LOI_DANG_NHAP };
+    }
+
+    if (biKhoa(account.tenTaiKhoan)) {
+      return {
+        thanhCong: false,
+        loi: 'Tài khoản của bạn đã bị khóa bởi quản trị viên. Vui lòng liên hệ hỗ trợ.',
+      };
     }
 
     sessionStorage.setItem(

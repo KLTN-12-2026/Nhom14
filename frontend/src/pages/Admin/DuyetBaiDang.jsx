@@ -38,8 +38,14 @@ export default function DuyetBaiDang() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white"><div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
-        <div><Link to="/" className="text-xl font-extrabold text-amber-700">Rising Idea</Link><p className="text-xs text-slate-500">Trang quản trị / Kiểm duyệt nội dung</p></div>
-        <Link to="/" className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-50">← Trang chủ</Link>
+        <div>
+          <Link to="/" className="text-xl font-extrabold text-amber-700">Rising Idea</Link><p className="text-xs text-slate-500">Trang quản trị / Kiểm duyệt nội dung</p>
+        </div>
+        <div className="flex gap-2">
+          <Button as={Link} variant="nav" to="/admin/quan-ly-nguoi-dung">Quản lý người dùng</Button>
+          <Button as={Link} variant="nav" to="/admin/quan-ly-bai-dang">Quản lý bài đăng</Button>
+          <Button as={Link} variant="nav" to="/">← Trang chủ</Button>
+        </div>
       </div></header>
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="mb-7"><h1 className="text-3xl font-bold">Duyệt bài đăng</h1><p className="mt-2 text-slate-500">Kiểm tra các dự án trước khi công khai trên Rising Idea.</p></div>

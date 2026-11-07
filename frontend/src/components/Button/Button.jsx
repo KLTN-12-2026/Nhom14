@@ -9,6 +9,7 @@
 //   <Button variant="danger">Xóa</Button>
 //   <Button variant="ghost" size="sm">Bỏ chọn</Button>
 //   <Button variant="link" onClick={...}>Xóa ảnh</Button>  → nút dạng liên kết
+//   <Button variant="nav" as={Link} to="/admin/duyet-bai">Duyệt</Button> → nút điều hướng header admin
 //   <Button type="submit" disabled className="w-full">Đăng bài</Button>
 //   <Button as={Link} to="/bai-dang/tao-moi">Tạo bài đăng</Button> → nút dẫn link
 
@@ -23,6 +24,8 @@ const VARIANTS = {
     'border border-red-300 bg-red-50 font-semibold text-red-700 hover:bg-red-100',
   ghost: 'bg-transparent font-medium text-gray-600 hover:bg-gray-100',
   link: 'bg-transparent px-0 py-0 font-medium text-red-600 hover:underline',
+  // Nút điều hướng header các trang quản trị
+  nav: 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
 };
 
 const SIZES = {

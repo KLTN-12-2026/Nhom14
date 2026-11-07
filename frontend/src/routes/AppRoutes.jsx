@@ -8,6 +8,8 @@ import CapNhatBaiDang from '../pages/Post/CapNhatBaiDang';
 import DoiMatKhau from '../pages/Account/DoiMatKhau';
 import ThongTinCaNhan from '../pages/Account/ThongTinCaNhan';
 import DuyetBaiDang from '../pages/Admin/DuyetBaiDang';
+import QuanLyNguoiDung from '../pages/Admin/QuanLyNguoiDung';
+import QuanLyBaiDang from '../pages/Admin/QuanLyBaiDang';
 import ChiTietBaiDang from '../pages/Post/ChiTietBaiDang';
 import ProtectedRoute from './ProtectedRoute';
 import AdminRoute from './AdminRoute';
@@ -42,6 +44,8 @@ export default function AppRoutes() {
         {/* Chỉ quản trị viên */}
         <Route element={<AdminRoute />}>
           <Route path="/admin/duyet-bai" element={<DuyetBaiDang />} />
+          <Route path="/admin/quan-ly-nguoi-dung" element={<QuanLyNguoiDung />} />
+          <Route path="/admin/quan-ly-bai-dang" element={<QuanLyBaiDang />} />
         </Route>
       </Routes>
     </BrowserRouter>
