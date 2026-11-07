@@ -102,8 +102,8 @@ Mật khẩu lưu trong MongoDB dạng **argon2 hash**; tên trường dùng đ�
 
    ```bash
    pip install -r requirements.txt
-   ```
    python -m pip install pymongo
+   ```
 
 3. Cấu hình biến môi trường — copy `.env.example` thành `.env` rồi điền:
 
