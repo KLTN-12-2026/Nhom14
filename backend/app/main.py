@@ -2,6 +2,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.database import (
     connect_to_mongodb,
@@ -27,6 +28,17 @@ app = FastAPI(
     description="Backend API for Crowdfunding Project",
     version="1.0.0",
     lifespan=lifespan
+)
+
+# FE chạy cổng riêng (Vite: 5173) nhưng gọi BE cổng 8000 => khác origin,
+# trình duyệt bắt buộc trả header "Access-Control-Allow-Origin" hoặc sẽ
+# chặn request (preflight OPTIONS) -> FE tưởng BE tắt. Cho phép mọi origin
+# với môi trường học; khi triển khai thật nên thay bằng domain cụ thể.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # FE phát triển: http://localhost:5173, ...
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
