@@ -7,7 +7,7 @@ const BASE_KEY = 'rising-idea-wallet-transactions';
 // Lịch sử giao dịch lưu riêng cho từng tài khoản đang đăng nhập.
 function storageKey() {
   const session = getSession();
-  return session ? `${BASE_KEY}:${session.tenTaiKhoan}` : BASE_KEY;
+  return session ? `${BASE_KEY}:${session.ten_tk}` : BASE_KEY;
 }
 
 // Bản thử nghiệm frontend: quản lý số dư (qua userService) và lịch sử
@@ -31,7 +31,7 @@ function saveTransactions(transactions) {
 // Xem ví: số dư hiện tại + danh sách lịch sử giao dịch (mới nhất trước).
 export function getWallet() {
   return {
-    soDu: getUser().soDu,
+    soDu: getUser().so_du,
     giaoDich: getTransactions(),
   };
 }
@@ -63,15 +63,15 @@ export function thanhToan({ postId, postTitle, soTien, loaiGiaoDich }) {
     };
   }
 
-  if (amount > (user.soDu || 0)) {
+  if (amount > (user.so_du || 0)) {
     return {
       thanhCong: false,
       loi: 'Số dư tài khoản không đủ. Vui lòng nạp thêm số dư.',
     };
   }
 
-  const soDuSau = user.soDu - amount;
-  updateUser({ soDu: soDuSau });
+  const soDuSau = user.so_du - amount;
+  updateUser({ so_du: soDuSau });
 
   // Cấu trúc theo tài liệu DB (collection giao_dich + bien_dong_so_du).
   // id_so_du tạm dùng định danh ví dạng chữ; khi có backend sẽ thay
@@ -82,7 +82,7 @@ export function thanhToan({ postId, postTitle, soTien, loaiGiaoDich }) {
 
   const giaoDich = {
     id_giao_dich: maGiaoDich,
-    id_so_du: `so-du:${user.tenTaiKhoan}`,
+    id_so_du: `so-du:${user.ten_tk}`,
     loai_giao_dich: loaiGiaoDich,
     so_tien: amount,
     trang_thai: 'Thanh_cong',
@@ -112,10 +112,10 @@ export function thanhToan({ postId, postTitle, soTien, loaiGiaoDich }) {
 export function getSoDu() {
   const user = getUser();
   return {
-    id_so_du: `so-du:${user.tenTaiKhoan || 'khach'}`,
-    id_nguoi_dung: user.tenTaiKhoan || '',
+    id_so_du: `so-du:${user.ten_tk || 'khach'}`,
+    id_nguoi_dung: user.ten_tk || '',
     don_vi_tien_te: 'VND',
-    so_du: user.soDu || 0,
+    so_du: user.so_du || 0,
     trang_thai: 'Hoat_Dong',
     ngay_tao: '',
     ngay_cap_nhat: '',

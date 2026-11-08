@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import Navbar from "../../components/Navbar/Navbar";
-import Hero from "../../components/Home/Hero";
-import ViewSidebar from "../../components/View/ViewSidebar";
+import FooterTrangChu from "../../components/Home/FooterTrangChu";
+import Button from "../../components/Button/Button";
 import HoTroModal from "../../components/Post/HoTroModal";
 import LienHeDauTu from "../../components/Post/LienHeDauTu";
 
@@ -11,10 +11,11 @@ import { isLoggedIn } from "../../services/authService";
 import { getUser } from "../../services/userService";
 import { getPostById } from "../../services/postService";
 import {
+  daHetHan,
+  layBaiDangBangId,
   layDanhSachGop,
   layDanhSachHinhAnh,
   layLoaiInfo,
-  layLoaiMenu,
   layMaBaiDang,
   layNguoiDang,
   layNoiDung,
@@ -48,6 +49,16 @@ const TIEU_DE_DANH_SACH = {
   invest: "Danh sách nhà đầu tư",
 };
 
+// Ảnh bìa thay thế khi bài đăng chưa có hình (khớp ViewCard)
+const ANH_MOI = "https://placehold.co/600x400/e5e7eb/9ca3af?text=Rising+Idea";
+
+// Màu glow màn thông báo "hết hạn" theo loại bài đăng (khớp hệ thống màu)
+const GLOW_HET_HAN = {
+  crowdfund: "bg-amber-400/30",
+  donation: "bg-rose-400/30",
+  invest: "bg-violet-400/30",
+};
+
 const ChiTietBaiDang = () => {
   // Lấy ID bài đăng từ URL
   const { id } = useParams();
@@ -63,40 +74,144 @@ const ChiTietBaiDang = () => {
   const [moHoTro, setMoHoTro] = useState(false);
   const [moLienHeDauTu, setMoLienHeDauTu] = useState(false);
 
-  const baiDang = useMemo(
+  const baiDangCache = useMemo(
     () => timBaiDang(),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [id, lanLamMoi]
   );
+  const [baiDangBe, setBaiDangBe] = useState(null);
 
-  // Bài đăng không tồn tại
+  // Cache chưa có bài (ví dụ vào thẳng link bài của BE trước khi đồng bộ)
+  // -> nạp trực tiếp GET /api/bai-dang/{id}.
+  useEffect(() => {
+    if (baiDangCache) return;
+
+    let tiepTuc = true;
+
+    layBaiDangBangId(id)
+      .then((baiBe) => {
+        if (baiBe && tiepTuc) setBaiDangBe(baiBe);
+      })
+      .catch(() => {
+        // BE tắt / bài không tồn tại -> màn "không tìm thấy" như cũ
+      });
+
+    return () => {
+      tiepTuc = false;
+    };
+  }, [id, baiDangCache]);
+
+  const baiDang = baiDangCache || baiDangBe;
+
+  // Dữ liệu chuẩn hóa dùng cho cả màn hết hạn lẫn màn chi tiết bình thường
+  const loaiInfo = layLoaiInfo(baiDang);
+
+  // ===== Bài đã quá thời hạn → màn thông báo riêng, nổi bật theo màu loại =====
+  if (daHetHan(baiDang)) {
+    const ngayHetHan = dinhDangNgay(layThoiGian(baiDang).ketThuc);
+
+    return (
+      <div className="flex min-h-screen flex-col bg-slate-50">
+        <Navbar />
+
+        <main className="flex flex-1 items-center justify-center px-4 py-12">
+          <section className="relative w-full max-w-2xl overflow-hidden rounded-[2rem] border border-gray-200 bg-white p-8 text-center shadow-2xl sm:p-12">
+            {/* Glow trang trí theo màu của loại bài + đồng hồ lớn */}
+            <div
+              className={`pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full ${GLOW_HET_HAN[loaiInfo.value] || GLOW_HET_HAN.crowdfund} blur-3xl motion-safe:animate-pulse`}
+              aria-hidden="true"
+            />
+            <div
+              className="pointer-events-none absolute -right-16 bottom-0 h-52 w-52 rounded-full bg-slate-300/40 blur-3xl"
+              aria-hidden="true"
+            />
+
+            <div className="relative">
+              <span
+                className={`mx-auto flex h-24 w-24 items-center justify-center rounded-full text-5xl shadow-lg ${loaiInfo.badgeClass} ring-4 ring-white`}
+                aria-hidden="true"
+              >
+                ⏰
+              </span>
+
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                <span
+                  className={`rounded-full px-3 py-1 text-[11px] font-bold shadow-sm ${loaiInfo.badgeClass}`}
+                >
+                  {loaiInfo.label}
+                </span>
+
+                <span className="rounded-full bg-slate-950 px-3 py-1 text-[11px] font-bold text-white">
+                  Kết thúc {ngayHetHan}
+                </span>
+              </div>
+
+              <h1 className="mt-4 font-inknut text-2xl font-extrabold leading-snug text-gray-900 sm:text-3xl">
+                Bài đăng này đã hết thời hạn yêu cầu
+              </h1>
+
+              <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-gray-600">
+                “<b className="text-gray-900">{layTieuDe(baiDang)}</b>” đã dừng
+                nhận {loaiInfo.actionLabel.toLowerCase()} từ{" "}
+                <b>{ngayHetHan}</b>. Bạn có thể quay về trang, hoặc chọn một
+                bài đăng mới nhất khác nhé!
+              </p>
+
+              <div className="mt-7 flex flex-wrap justify-center gap-3">
+                <Button as={Link} to="/" variant="outline-dark" size="lg">
+                  ← Quay về trang
+                </Button>
+
+                <Button as={Link} to="/xem-bai-dang" size="lg">
+                  Xem bài đăng mới nhất →
+                </Button>
+              </div>
+            </div>
+          </section>
+        </main>
+
+        <FooterTrangChu />
+      </div>
+    );
+  }
+
+  // Bài đăng không tồn tại — trang rỗng thân thiện có đường dẫn về danh mục
   if (!baiDang) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="flex min-h-screen flex-col bg-slate-50">
         <Navbar />
-        <Hero />
-        <ViewSidebar />
 
-        <div className="p-10 text-center">
-          <h2 className="text-xl font-semibold">
-            Không tìm thấy bài đăng!
-          </h2>
-        </div>
+        <main className="flex flex-1 flex-col items-center justify-center gap-4 p-16 text-center">
+          <span className="text-5xl" aria-hidden="true">🏗️</span>
+          <h1 className="text-xl font-bold text-gray-900">
+            Không tìm thấy bài đăng
+          </h1>
+          <p className="max-w-sm text-sm text-gray-500">
+            Dự án bạn tìm có thể đã bị gỡ hoặc đường dẫn chưa chính xác.
+          </p>
+          <Link
+            to="/xem-bai-dang"
+            className="rounded-xl bg-amber-400 px-5 py-2.5 text-sm font-bold text-gray-900 shadow-md transition hover:bg-amber-300"
+          >
+            ← Về danh mục dự án
+          </Link>
+        </main>
+
+        <FooterTrangChu />
       </div>
     );
   }
 
   // Dữ liệu chuẩn hóa, dùng được cho cả bài demo lẫn bài tạo từ form
-  const loaiInfo = layLoaiInfo(baiDang);
   const soTienDaGop = layTienDaGop(baiDang);
   const mucTieu = layMucTieu(baiDang);
   const thoiDiem = layThoiGian(baiDang);
   const danhSachHinhAnh = layDanhSachHinhAnh(baiDang);
   const danhSachGop = layDanhSachGop(layMaBaiDang(baiDang));
-  const loaiMenu = layLoaiMenu(baiDang);
+  const donViTien = baiDang.don_vi_tien_te || "VND";
 
-  // Tính phần trăm tiến độ
-  const tienDo = layTienDoPhanTram(baiDang);
+  // Tính phần trăm tiến độ (chặn 100% cho hiển thị)
+  const tienDo = Math.min(layTienDoPhanTram(baiDang), 100);
 
   // Nhấn nút hành động theo loại bài đăng:
   //   - Đầu Tư: KHÔNG nhận vốn qua hệ thống → mở modal hướng dẫn liên hệ
@@ -124,223 +239,274 @@ const ChiTietBaiDang = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="flex min-h-screen flex-col bg-slate-50">
       {/* Navbar */}
       <Navbar />
 
-      {/* Thanh màu vàng */}
-      <div className="h-7 bg-yellow-400"></div>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 md:px-6">
+        {/* Dòng dẫn đường + nhãn loại bài về danh mục */}
+        <nav className="mb-5 flex flex-wrap items-center gap-2 text-sm text-gray-500">
+          <Link
+            to="/xem-bai-dang"
+            className="font-semibold transition hover:text-amber-600"
+          >
+            Danh mục dự án
+          </Link>
 
-      <div className="flex min-h-[calc(100vh-68px)]">
-        {/* Sidebar */}
-        <aside className="w-28 shrink-0 border-r border-gray-400 bg-yellow-100">
-          {["Gọi Vốn", "Quyên Góp", "Đầu Tư"].map(
-            (loai) => (
-              <div
-                key={loai}
-                className={`border-b border-gray-400 px-2 py-5 text-center text-sm ${
-                  loaiMenu === loai
-                    ? "bg-yellow-200"
-                    : ""
-                }`}
-              >
-                {loai}
-              </div>
-            )
-          )}
-        </aside>
+          <span aria-hidden="true">/</span>
 
-        {/* Nội dung chi tiết bài đăng */}
-        <main className="min-w-0 flex-1 p-4">
-          <div className="mx-auto max-w-3xl border border-gray-400 p-5">
+          <span
+            className={`rounded-full px-3 py-1 text-[11px] font-bold shadow-sm ${loaiInfo.badgeClass}`}
+          >
+            {loaiInfo.label}
+          </span>
 
-            {/* Thông tin người đăng */}
-            <div className="mb-3 flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-200 text-2xl">
+          <span
+            className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold text-emerald-700"
+          >
+            {layTrangThai(baiDang)}
+          </span>
+        </nav>
+
+        <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
+          {/* ===== Cột trái: nội dung dự án ===== */}
+          <article className="min-w-0">
+            {/* Tiêu đề + thông tin người đăng */}
+            <h1 className="font-inknut text-2xl font-extrabold leading-snug text-gray-900 sm:text-3xl">
+              {layTieuDe(baiDang)}
+            </h1>
+
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-amber-300 to-violet-400 text-lg shadow-sm">
                 👤
               </div>
 
-              <div>
-                <p className="font-medium">
+              <div className="text-sm">
+                <p className="font-bold text-gray-900">
                   {layNguoiDang(baiDang)}
                 </p>
 
                 <p className="text-xs text-gray-500">
+                  Đăng ngày{" "}
                   {dinhDangNgay(baiDang.ngay_tao || baiDang.createdAt)}
                 </p>
               </div>
             </div>
 
-            {/* Tiêu đề và nội dung */}
-            <div className="mb-4">
-              <h1 className="mb-2 text-xl font-semibold">
-                {layTieuDe(baiDang)}
-              </h1>
+            {/* Ảnh dự án: ảnh đầu là bìa lớn, còn lại xếp lưới 2 cột */}
+            <div className="mt-6 overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
+              {danhSachHinhAnh[0] && (
+                <img
+                  src={danhSachHinhAnh[0].duong_dan_hinh_anh}
+                  alt={`Ảnh bìa dự án ${layTieuDe(baiDang)}`}
+                  className="max-h-[480px] w-full object-cover"
+                />
+              )}
 
-              <p className="mb-2 text-sm text-gray-600">
-                {loaiInfo.label} ·{" "}
-                {layTrangThai(baiDang)}
-              </p>
+              {danhSachHinhAnh.length > 1 && (
+                <div className="grid grid-cols-2 gap-2 p-2 sm:grid-cols-3">
+                  {danhSachHinhAnh.slice(1).map((hinhAnh) => (
+                    <img
+                      key={hinhAnh._id}
+                      src={hinhAnh.duong_dan_hinh_anh}
+                      alt={`Ảnh dự án ${layTieuDe(baiDang)}`}
+                      loading="lazy"
+                      className="h-32 w-full rounded-2xl object-cover sm:h-28"
+                    />
+                  ))}
+                </div>
+              )}
 
-              <p className="whitespace-pre-line text-sm leading-relaxed">
+              {danhSachHinhAnh.length === 0 && (
+                <img
+                  src={ANH_MOI}
+                  alt={`Ảnh bìa dự án ${layTieuDe(baiDang)}`}
+                  className="w-full object-cover"
+                />
+              )}
+            </div>
+
+            {/* Nội dung mô tả */}
+            <section className="mt-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">
+                Về dự án
+              </h2>
+
+              <p className="mt-3 whitespace-pre-line text-sm leading-8 text-gray-700">
                 {layNoiDung(baiDang)}
               </p>
-            </div>
-
-            {/* Danh sách hình ảnh */}
-            <div className="mb-5 space-y-3">
-              {danhSachHinhAnh.map((hinhAnh) => (
-                <img
-                  key={hinhAnh._id}
-                  src={hinhAnh.duong_dan_hinh_anh}
-                  alt={layTieuDe(baiDang)}
-                  className="max-h-112.5 w-full object-contain"
-                />
-              ))}
-            </div>
-
-            {/* Thông tin mục tiêu và tiến độ */}
-            <div className="px-3 py-2">
-              <div className="mb-2 flex flex-wrap justify-between gap-2 text-sm">
-                <span>
-                  {dinhDangTien(soTienDaGop)}{" "}
-                  {baiDang.don_vi_tien_te || "VND"}
-                </span>
-
-                <span>
-                  {dinhDangTien(mucTieu)}{" "}
-                  {baiDang.don_vi_tien_te || "VND"}
-                </span>
-              </div>
-
-              {/* Thanh tiến độ */}
-              <div className="h-5 overflow-hidden rounded-full bg-gray-300">
-                <div
-                  className="flex h-full items-center justify-end rounded-full bg-green-500 pr-1 text-[10px] text-white"
-                  style={{
-                    width: `${tienDo}%`,
-                  }}
-                >
-                  {Math.round(tienDo)}%
-                </div>
-              </div>
-
-              {/* Thời gian bắt đầu và kết thúc */}
-              <div className="mt-4 flex flex-wrap justify-between gap-2 text-xs text-gray-500">
-                <span>
-                  Bắt đầu:{" "}
-                  {dinhDangNgay(thoiDiem.batDau)}
-                </span>
-
-                <span>
-                  Kết thúc:{" "}
-                  {dinhDangNgay(thoiDiem.ketThuc)}
-                </span>
-              </div>
-            </div>
-
-            {/* Nút góp vốn / quyên góp / đầu tư */}
-            <div className="mt-8 flex justify-center">
-              <button
-                type="button"
-                onClick={handleHoTro}
-                className="rounded-xl border border-yellow-600 bg-yellow-300 px-7 py-2 text-sm font-medium transition hover:bg-yellow-400"
-              >
-                {loaiInfo.actionLabel}
-              </button>
-            </div>
+            </section>
 
             {/* Danh sách người đã góp — chỉ cho Góp vốn / Quyên góp.
                 Loại Đầu Tư liên hệ trực tiếp nên không có danh sách góp. */}
             {loaiInfo.value !== "invest" && (
-            <div className="mt-8 border-t border-gray-300 pt-4">
-              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="text-base font-semibold">
-                  {TIEU_DE_DANH_SACH[loaiInfo.value] || "Danh sách ủng hộ"}{" "}
-                  ({danhSachGop.length})
-                </h2>
-
-                {danhSachGop.length > 0 && (
-                  <p className="text-xs text-gray-500">
-                    Tổng đã ghi nhận qua hệ thống:{" "}
-                    <span className="font-semibold text-gray-700">
-                      {dinhDangTien(
-                        danhSachGop.reduce(
-                          (tong, gop) => tong + (Number(gop.so_tien) || 0),
-                          0
-                        )
-                      )}{" "}
-                      VND
+              <section className="mt-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 className="font-bold text-gray-900">
+                    {TIEU_DE_DANH_SACH[loaiInfo.value] || "Danh sách ủng hộ"}{" "}
+                    <span className="text-sm font-semibold text-gray-500">
+                      ({danhSachGop.length})
                     </span>
+                  </h2>
+
+                  {danhSachGop.length > 0 && (
+                    <p className="text-xs text-gray-500">
+                      Tổng đã ghi nhận:{" "}
+                      <span className="font-bold text-gray-800">
+                        {dinhDangTien(
+                          danhSachGop.reduce(
+                            (tong, gop) => tong + (Number(gop.so_tien) || 0),
+                            0
+                          )
+                        )}{" "}
+                        {donViTien}
+                      </span>
+                    </p>
+                  )}
+                </div>
+
+                {danhSachGop.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-gray-500">
+                    Chưa có ai {loaiInfo.actionLabel.toLowerCase()} — hãy là{" "}
+                    <span className="font-bold text-amber-600">
+                      người đầu tiên
+                    </span>
+                    !
                   </p>
+                ) : (
+                  <ul className="mt-4 space-y-3">
+                    {danhSachGop.map((gop) => (
+                      <li
+                        key={gop.id}
+                        className="rounded-2xl border border-gray-100 bg-slate-50 px-4 py-3 transition hover:border-amber-200 hover:bg-amber-50/50"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 items-start gap-3">
+                            {/* Chữ cái đầu của tên hiển thị làm avatar */}
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-amber-300 to-violet-300 font-bold text-gray-900 shadow-sm">
+                              {gop.an_danh
+                                ? "🫥"
+                                : (gop.ten || "?").charAt(0).toUpperCase()}
+                            </div>
+
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-bold text-gray-900">
+                                {gop.ten}
+                              </p>
+
+                              <p className="text-[11px] text-gray-500">
+                                {gop.loai || "Góp vốn"} ·{" "}
+                                {dinhDangThoiDiem(gop.ngay_tao)}
+                              </p>
+
+                              {gop.so_huu_phan_tram && (
+                                <p className="mt-1 w-fit rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-semibold text-violet-700">
+                                  ≈ {gop.so_huu_phan_tram}% sở hữu
+                                </p>
+                              )}
+
+                              {gop.loi_nhac && (
+                                <p className="mt-1 rounded-xl bg-white px-2.5 py-1.5 text-xs italic leading-6 text-gray-600 ring-1 ring-gray-100">
+                                  “{gop.loi_nhac}”
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <p className="shrink-0 text-sm font-extrabold text-emerald-600">
+                            +{dinhDangTien(gop.so_tien)} {donViTien}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
                 )}
+              </section>
+            )}
+          </article>
+
+          {/* ===== Cột phải: card ủng hộ (sticky trên PC) ===== */}
+          <aside>
+            <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-lg lg:sticky lg:top-24">
+              {/* Số tiền đã huy động nổi bật + mục tiêu */}
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
+                {loaiInfo.label === "Đầu Tư"
+                  ? "Vốn mong muốn"
+                  : "Đã huy động"}
+              </p>
+
+              <p className="mt-1 font-inknut text-3xl font-extrabold text-amber-600">
+                {dinhDangTien(soTienDaGop)}{" "}
+                <span className="text-base text-gray-500">{donViTien}</span>
+              </p>
+
+              <p className="mt-0.5 text-xs text-gray-500">
+                mục tiêu {dinhDangTien(mucTieu)} {donViTien}
+              </p>
+
+              {/* Thanh tiến độ gradient thương hiệu */}
+              <div className="mt-4">
+                <div className="h-3 overflow-hidden rounded-full bg-gray-100">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-amber-400 to-violet-500 transition-all duration-500"
+                    style={{ width: `${tienDo}%` }}
+                  />
+                </div>
+
+                <div className="mt-2 flex items-center justify-between text-xs font-semibold">
+                  <span className="text-violet-600">{Math.round(tienDo)}%</span>
+                  <span className="text-gray-500">
+                    {danhSachGop.length > 0
+                      ? `${danhSachGop.length} lượt ủng hộ`
+                      : "Chưa có lượt ủng hộ"}
+                  </span>
+                </div>
               </div>
 
-              {danhSachGop.length === 0 ? (
-                <p className="py-4 text-center text-sm text-gray-500">
-                  Chưa có ai {loaiInfo.actionLabel.toLowerCase()} — hãy là{" "}
-                  <span className="font-semibold">người đầu tiên</span>!
-                </p>
-              ) : (
-                <ul className="space-y-2">
-                  {danhSachGop.map((gop) => (
-                    <li
-                      key={gop.id}
-                      className="rounded-lg border border-gray-200 px-3 py-2.5 text-sm"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-start gap-2.5">
-                          {/* Chữ cái đầu của tên hiển thị làm avatar */}
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-yellow-200 font-semibold text-yellow-800">
-                            {gop.an_danh
-                              ? "🫥"
-                              : (gop.ten || "?").charAt(0).toUpperCase()}
-                          </div>
+              {/* Thời gian bắt đầu / kết thúc */}
+              <dl className="mt-5 space-y-2 rounded-2xl bg-slate-50 p-4 text-xs">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">🕐 Bắt đầu</dt>
+                  <dd className="font-semibold text-gray-700">
+                    {dinhDangNgay(thoiDiem.batDau)}
+                  </dd>
+                </div>
 
-                          <div className="min-w-0">
-                            <p className="font-medium">
-                              {gop.ten}
-                            </p>
-                            <p className="text-[11px] text-gray-500">
-                              {gop.loai || "Góp vốn"} ·{" "}
-                              {dinhDangThoiDiem(gop.ngay_tao)}
-                            </p>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">⏳ Kết thúc</dt>
+                  <dd className="font-semibold text-gray-700">
+                    {dinhDangNgay(thoiDiem.ketThuc)}
+                  </dd>
+                </div>
+              </dl>
 
-                            {gop.so_huu_phan_tram && (
-                              <p className="mt-1 w-fit rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-600">
-                                ≈ {gop.so_huu_phan_tram}%
-                              </p>
-                            )}
+              {/* Nút hành động theo loại bài — khối amber đậm khớp trang chủ */}
+              <button
+                type="button"
+                onClick={handleHoTro}
+                className="mt-5 w-full rounded-2xl bg-amber-400 px-6 py-3.5 text-sm font-extrabold text-gray-900 shadow-md ring-2 ring-amber-500/30 transition hover:scale-[1.02] hover:bg-amber-300 hover:shadow-lg active:scale-100"
+              >
+                {loaiInfo.actionLabel}
+              </button>
 
-                            {gop.loi_nhac && (
-                              <p className="mt-1 italic text-gray-600">
-                                “{gop.loi_nhac}”
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        <p className="shrink-0 font-bold text-green-700">
-                          +{dinhDangTien(gop.so_tien)}{" "}
-                          {baiDang.don_vi_tien_te || "VND"}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <p className="mt-3 text-center text-[11px] leading-5 text-gray-400">
+                {loaiInfo.value === "invest"
+                  ? "Đầu tư được kết nối trực tiếp qua nhóm phát triển."
+                  : "Mọi đóng góp được ghi nhận minh bạch trong danh sách."}
+              </p>
             </div>
-            )}
+          </aside>
+        </div>
+      </main>
 
-          </div>
-        </main>
-      </div>
+      {/* Footer bám đáy (mt-auto của khối flex ngoài cùng) */}
+      <FooterTrangChu />
 
       {/* Modal góp vốn / quyên góp (qua ví) */}
       {moHoTro && (
         <HoTroModal
           post={baiDang}
-          soDu={getUser().soDu}
+          soDu={getUser().so_du}
           onClose={() => setMoHoTro(false)}
           onSuccess={handleHoTroThanhCong}
         />

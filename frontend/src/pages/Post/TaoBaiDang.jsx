@@ -1,18 +1,30 @@
 
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Navbar/Navbar';
 import PostForm from '../../components/Post/PostForm';
-import { createPost } from '../../services/postService';
+import { taoBaiDang } from '../../services/postService';
 
 export default function TaoBaiDang() {
   const navigate = useNavigate();
+  const [dangGui, setDangGui] = useState(false);
 
-  function handleCreate(formData) {
-    createPost(formData);
-    window.alert(
-      'Tạo bài đăng thành công! Bài của bạn đang chờ quản trị viên duyệt — xem tại trang Bài đăng.'
-    );
-    navigate('/xem-bai-dang');
+  async function handleCreate(formData) {
+    if (dangGui) return;
+
+    setDangGui(true);
+
+    try {
+      await taoBaiDang(formData); // BE-first, BE tắt tự lưu cục bộ
+      window.alert(
+        'Tạo bài đăng thành công! Bài của bạn đang chờ quản trị viên duyệt — xem tại trang Bài đăng.'
+      );
+      navigate('/xem-bai-dang');
+    } catch (error) {
+      window.alert(error.message);
+    } finally {
+      setDangGui(false);
+    }
   }
 
   return (

@@ -1,7 +1,8 @@
 import { getTypeOption } from '../data/mockPosts';
+import { posts as POST_DEMO } from '../data/PostDemo/posts';
 import { getSession } from './authService';
 import { getUser } from './userService';
-import { tangTienHuyDong as tangTienPostService } from './postService';
+import { getPosts, layBaiTuBe, tangTienHuyDong as tangTienPostService } from './postService';
 
 const BASE_KEY = 'rising-idea-contributions';
 
@@ -30,6 +31,13 @@ const TRANG_THAI_ADMIN = {
   pending: 'Chờ duyệt',
   approved: 'Đang diễn ra',
   rejected: 'Đã từ chối',
+};
+
+// Mã trạng thái DB/BE -> tiếng Việt (bai_dang.trang_thai theo enum BE)
+const TRANG_THAI_BE = {
+  Cho_Duyet: 'Chờ duyệt',
+  Da_Duyet: 'Đang diễn ra',
+  Tu_Choi: 'Đã từ chối',
 };
 
 // Tên hiển thị trên menu sidebar theo ba loại bài đăng.
@@ -80,6 +88,9 @@ export function layMucTieu(post) {
 }
 
 export function layTrangThai(post) {
+  // Mã trạng thái của BE (Cho_Duyet/Da_Duyet/Tu_Choi) -> tiếng Việt
+  const trangThaiBe = TRANG_THAI_BE[post?.trang_thai];
+  if (trangThaiBe) return trangThaiBe;
   if (post?.trang_thai) return post.trang_thai;
   return TRANG_THAI_ADMIN[post?.status] || 'Đang diễn ra';
 }
@@ -89,6 +100,56 @@ export function layThoiGian(post) {
     batDau: post?.thoi_gian_bat_dau || post?.createdAt || '',
     ketThuc: post?.thoi_gian_ket_thuc || post?.deadline || '',
   };
+}
+
+// Bài đăng đã quá thời hạn gọi vốn / quyên góp / đầu tư
+// (so với thời điểm hiện tại trên máy người xem).
+export function daHetHan(post) {
+  const { ketThuc } = layThoiGian(post);
+  if (!ketThuc) return false;
+  return new Date(ketThuc).getTime() < Date.now();
+}
+
+// Danh sách hợp nhất toàn hệ thống: bài demo (PostDemo) + bài người dùng
+// tạo từ form (postService, trong localStorage) — bỏ bài bị từ chối.
+// Trang chủ (số liệu thống kê) và trang danh mục (XemBaiDang) dùng chung
+// nguồn này để số đếm luôn khớp nhau.
+export function layDanhSachTongHop() {
+  const tuForm = [...getPosts()].filter(
+    (post) => (post.status || 'pending') !== 'rejected'
+  );
+  return [...POST_DEMO, ...tuForm, ...layBaiTuBe()];
+}
+
+// Re-export helper tìm bài mọi nguồn (cache hợp nhất -> BE trực tiếp).
+export { layBaiDangBangId } from './postService';
+
+// Tổng số dự án đang chạy (chưa hết hạn) — đồng bộ với số liệu trang chủ.
+export function soDuAnDangChay() {
+  return layDanhSachTongHop().filter((post) => !daHetHan(post)).length;
+}
+
+// Tổng giá trị mục tiêu gây quỹ của các dự án đang chạy (chưa hết hạn).
+export function tongMucTieuDangChay() {
+  return layDanhSachTongHop()
+    .filter((post) => !daHetHan(post))
+    .reduce((tong, post) => tong + layMucTieu(post), 0);
+}
+
+// Rút gọn số tiền để hiển thị thống kê trên trang chủ:
+//   1535500000 -> "1,5 tỷ+" · 450000000 -> "450tr+" · 85000 -> "85k+"
+export function rutGonSoTien(soTien) {
+  const so = Number.isFinite(Number(soTien)) ? Number(soTien) : 0;
+
+  if (so >= 1_000_000_000) {
+    return `${(so / 1_000_000_000).toFixed(1).replace('.', ',')} tỷ+`;
+  }
+
+  if (so >= 1_000_000) {
+    return `${Math.round(so / 1_000_000)}tr+`;
+  }
+
+  return `${Math.round(so / 1_000)}k+`;
 }
 
 export function layDanhSachHinhAnh(post) {
@@ -204,8 +265,8 @@ export function ghiNhanGop({
     ma_loai: layLoaiInfo(post).value,
     loai,
     id_bai_dang: postId,
-    id_nguoi_gop: getSession()?.tenTaiKhoan || '',
-    ten: getUser().hoTen || 'Người ủng hộ',
+    id_nguoi_gop: getSession()?.ten_tk || '',
+    ten: getUser().ho_ten || 'Người ủng hộ',
     so_tien: Number(soTien) || 0,
     trang_thai: 'Thanh_cong',
     ngay_tao: thoiDiem,

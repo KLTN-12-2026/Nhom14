@@ -2,8 +2,13 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getSession, logout } from '../../services/authService'
 
+// Mục menu chung: chữ to + đậm, ráy đổi màu tím khi hover cho bắt mắt
 const itemClass =
-  'flex items-center border-l border-gray-300 px-3 text-[10px] hover:bg-gray-100'
+  'flex items-center whitespace-nowrap border-l border-slate-200 px-3 text-sm font-bold text-slate-700 transition hover:bg-amber-50 hover:text-amber-700 sm:px-4'
+
+// Mục dành riêng cho quản trị viên — tông tím phân biệt quyền
+const adminClass =
+  'flex items-center whitespace-nowrap border-l border-slate-200 px-3 text-sm font-bold text-violet-700 transition hover:bg-violet-50 hover:text-violet-900 sm:px-4'
 
 const Navbar = () => {
   const navigate = useNavigate()
@@ -16,18 +21,18 @@ const Navbar = () => {
   }
 
   return (
-    <nav className="w-full border-b border-gray-300 bg-white">
-      <div className="flex h-9 w-full items-stretch">
+    <nav className="sticky top-0 z-40 w-full border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
+      <div className="flex h-12 w-full items-stretch sm:h-14">
 
         {/* Logo bên trái */}
-        <div className="flex shrink-0 items-center px-3">
-          <Link to="/" className="text-xs font-semibold tracking-wide">
-            Rising <span className="text-yellow-500">Idea</span>
+        <div className="flex shrink-0 items-center px-3 sm:px-5">
+          <Link to="/" className="font-inknut text-lg font-extrabold tracking-wide text-gray-900 sm:text-xl">
+            Rising <span className="text-amber-500">Idea</span>
           </Link>
         </div>
 
-        {/* Menu bên phải */}
-        <div className="ml-auto flex items-stretch">
+        {/* Menu bên phải — cho phép tràn ngang trên màn hình nhỏ thay vì vỡ layout */}
+        <div className="ml-auto flex items-stretch overflow-x-auto">
           <Link to="/" className={itemClass}>
             Sự kiện
           </Link>
@@ -36,7 +41,7 @@ const Navbar = () => {
             Tài nguyên
           </Link>
 
-          <a href="/#ve-chung-toi" className="flex items-center border-l border-gray-300 px-2 text-[10px] hover:bg-gray-100">
+          <a href="/#ve-chung-toi" className={itemClass}>
             Về chúng tôi
           </a>
 
@@ -47,23 +52,22 @@ const Navbar = () => {
           {session ? (
             <>
               {session.role === 'admin' && (
-                <Link to="/admin/duyet-bai" className={itemClass}>
+                <Link to="/admin/duyet-bai" className={adminClass}>
                   Quản trị
                 </Link>
-                
               )}
               <Link to="/bai-dang-cua-toi" className={itemClass}>
-              Bài đăng của tôi
+                Bài đăng của tôi
               </Link>
 
               <Link to="/thong-tin-ca-nhan" className={itemClass}>
-                {session.tenTaiKhoan}
+                {session.ten_tk}
               </Link>
 
               <button
                 type="button"
                 onClick={handleLogout}
-                className="flex items-center gap-1 border-l border-gray-300 px-4 text-[10px] text-red-600 hover:bg-red-50 hover:text-red-700"
+                className="flex items-center gap-1 whitespace-nowrap border-l border-slate-200 px-4 text-sm font-bold text-red-600 transition hover:bg-red-50 hover:text-red-700"
               >
                 ⏻ Đăng xuất
               </button>
@@ -71,9 +75,9 @@ const Navbar = () => {
           ) : (
             <Link
               to="/dang-nhap"
-              className="flex items-center border-l border-gray-300 px-4 text-[10px] hover:bg-gray-100"
+              className="flex items-center whitespace-nowrap border-l border-slate-200 bg-amber-300 px-5 text-sm font-extrabold text-gray-900 transition hover:bg-amber-400 sm:bg-amber-400 sm:hover:bg-amber-500"
             >
-              Sign In
+              Đăng nhập
             </Link>
           )}
         </div>

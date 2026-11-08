@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import AuthForm from "../../components/Auth/AuthForm";
 import Navbar from "../../components/Navbar/Navbar";
-import Hero from "../../components/Home/Hero";
 import { login } from "../../services/authService";
 
 const SLIDE_MS = 500;
@@ -55,14 +54,19 @@ export default function DangNhap() {
   }
 
   return (
-    <div>
+    <div className="flex min-h-screen flex-col bg-slate-50">
       <Navbar />
-      <Hero />
 
-      <main className="flex min-h-screen flex-col items-center justify-center bg-linear-to-br from-indigo-50 via-white to-purple-100 p-4">
+      {/* Dải màu thương hiệu mảnh dưới navbar thay cho Hero để trang gọn, tập trung vào form */}
+      <div
+        className="h-1.5 bg-gradient-to-r from-amber-400 via-rose-400 to-violet-500"
+        aria-hidden="true"
+      />
+
+      <main className="flex flex-1 items-center justify-center p-4 sm:p-8">
         {/* Thông báo khi bị yêu cầu đăng nhập từ trang khác, ví dụ Tạo bài đăng */}
         {troVe && (
-          <div className="mb-4 flex w-full max-w-4xl items-center gap-2 rounded-xl border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-gray-800">
+          <div className="fixed left-1/2 top-24 z-40 flex w-[92%] max-w-md -translate-x-1/2 items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-gray-800 shadow-lg">
             <span aria-hidden="true">🔐</span>
             <span>
               <span className="font-semibold">Yêu cầu đăng nhập.</span>{" "}
@@ -71,7 +75,7 @@ export default function DangNhap() {
           </div>
         )}
 
-        <div className="relative min-h-135 w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl shadow-indigo-200/50 sm:flex">
+        <div className="relative min-h-135 w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl shadow-amber-200/40 ring-1 ring-gray-100 sm:flex">
 
           {/* Form đăng nhập (bên trái) */}
           <section
@@ -82,29 +86,43 @@ export default function DangNhap() {
             <AuthForm type="login" onSubmit={handleSubmit} disabled={submitting} />
           </section>
 
-          {/* Panel chào mừng (bên phải) */}
+          {/* Panel chào mừng (bên phải): nền tối + glow amber, nhấn CTA đăng ký */}
           <section
-            className={`z-10 hidden w-1/2 flex-col items-center justify-center bg-linear-to-br from-indigo-600 to-purple-700 px-8 text-center text-white transition-transform duration-500 ease-in-out sm:flex ${
+            className={`relative z-10 hidden w-1/2 flex-col items-center justify-center overflow-hidden bg-slate-950 px-8 text-center text-white transition-transform duration-500 ease-in-out sm:flex ${
               leaving ? "-translate-x-full" : "translate-x-0"
             }`}
           >
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl border border-white/30 bg-white/10 text-3xl font-bold">
-              N
+            {/* Khối sáng màu trang trí khớp glow trang chủ */}
+            <div
+              className="pointer-events-none absolute -left-20 top-0 h-64 w-64 rounded-full bg-amber-400/25 blur-3xl"
+              aria-hidden="true"
+            />
+            <div
+              className="pointer-events-none absolute -right-20 bottom-0 h-72 w-72 rounded-full bg-violet-600/25 blur-3xl"
+              aria-hidden="true"
+            />
+
+            <div className="relative">
+              <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-400 text-3xl font-extrabold text-gray-900 shadow-lg shadow-amber-500/30">
+                RI
+              </div>
+
+              <h2 className="font-inknut text-3xl font-extrabold">
+                Chào mừng trở lại!
+              </h2>
+
+              <p className="mx-auto mt-4 max-w-xs text-sm leading-6 text-slate-300">
+                Đăng nhập để tiếp tục thắp sáng các ý tưởng cùng cộng đồng.
+              </p>
+
+              <button
+                type="button"
+                onClick={goToRegister}
+                className="mt-8 rounded-full bg-amber-400 px-8 py-3 font-extrabold text-gray-900 shadow-md transition hover:scale-105 hover:bg-amber-300"
+              >
+                Đăng ký ngay
+              </button>
             </div>
-
-            <h2 className="text-3xl font-bold">Chào mừng trở lại!</h2>
-
-            <p className="mt-4 max-w-xs text-sm leading-6 text-indigo-100">
-              Đăng nhập để tiếp tục sử dụng hệ thống.
-            </p>
-
-            <button
-              type="button"
-              onClick={goToRegister}
-              className="mt-8 rounded-full border border-white px-8 py-3 font-semibold transition hover:bg-white hover:text-indigo-700"
-            >
-              Đăng ký
-            </button>
           </section>
 
           {/* Nút chuyển đổi trên mobile */}
@@ -112,7 +130,7 @@ export default function DangNhap() {
             <button
               type="button"
               onClick={goToRegister}
-              className="rounded-full px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50"
+              className="rounded-full px-4 py-2 text-sm font-semibold text-amber-600 hover:bg-amber-50"
             >
               Chưa có tài khoản? Đăng ký
             </button>

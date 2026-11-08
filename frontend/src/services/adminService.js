@@ -1,6 +1,51 @@
 import { getSession } from './authService';
+import {
+  LOI_KHONG_KET_NOI,
+  coToken,
+  goiApi,
+} from './apiClient';
 
 const KEY = 'rising-idea-posts';
+// Cache danh sách bài đăng quản trị (khớp JSON BE /api/admin/bai-dang)
+const KEY_BE_ADMIN = 'rising-idea-be-admin-posts';
+
+function docCache(path) {
+  try {
+    const duLieu = JSON.parse(localStorage.getItem(path) || 'null');
+    return Array.isArray(duLieu) ? duLieu : [];
+  } catch {
+    return [];
+  }
+}
+
+// Danh sách cho trang Duyệt bài: BE cache (map về status FE) + bài cục bộ.
+// BE không chạy thì vẫn trả bài cục bộ như cũ.
+export function layDanhSachDuyet() {
+  const baiBe = docCache(KEY_BE_ADMIN).map(post => ({
+    id: String(post.id || ''),
+    tu_be: true,
+    title: post.tieu_de || '',
+    description: post.noi_dung || '',
+    goal: Number(post.muc_tieu) || 0,
+    type:
+      {
+        'Gọi Vốn': 'crowdfund',
+        'Quyên Góp': 'donation',
+        'Đầu Tư': 'invest',
+      }[post.loai_bai_dang] || post.loai_bai_dang,
+    image: post.hinh_anh?.[0]?.duong_dan_hinh_anh || null,
+    createdAt: post.ngay_tao || '',
+    status:
+      {
+        Cho_Duyet: 'pending',
+        Da_Duyet: 'approved',
+        Tu_Choi: 'rejected',
+      }[post.trang_thai] || 'pending',
+    rejectionReason: post.ly_do_tu_choi || '',
+  }));
+
+  return [...baiBe, ...getAllPostsForReview()];
+}
 
 export function getAllPostsForReview() {
   try {
@@ -9,18 +54,106 @@ export function getAllPostsForReview() {
   } catch { return []; }
 }
 
-export function reviewPost(id, decision, reason = '') {
+// GET /api/admin/bai-dang -> cache quản trị (gọi khi App mở, là admin).
+// 401/403 (không phải admin) hay BE tắt -> bỏ qua, không lưu gì.
+export async function dongBoAdminTuBe() {
+  if (!coToken()) return 0;
+
+  let danhSach;
+  try {
+    danhSach = await goiApi('/api/admin/bai-dang');
+  } catch {
+    // BE tắt (KHONG_KET_NOI) hoặc không phải admin (401/403) -> dùng cục bộ
+    return 0;
+  }
+
+  if (!Array.isArray(danhSach)) return 0;
+
+  localStorage.setItem(KEY_BE_ADMIN, JSON.stringify(danhSach));
+  return danhSach.length;
+}
+
+// Chuẩn hóa JSON BE về shape quản lý (giống chuanHoaBaiDemo/chuanHoaBaiForm)
+function chuanHoaBaiBe(post) {
+  return {
+    id: String(post.id || ''),
+    la_demo: false,
+    tu_be: true,
+    loai_bai_dang: post.loai_bai_dang || '',
+    tieu_de: post.tieu_de || '',
+    noi_dung: post.noi_dung || '',
+    muc_tieu: Number(post.muc_tieu) || 0,
+    don_vi_tien_te: post.don_vi_tien_te || 'VND',
+    id_nguoi_dang: String(post.id_nguoi_dang || ''),
+    ngay_tao: post.ngay_tao || '',
+    ngay_cap_nhat: post.ngay_cap_nhat || '',
+    trang_thai: post.trang_thai || 'Cho_Duyet',
+    hinh_anh: (post.hinh_anh || []).map(anh =>
+      typeof anh === 'string' ? anh : anh.duong_dan_hinh_anh),
+    so_tien_da_gop: post.so_tien_da_gop || 0,
+  };
+}
+
+// Cập nhật trạng thái trong cache BE sau khi duyệt từ chối thành công,
+// để các trang công khai (cache postService) phản ánh ngay.
+function capNhatCacheSauDuyet(id, trangThaiMoI) {
+  for (const cacheKey of [KEY_BE_ADMIN, 'rising-idea-be-posts']) {
+    const danhSach = docCache(cacheKey);
+    const viTri = danhSach.findIndex(item => String(item.id) === String(id));
+    if (viTri !== -1) {
+      danhSach[viTri] = {
+        ...danhSach[viTri],
+        trang_thai: trangThaiMoI,
+      };
+      localStorage.setItem(cacheKey, JSON.stringify(danhSach));
+    }
+  }
+}
+
+// Duyệt bài: BE-first (PUT /api/admin/bai-dang/{id}/duyet). BE không chạy
+// hay bài là bản demo cục bộ -> xử lý cục bộ như cũ.
+export async function reviewPost(id, decision, reason = '') {
   if (!['approved', 'rejected'].includes(decision)) throw new Error('Trạng thái không hợp lệ');
+
+  const hamDong = decision === 'approved' ? 'Duyet' : 'Tu_Choi';
+  const lyDo = decision === 'approved' ? '' : reason.trim();
+
+  if (decision === 'rejected' && !lyDo) {
+    throw new Error('Vui lòng nhập lý do từ chối');
+  }
+
+  // ---- ƯU TIÊN: duyệt qua BE (đã đăng nhập trên BE) ----
+  if (coToken()) {
+    try {
+      await goiApi(`/api/admin/bai-dang/${id}/duyet`, {
+        method: 'PUT',
+        body: { hanh_dong: hamDong, ly_do: lyDo },
+      });
+
+      capNhatCacheSauDuyet(id, hamDong === 'Duyet' ? 'Da_Duyet' : 'Tu_Choi');
+      ghiNhatKyQuanLy(hamDong, `bai_dang:${id}`, lyDo);
+      return { tu_be: true };
+    } catch (error) {
+      // Bài không tồn tại trên BE (demo/bài cục bộ) hoặc BE tắt -> cục bộ
+      if (
+        error.message !== LOI_KHONG_KET_NOI &&
+        error.statusCode !== 404
+      ) {
+        throw error;
+      }
+    }
+  }
+
+  // ---- DỰ PHÒNG: chế độ demo cục bộ (BE không chạy / bài demo) ----
   const posts = getAllPostsForReview();
   const index = posts.findIndex(p => String(p.id) === String(id));
   if (index < 0) throw new Error('Không tìm thấy bài đăng');
   if (posts[index].status !== 'pending') throw new Error('Chỉ được duyệt bài đang chờ');
-  if (decision === 'rejected' && !reason.trim()) throw new Error('Vui lòng nhập lý do từ chối');
 
   const baiDangDaSua = {
     ...posts[index],
     status: decision,
-    rejectionReason: decision === 'rejected' ? reason.trim() : '',
+    rejectionReason: decision === 'rejected' ? lyDo : '',
     reviewedAt: new Date().toISOString(),
   };
 
@@ -32,7 +165,7 @@ export function reviewPost(id, decision, reason = '') {
     {
       id: `LS-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
       id_bai_dang: id,
-      id_nguoi_duyet: getSession()?.tenTaiKhoan || '',
+      id_nguoi_duyet: getSession()?.ten_tk || '',
       hanh_dong: decision === 'approved' ? 'Duyet' : 'Tu_choi',
       ly_do: decision === 'approved' ? '' : reason.trim(),
       ngay_tao: new Date().toISOString(),
@@ -88,7 +221,7 @@ export function ghiNhatKyQuanLy(hanh_dong, loai_doi_tuong, ly_do = '') {
         // Đúng tài liệu DB: nhat_ky_quan_tri (_id, id_quan_tri_vien,
         // hanh_dong, loai_doi_tuong, ly_do, ngay_tao)
         id: `NK-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
-        id_quan_tri_vien: getSession()?.tenTaiKhoan || null,
+        id_quan_tri_vien: getSession()?.ten_tk || null,
         hanh_dong,
         loai_doi_tuong,
         ly_do,
@@ -111,7 +244,15 @@ export function docNhatKyQuanLy() {
   }
 }
 
-// Chuẩn hóa bài tạo từ form sang schema giấy DB
+// Chuẩn hóa bài tạo từ form sang schema giấy DB.
+// Form lưu mã loại tiếng Anh (crowdfund/donation/invest) — DB + BE
+// (schemas/bai_dang.py: LoaiBaiDang) dùng giá trị tiếng Việt, nên map lại.
+const MA_LOAI_DB = {
+  crowdfund: 'Gọi Vốn',
+  donation: 'Quyên Góp',
+  invest: 'Đầu Tư',
+};
+
 function chuanHoaBaiForm(post) {
   const trang_thai = {
     pending: 'Cho_Duyet',
@@ -122,7 +263,7 @@ function chuanHoaBaiForm(post) {
   return {
     id: post.id,
     la_demo: false,
-    loai_bai_dang: post.type || 'Gọi Vốn',
+    loai_bai_dang: MA_LOAI_DB[post.type] || post.type || 'Gọi Vốn',
     tieu_de: post.title || '',
     noi_dung: post.description || '',
     muc_tieu: post.goal || 0,
@@ -158,7 +299,11 @@ function chuanHoaBaiDemo(post) {
 export function layDanhSachQuanLy() {
   const danh_sach_an = docDanhSachAn();
 
+  // BE đang chạy -> cộng thêm bài thật từ cache quản trị (source: Atlas)
+  const baiBe = docCache(KEY_BE_ADMIN).map(chuanHoaBaiBe);
+
   const danh_sach = [
+    ...baiBe,
     ...POST_DEMO.map(chuanHoaBaiDemo),
     ...getAllPostsForReview().map(chuanHoaBaiForm),
   ];

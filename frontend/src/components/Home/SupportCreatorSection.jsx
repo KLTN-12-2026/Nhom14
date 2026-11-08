@@ -1,48 +1,65 @@
 const supportItems = [
   {
-    title: 'Mức phí thấp - Thật sao?',
+    icon: '💸',
+    title: 'Phí sàn thấp, minh bạch',
     description:
-      'Chúng tôi cần doanh thu phí, ~3% với mọi giao dịch khi bài đăng kết thúc (ngoài từng bài đăng quyên góp sẽ miễn phí). Đây là điều dễ dàng để giúp Rising Idea linh hoạt hơn để giúp các creators - rất thú vị đúng không nào?'
+      'Chỉ khoảng 3% trên từng bài gọi vốn kết thúc, miễn phí hoàn toàn cho bài quyên góp. Creators giữ phần lớn nguồn lực cho chính ý tưởng của mình.',
+    dotClass: 'bg-amber-400',
   },
   {
-    title: 'Hỗ trợ và đảm bảo an toàn',
+    icon: '🛡️',
+    title: 'Đồng hành cùng bạn',
     description:
-      'Rising Idea sẽ luôn luôn giám sát và minh bạch nguồn tiền là điều nhất định với các hình thức phát sinh mà mình. Người dùng có thể đảm bảo rằng mình sẽ không sử dụng tiền vào những kế xấu!'
+      'Mỗi bài đăng được xem duyệt trước khi công khai và tiến độ gọi vốn luôn hiển thị rõ ràng — để người ủng hộ luôn biết điều gì đang diễn ra.',
+    dotClass: 'bg-emerald-400',
   },
   {
-    title: 'Sức mạnh của cộng đồng',
+    icon: '🌍',
+    title: 'Sức mạnh cộng đồng',
     description:
-      'Rising Idea khuyến khích bạn và những người ủng hộ lan tỏa các thông điệp và ý tưởng của dự án rõ ràng qua các mạng xã hội. Những người hâm mộ chính là động lực to lớn cho dự án.'
+      'Rising Idea khuyến khích bạn và những người ủng hộ lan tỏa câu chuyện của dự án trên mạng xã hội. Mỗi người hâm mộ chính là một nguồn năng lượng cho dự án.',
+    dotClass: 'bg-violet-400',
   }
 ];
 
 const SupportCreatorSection = () => {
   return (
     <section id="ve-chung-toi" className="bg-white py-14 scroll-mt-20">
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 md:grid-cols-[1fr_2fr] md:px-6">
-        {/* Heading bên trái */}
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 md:grid-cols-[2fr_3fr] md:px-6">
+        {/* Slogan tiếng Anh (giữ nguyên tiếng Anh) */}
         <div className="text-center md:text-left">
-          <h2 className="font-inknut text-2xl font-bold leading-snug text-gray-900 md:text-3xl">
-            Rising Idea: Crowd Funding to support creators
+          <span className="rounded-full bg-emerald-100 px-4 py-1 text-xs font-bold uppercase tracking-wider text-emerald-700">
+            Vì sao chọn Rising Idea
+          </span>
+          <h2 className="mt-3 font-inknut text-2xl font-bold leading-snug text-gray-900 md:text-3xl">
+            Crowdfunding to support creators
           </h2>
+          <p className="mt-3 text-sm leading-6 text-gray-600">
+            Nền tảng đặt sự minh bạch và trải nghiệm của bạn làm ưu tiên hàng đầu.
+          </p>
         </div>
 
         {/* Timeline dọc bên phải */}
         <div className="relative">
           {/* Đường kẻ dọc của timeline */}
-          <div className="absolute left-[19px] top-2 bottom-8 w-px bg-gray-300" />
+          <div className="absolute left-[19px] top-2 bottom-8 w-px bg-gray-200" />
 
           <div className="space-y-10">
             {supportItems.map((item) => (
               <div key={item.title} className="relative flex gap-6">
-                {/* Chấm tròn trên timeline */}
-                <span className="relative z-10 mt-1 h-10 w-10 shrink-0 rounded-full border-2 border-gray-300 bg-white" />
+                {/* Chấm tròn màu nổi trên timeline */}
+                <span
+                  className={`relative z-10 mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${item.dotClass} text-lg shadow-md`}
+                  aria-hidden="true"
+                >
+                  {item.icon}
+                </span>
 
                 <div>
                   <h3 className="font-inknut text-lg font-bold text-gray-900 md:text-xl">
                     {item.title}
                   </h3>
-                  <p className="mt-2 max-w-xl leading-7 text-gray-600">
+                  <p className="mt-2 max-w-xl text-sm leading-7 text-gray-600">
                     {item.description}
                   </p>
                 </div>
@@ -55,4 +72,4 @@ const SupportCreatorSection = () => {
   );
 }
 
-export default SupportCreatorSection;
+export default SupportCreatorSection

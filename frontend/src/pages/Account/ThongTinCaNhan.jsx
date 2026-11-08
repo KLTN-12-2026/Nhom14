@@ -1,15 +1,20 @@
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import Navbar from "../../components/Navbar/Navbar";
 import { getUser, updateUser } from "../../services/userService";
 import Button from "../../components/Button/Button";
-import "../../styles/ThongTinCaNhan.css";
 
 const VND = new Intl.NumberFormat("vi-VN", {
   style: "currency",
   currency: "VND",
   maximumFractionDigits: 0,
 });
+
+const inputClass =
+  "w-full rounded-xl border border-gray-200 bg-slate-50 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-100";
+
+const labelClass = "mb-1.5 block text-sm font-semibold text-gray-700";
 
 // US4 - Cập nhật thông tin cá nhân: xem + chỉnh sửa các trường được phép.
 // Tài khoản và số dư chỉ xem, không cho sửa trong trang này.
@@ -19,11 +24,11 @@ function ThongTinCaNhan() {
     const current = getUser();
 
     return {
-      hoTen: current.hoTen,
-      namSinh: current.namSinh,
-      gioiTinh: current.gioiTinh,
+      ho_ten: current.ho_ten,
+      nam_sinh: current.nam_sinh,
+      gioi_tinh: current.gioi_tinh,
       email: current.email,
-      soDienThoai: current.soDienThoai,
+      dien_thoai: current.dien_thoai,
     };
   });
 
@@ -52,12 +57,12 @@ function ThongTinCaNhan() {
       return;
     }
 
-    if (!/^[0-9]{10,11}$/.test(form.soDienThoai)) {
+    if (!/^[0-9]{10,11}$/.test(form.dien_thoai)) {
       setThongBao("Số điện thoại phải có 10 hoặc 11 chữ số!");
       return;
     }
 
-    const namSinh = new Date(form.namSinh);
+    const namSinh = new Date(form.nam_sinh);
     const ngaySinhKhopLe = !Number.isNaN(namSinh.getTime());
     const namHienTai = new Date().getFullYear();
 
@@ -79,71 +84,100 @@ function ThongTinCaNhan() {
   };
 
   return (
-    <div className="thongtin-page">
-      <div className="thongtin-card">
-        <Link to="/" className="thongtin-logo">
-          Rising <span>Idea</span>
-        </Link>
+    <div className="flex min-h-screen flex-col bg-slate-50">
+      <Navbar />
 
-        <div className="thongtin-avatar">
-          {user.hoTen.charAt(0).toUpperCase()}
+      <div
+        className="h-1.5 bg-gradient-to-r from-violet-500 via-rose-400 to-amber-400"
+        aria-hidden="true"
+      />
+
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10">
+        {/* Banner hồ sơ: avatar chữ cái đầu + tên tài khoản */}
+        <div className="relative overflow-hidden rounded-3xl bg-slate-950 p-6 text-white shadow-lg sm:p-8">
+          <div
+            className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-amber-400/25 blur-2xl"
+            aria-hidden="true"
+          />
+
+          <div className="relative flex items-center gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-300 to-violet-400 font-inknut text-2xl font-extrabold text-gray-900 shadow-lg">
+              {user.ho_ten.charAt(0).toUpperCase()}
+            </div>
+
+            <div>
+              <h1 className="font-inknut text-2xl font-extrabold sm:text-3xl">
+                Thông tin cá nhân
+              </h1>
+
+              <p className="mt-1 text-sm text-slate-300">
+                @{user.ten_tk}
+              </p>
+            </div>
+          </div>
+
+          {/* Số dư khả dụng chỉ chủ tài khoản xem được (US4) */}
+          <div className="relative mt-5 flex items-center justify-between rounded-2xl bg-white/10 px-5 py-3.5 ring-1 ring-white/20 backdrop-blur">
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-300">
+              Số dư khả dụng
+            </span>
+
+            <span className="font-inknut text-lg font-extrabold text-amber-300">
+              {VND.format(user.so_du)}
+            </span>
+          </div>
         </div>
 
-        <h1>Thông tin cá nhân</h1>
-
-        <p className="thongtin-description">
-          Xem và cập nhật các thông tin được phép thay đổi của tài khoản.
+        <p className="mt-6 text-sm text-gray-500">
+          Xem và cập nhật các thông tin được phép thay đổi của tài khoản —
+          Tài khoản và Số dư chỉ xem, không sửa tại đây.
         </p>
 
-        {/* Các trường chỉ xem: Tài khoản và Số dư (US4 - chỉ chủ tài khoản xem được) */}
-        <div className="thongtin-viewonly">
-          <div className="thongtin-viewonly-row">
-            <span className="thongtin-viewonly-label">Tài khoản</span>
-            <span className="thongtin-viewonly-value">
-              {user.tenTaiKhoan}
-            </span>
-          </div>
-          <div className="thongtin-viewonly-row">
-            <span className="thongtin-viewonly-label">Số dư khả dụng</span>
-            <span className="thongtin-viewonly-value thongtin-so-du">
-              {VND.format(user.soDu)}
-            </span>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="thongtin-group">
-            <label htmlFor="hoTen">Họ và tên</label>
+        <form
+          className="mt-4 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8"
+          onSubmit={handleSubmit}
+        >
+          <div>
+            <label className={labelClass} htmlFor="ho_ten">
+              Họ và tên
+            </label>
             <input
-              id="hoTen"
-              name="hoTen"
+              id="ho_ten"
+              name="ho_ten"
               type="text"
               placeholder="Nhập họ và tên"
-              value={form.hoTen}
+              value={form.ho_ten}
               onChange={handleChange}
               autoComplete="name"
+              className={inputClass}
             />
           </div>
 
-          <div className="thongtin-row">
-            <div className="thongtin-group">
-              <label htmlFor="namSinh">Năm sinh</label>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelClass} htmlFor="nam_sinh">
+                Năm sinh
+              </label>
               <input
-                id="namSinh"
-                name="namSinh"
+                id="nam_sinh"
+                name="nam_sinh"
                 type="date"
-                value={form.namSinh}
+                value={form.nam_sinh}
                 onChange={handleChange}
+                className={inputClass}
               />
             </div>
 
-            <div className="thongtin-group">
-              <label htmlFor="gioiTinh">Giới tính</label>
+            <div>
+              <label className={labelClass} htmlFor="gioi_tinh">
+                Giới tính
+              </label>
               <select
-                id="gioiTinh"
-                name="gioiTinh"
-                value={form.gioiTinh}
+                id="gioi_tinh"
+                name="gioi_tinh"
+                value={form.gioi_tinh}
                 onChange={handleChange}
+                className={inputClass}
               >
                 <option value="Nam">Nam</option>
                 <option value="Nữ">Nữ</option>
@@ -152,8 +186,10 @@ function ThongTinCaNhan() {
             </div>
           </div>
 
-          <div className="thongtin-group">
-            <label htmlFor="email">Email</label>
+          <div className="mt-4">
+            <label className={labelClass} htmlFor="email">
+              Email
+            </label>
             <input
               id="email"
               name="email"
@@ -162,47 +198,62 @@ function ThongTinCaNhan() {
               value={form.email}
               onChange={handleChange}
               autoComplete="email"
+              className={inputClass}
             />
           </div>
 
-          <div className="thongtin-group">
-            <label htmlFor="soDienThoai">Số điện thoại</label>
+          <div className="mt-4">
+            <label className={labelClass} htmlFor="dien_thoai">
+              Số điện thoại
+            </label>
             <input
-              id="soDienThoai"
-              name="soDienThoai"
+              id="dien_thoai"
+              name="dien_thoai"
               type="tel"
               placeholder="Nhập số điện thoại"
-              value={form.soDienThoai}
+              value={form.dien_thoai}
               onChange={handleChange}
               autoComplete="tel"
+              className={inputClass}
             />
           </div>
 
           {thongBao && (
             <p
-              className={`thongtin-message ${
-                thanhCong ? "success" : "error"
+              className={`mt-5 rounded-xl px-4 py-2.5 text-center text-sm font-semibold ${
+                thanhCong
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-rose-50 text-rose-600"
               }`}
               role="status"
             >
+              {thanhCong && "🎉 "}
               {thongBao}
             </p>
           )}
 
-          <Button type="submit" size="lg" className="w-full">
+          <Button type="submit" size="lg" className="mt-6 w-full">
             Lưu thay đổi
           </Button>
         </form>
 
-        <div className="thongtin-links">
-          <Link to="/doi-mat-khau" className="thongtin-link">
+        {/* Liên kết phụ */}
+        <div className="mt-6 flex flex-wrap justify-center gap-3 pb-8 text-sm">
+          <Link
+            to="/doi-mat-khau"
+            className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 font-semibold text-gray-700 shadow-sm transition hover:border-amber-400 hover:text-amber-700"
+          >
             🔐 Đổi mật khẩu
           </Link>
-          <Link to="/" className="thongtin-back">
+
+          <Link
+            to="/"
+            className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 font-semibold text-gray-700 shadow-sm transition hover:border-amber-400 hover:text-amber-700"
+          >
             ← Quay lại trang chủ
           </Link>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

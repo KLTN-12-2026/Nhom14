@@ -1,20 +1,22 @@
 import { useMemo, useState } from "react";
 
 import Navbar from "../../components/Navbar/Navbar";
-import Hero from "../../components/Home/Hero";
+import FooterTrangChu from "../../components/Home/FooterTrangChu";
 
 import ViewSidebar from "../../components/View/ViewSidebar";
 import ViewToolbar from "../../components/View/ViewToolbar";
 import ViewList from "../../components/View/ViewList";
 
-import { posts as postsDemo } from "../../data/PostDemo/posts";
-import { getPosts } from "../../services/postService";
 import {
+  layDanhSachTongHop,
   layLoaiMenu,
   layNoiDung,
   layThoiGian,
   layTieuDe,
 } from "../../services/contributionService";
+
+// Các mục lọc khớp với menu bên ViewSidebar
+const LOAI_MENU = ["Tất cả", "Gọi Vốn", "Quyên Góp", "Đầu Tư"];
 
 const XemBaiDang = () => {
   // Bộ lọc loại bài (sidebar) + từ khóa tìm kiếm và sắp xếp (toolbar)
@@ -22,19 +24,28 @@ const XemBaiDang = () => {
   const [tuKhoa, setTuKhoa] = useState("");
   const [sapXep, setSapXep] = useState("Phù hợp nhất");
 
-  // Hợp nhất hai nguồn bài đăng: bộ demo + bài người dùng tạo từ form
-  // (lưu trong localStorage). Bài bị từ chối thì ẩn; bài chưa duyệt vẫn
-  // hiển thị kèm trạng thái "Chờ duyệt" để người dùng theo dõi bài của mình.
-  const danhSach = useMemo(() => {
-    const tuForm = [...getPosts()].filter(
-      (post) => (post.status || "pending") !== "rejected"
-    );
-    const tatCa = [...postsDemo, ...tuForm];
+  // Hợp nhất hai nguồn bài đăng (demo + bài từ form) trung qua
+  // contributionService — dùng chung helper với trang chủ để số đếm khớp.
+  const danhSachGoc = useMemo(() => layDanhSachTongHop(), []);
 
+  // Số lượng bài theo từng loại — đếm trên danh sách GỐC (trước khi lọc)
+  // để sidebar không bị nhảy số khi đang bọc bộ lọc.
+  const soDem = useMemo(() => {
+    const dem = { "Tất cả": danhSachGoc.length };
+    LOAI_MENU.slice(1).forEach((loai) => {
+      dem[loai] = danhSachGoc.filter(
+        (post) => layLoaiMenu(post) === loai
+      ).length;
+    });
+    return dem;
+  }, [danhSachGoc]);
+
+  // Áp lần lượt 3 lớp lọc: loại bài → từ khóa → sắp xếp
+  const danhSach = useMemo(() => {
     const sauLoai =
       loaiChon === "Tất cả"
-        ? tatCa
-        : tatCa.filter((post) => layLoaiMenu(post) === loaiChon);
+        ? danhSachGoc
+        : danhSachGoc.filter((post) => layLoaiMenu(post) === loaiChon);
 
     const tuKhoaSach = tuKhoa.trim().toLowerCase();
     const sauTim = tuKhoaSach
@@ -53,27 +64,53 @@ const XemBaiDang = () => {
     }
 
     return sauTim;
-  }, [loaiChon, tuKhoa, sapXep]);
+  }, [danhSachGoc, loaiChon, tuKhoa, sapXep]);
 
   return (
-    <div className="min-h-screen bg-white">
-
+    <div className="flex min-h-screen flex-col bg-slate-50">
       {/* Navbar */}
       <Navbar />
 
-      {/* Hero */}
-      <Hero />
+      {/* Banner tiêu đề: gradient thương hiệu khớp băng slogan trang chủ */}
+      <section className="relative overflow-hidden bg-gradient-to-r from-amber-400 via-rose-400 to-violet-500">
+        <div
+          className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl"
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute -bottom-20 left-1/4 h-48 w-48 rounded-full bg-white/10 blur-2xl"
+          aria-hidden="true"
+        />
 
-      {/* Main content */}
-      <main className="mx-auto flex w-full max-w-7xl flex-col border-x border-gray-300 md:min-h-screen md:flex-row">
+        <div className="relative mx-auto w-full max-w-7xl px-4 py-10 md:px-6 md:py-12">
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-white/80">
+            Rising Idea
+          </p>
 
-        {/* Sidebar */}
-        <ViewSidebar luaChon={loaiChon} onChon={setLoaiChon} />
+          <h1 className="mt-2 font-inknut text-3xl font-extrabold text-white drop-shadow-sm sm:text-4xl">
+            Khám phá dự án
+          </h1>
 
-        {/* Content */}
+          <p className="mt-2 max-w-xl text-sm leading-6 text-white/90 sm:text-base">
+            Ý tưởng đang chờ được thắp sáng — chọn loại dự án bạn quan tâm và
+            đồng hành cùng cộng đồng.
+          </p>
+
+          <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-sm font-bold text-white ring-1 ring-white/40 backdrop-blur">
+            Đang có {danhSachGoc.length} dự án trong danh mục
+          </p>
+        </div>
+      </section>
+
+      {/* Nội dung: sidebar lọc bên trái + danh sách thẻ bên phải */}
+      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row">
+        <ViewSidebar
+          luaChon={loaiChon}
+          onChon={setLoaiChon}
+          soDem={soDem}
+        />
+
         <section className="min-w-0 flex-1">
-
-          {/* Toolbar */}
           <ViewToolbar
             tuKhoa={tuKhoa}
             onTuKhoa={setTuKhoa}
@@ -81,13 +118,12 @@ const XemBaiDang = () => {
             onSapXep={setSapXep}
           />
 
-          {/* List */}
           <ViewList posts={danhSach} />
-
         </section>
-
       </main>
 
+      {/* Footer bám đáy (mt-auto của khối flex ngoài cùng) */}
+      <FooterTrangChu />
     </div>
   );
 };

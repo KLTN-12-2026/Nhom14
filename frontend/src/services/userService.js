@@ -8,19 +8,19 @@ const BASE_KEY = 'rising-idea-user';
 
 // Hồ sơ mặc định khi chưa đăng nhập (dữ liệu mẫu để xem giao diện).
 const DEFAULT_USER = {
-  tenTaiKhoan: 'nhatquang',
-  hoTen: 'Lê Nhật Quang',
-  namSinh: '2004-05-12',
-  gioiTinh: 'Nam',
+  ten_tk: 'nhatquang',
+  ho_ten: 'Lê Nhật Quang',
+  nam_sinh: '2004-05-12',
+  gioi_tinh: 'Nam',
   email: 'nhatquangle1@gmail.com',
-  soDienThoai: '0705246661',
-  soDu: 2500000,
+  dien_thoai: '0705246661',
+  so_du: 2500000,
 };
 
 // Mỗi tài khoản có một khóa riêng: rising-idea-user:<tên tài khoản>
 function storageKey() {
   const session = getSession();
-  return session ? `${BASE_KEY}:${session.tenTaiKhoan}` : BASE_KEY;
+  return session ? `${BASE_KEY}:${session.ten_tk}` : BASE_KEY;
 }
 
 // Hồ sơ ban đầu của tài khoản đang đăng nhập (lấy từ lúc đăng ký / dữ liệu mẫu).
@@ -32,13 +32,13 @@ function defaultUser() {
   }
 
   return {
-    tenTaiKhoan: account.tenTaiKhoan,
-    hoTen: account.hoTen || '',
-    namSinh: account.namSinh || '',
-    gioiTinh: account.gioiTinh || 'Khác',
+    ten_tk: account.ten_tk,
+    ho_ten: account.ho_ten || '',
+    nam_sinh: account.nam_sinh || '',
+    gioi_tinh: account.gioi_tinh || 'Khác',
     email: account.email || '',
-    soDienThoai: account.soDienThoai || '',
-    soDu: account.soDu ?? 0,
+    dien_thoai: account.dien_thoai || '',
+    so_du: account.so_du ?? 0,
   };
 }
 

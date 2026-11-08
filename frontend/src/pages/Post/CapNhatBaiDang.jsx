@@ -2,23 +2,31 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Navbar from '../../components/Navbar/Navbar';
 import PostForm from '../../components/Post/PostForm';
-import { getPostById, updatePost } from '../../services/postService';
+import { getPostById, capNhatBaiDang } from '../../services/postService';
 
 export default function CapNhatBaiDang() {
   const { id } = useParams();
   const navigate = useNavigate();
   const post = getPostById(id);
 
-  function handleUpdate(formData) {
-    const updated = updatePost(id, formData);
+  async function handleUpdate(formData) {
+    try {
+      const { baiDang, tu_be } = await capNhatBaiDang(id, formData);
 
-    if (!updated) {
-      window.alert('Không tìm thấy bài đăng cần cập nhật.');
-      return;
+      if (!baiDang) {
+        window.alert('Không tìm thấy bài đăng cần cập nhật.');
+        return;
+      }
+
+      window.alert(
+        tu_be
+          ? 'Cập nhật thành công! Bài được BE đưa về trạng thái chờ duyệt để quản trị kiểm tra lại (PB08).'
+          : 'Cập nhật bài đăng thành công!'
+      );
+      navigate('/');
+    } catch (error) {
+      window.alert(error.message);
     }
-
-    window.alert('Cập nhật bài đăng thành công!');
-    navigate('/');
   }
 
   return (

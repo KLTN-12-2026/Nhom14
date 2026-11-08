@@ -94,4 +94,34 @@ export const posts = [
       },
     ],
   },
+
+  {
+    _id: "post004",
+    loai_bai_dang: "Quyên Góp",
+    tieu_de: "Quyên góp sửa mái trường cho điểm tiểu học vùng cao",
+    noi_dung:
+      "Chiến dịch quyên góp sửa chữa mái lớp và bổ sung học cụ cho trường tiểu học miền núi đã kết thúc đúng hạn. Cảm ơn toàn bộ cộng đồng đã đồng hành — bài đăng được giữ lại để mọi người xem lại lịch sử ủng hộ.",
+    trang_thai: "Đã kết thúc",
+    muc_tieu: 60000000,
+    don_vi_tien_te: "VND",
+    thoi_gian_bat_dau: "2026-02-10T00:00:00.000Z",
+    thoi_gian_ket_thuc: "2026-05-31T23:59:59.000Z",
+    id_nguoi_dang: "user003",
+    id_nguoi_duyet: "user002",
+    ngay_tao: "2026-02-05T08:00:00.000Z",
+    ngay_cap_nhat: "2026-06-02T08:00:00.000Z",
+
+    // Dữ liệu demo bổ sung
+    ten_nguoi_dang: "Trần Thị B",
+    so_tien_da_gop: 52500000,
+
+    hinh_anh: [
+      {
+        _id: "image005",
+        duong_dan_hinh_anh:
+          "https://placehold.co/800x600/fde68a/92400e?text=Du+an+da+ket+thuc",
+        thu_tu_hien_thi: 1,
+      },
+    ],
+  },
 ];

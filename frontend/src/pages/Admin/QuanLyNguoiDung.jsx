@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import Button from '../../components/Button/Button';
+import KhungQuanTri from '../../components/Admin/KhungQuanTri';
 import {
   layDanhSachNguoiDung,
   khoaTaiKhoan,
@@ -16,7 +16,7 @@ const VAI_TRO_NHAN = {
 
 const VAI_TRO_STYLE = {
   Nguoi_Dung: 'bg-slate-200 text-slate-700',
-  Quan_Tri_Vien: 'bg-indigo-100 text-indigo-700',
+  Quan_Tri_Vien: 'bg-violet-100 text-violet-700',
 };
 
 const TRANG_THAI_NHAN = {
@@ -70,35 +70,10 @@ export default function QuanLyNguoiDung() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
-          <div>
-            <Link to="/" className="text-xl font-extrabold text-amber-700">Rising Idea</Link>
-            <p className="text-xs text-slate-500">Trang quản trị / Quản lý người dùng</p>
-          </div>
-          <div className="flex gap-2">
-            <Button as={Link} variant="nav" to="/admin/duyet-bai">
-              Duyệt bài đăng
-            </Button>
-            <Button as={Link} variant="nav" to="/admin/quan-ly-bai-dang">
-              Quản lý bài đăng
-            </Button>
-            <Button as={Link} variant="nav" to="/">
-              ← Trang chủ
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <div className="mb-7">
-          <h1 className="text-3xl font-bold">Quản lý người dùng</h1>
-          <p className="mt-2 text-slate-500">
-            Xem, khóa/mở khóa và cập nhật quyền cho các tài khoản trong hệ thống.
-          </p>
-        </div>
-
+    <KhungQuanTri
+      tieuDe="Quản lý người dùng"
+      moTa="Xem, khóa/mở khóa và cập nhật quyền cho các tài khoản trong hệ thống."
+    >
         {/* Thẻ đếm/bộ lọc trạng thái */}
         <div className="mb-7 grid gap-4 sm:grid-cols-4">
           {[
@@ -111,26 +86,38 @@ export default function QuanLyNguoiDung() {
               type="button"
               key={gia_tri}
               onClick={() => setBoLoc(gia_tri)}
-              className={`rounded-xl border bg-white p-5 text-left shadow-sm transition hover:border-amber-400 ${
-                bo_loc === gia_tri ? 'border-amber-500 ring-2 ring-amber-100' : 'border-slate-200'
+              className={`rounded-2xl border bg-white p-5 text-left shadow-sm transition ${
+                bo_loc === gia_tri
+                  ? 'border-gray-900 ring-2 ring-amber-300'
+                  : 'border-gray-200 hover:-translate-y-0.5 hover:shadow-md'
               }`}
             >
-              <p className="text-sm text-slate-500">{nhan}</p>
-              <p className="mt-1 text-3xl font-bold">{so_dem[gia_tri] ?? 0}</p>
+              <span className="inline-block rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-bold text-gray-600">
+                {nhan}
+              </span>
+
+              <p className="mt-2 font-inknut text-3xl font-extrabold text-gray-900">
+                {so_dem[gia_tri] ?? 0}
+              </p>
             </button>
           ))}
         </div>
 
         {/* Tìm kiếm */}
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <input
-            aria-label="Tìm người dùng"
-            placeholder="Tìm theo họ tên, tài khoản, email, SĐT..."
-            className="w-full max-w-md rounded-lg border border-slate-300 bg-white px-4 py-3 outline-none focus:border-amber-500"
-            value={tu_khoa}
-            onChange={(e) => setTuKhoa(e.target.value)}
-          />
-          <Button variant="outline" onClick={lam_moi}>Làm mới danh sách</Button>
+          <div className="flex w-full max-w-md items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 transition focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-100">
+            <span className="text-gray-400" aria-hidden="true">⌕</span>
+
+            <input
+              aria-label="Tìm người dùng"
+              placeholder="Tìm theo họ tên, tài khoản, email, SĐT..."
+              className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400"
+              value={tu_khoa}
+              onChange={(e) => setTuKhoa(e.target.value)}
+            />
+          </div>
+
+          <Button variant="outline" onClick={lam_moi}>🔄 Làm mới danh sách</Button>
         </div>
 
         {thong_bao && (
@@ -158,7 +145,7 @@ export default function QuanLyNguoiDung() {
                 <tr key={n.ten_tk} className="border-t border-slate-100 hover:bg-slate-50">
                   <td className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 font-semibold text-amber-800">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-amber-300 to-violet-400 font-bold text-gray-900 shadow-sm">
                         {n.ho_ten ? n.ho_ten.charAt(0).toUpperCase() : '?'}
                       </div>
                       <div>
@@ -240,7 +227,7 @@ export default function QuanLyNguoiDung() {
             <section
               role="dialog"
               aria-modal="true"
-              className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+              className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
             >
               <h2 className="text-lg font-bold">Khóa tài khoản @{dang_chon.ten_tk}</h2>
               <p className="mt-2 text-sm text-slate-500">
@@ -304,7 +291,6 @@ export default function QuanLyNguoiDung() {
           GET/PUT /api/admin/nguoi-dung khi backend hoàn thành. Người dùng bị khóa sẽ bị
           chặn đăng nhập phía frontend.
         </p>
-      </main>
-    </div>
+    </KhungQuanTri>
   );
 }
