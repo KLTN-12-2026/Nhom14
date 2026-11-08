@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import AppRoutes from './routes/AppRoutes';
+import ToanCanhThongBao from './components/ThongBao/ToanCanhThongBao';
 import { dongBoTuBe } from './services/postService';
 import { dongBoAdminTuBe } from './services/adminService';
 
@@ -11,7 +12,13 @@ function App() {
     dongBoAdminTuBe().catch(() => {});
   }, []);
 
-  return <AppRoutes />;
+  return (
+    <>
+      <AppRoutes />
+      {/* Toast + modal xác nhận toàn cục (thay alert/confirm của trình duyệt) */}
+      <ToanCanhThongBao />
+    </>
+  );
 }
 
 export default App;

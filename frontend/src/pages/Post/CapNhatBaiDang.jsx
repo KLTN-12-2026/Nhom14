@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import Navbar from '../../components/Navbar/Navbar';
 import PostForm from '../../components/Post/PostForm';
 import { getPostById, capNhatBaiDang } from '../../services/postService';
+import { tb } from '../../services/thongBaoService';
 
 export default function CapNhatBaiDang() {
   const { id } = useParams();
@@ -14,18 +15,18 @@ export default function CapNhatBaiDang() {
       const { baiDang, tu_be } = await capNhatBaiDang(id, formData);
 
       if (!baiDang) {
-        window.alert('Không tìm thấy bài đăng cần cập nhật.');
+        tb.loi('Không tìm thấy bài đăng cần cập nhật.');
         return;
       }
 
-      window.alert(
+      tb.thanhCong(
         tu_be
           ? 'Cập nhật thành công! Bài được BE đưa về trạng thái chờ duyệt để quản trị kiểm tra lại (PB08).'
           : 'Cập nhật bài đăng thành công!'
       );
-      navigate('/');
+      navigate('/bai-dang-cua-toi');
     } catch (error) {
-      window.alert(error.message);
+      tb.loi(error.message);
     }
   }
 

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import Button from '../../components/Button/Button';
 import KhungQuanTri from '../../components/Admin/KhungQuanTri';
+import PhanTrang from '../../components/Common/PhanTrang';
 import {
   layDanhSachNguoiDung,
   khoaTaiKhoan,
@@ -40,6 +41,7 @@ export default function QuanLyNguoiDung() {
   const [dang_chon, setDangChon] = useState(null); // tài khoản đang khóa
   const [ly_do, setLyDo] = useState('');
   const [thong_bao, setThongBao] = useState('');
+  const [trang, setTrang] = useState(1);
   const nhat_ky = docNhatKy();
 
   const lam_moi = () => setNguoiDung(layDanhSachNguoiDung());
@@ -56,6 +58,15 @@ export default function QuanLyNguoiDung() {
     const chuoi = `${n.ho_ten} ${n.ten_tk} ${n.email} ${n.dien_thoai}`.toLowerCase();
     return chuoi.includes(tu_khoa.toLowerCase());
   }), [nguoi_dung, bo_loc, tu_khoa]);
+
+  // Phân trang 8 người dùng/trang
+  const SO_TRANG_KICH_THUOC = 8;
+  const soTrang = Math.max(1, Math.ceil(hien_thi.length / SO_TRANG_KICH_THUOC));
+  const trangChot = Math.min(trang, soTrang);
+  const hien_thi_trang = hien_thi.slice(
+    (trangChot - 1) * SO_TRANG_KICH_THUOC,
+    trangChot * SO_TRANG_KICH_THUOC
+  );
 
   function hanh_dong(fn, mau_thong_bao) {
     try {
@@ -85,7 +96,10 @@ export default function QuanLyNguoiDung() {
             <button
               type="button"
               key={gia_tri}
-              onClick={() => setBoLoc(gia_tri)}
+              onClick={() => {
+                setBoLoc(gia_tri);
+                setTrang(1);
+              }}
               className={`rounded-2xl border bg-white p-5 text-left shadow-sm transition ${
                 bo_loc === gia_tri
                   ? 'border-gray-900 ring-2 ring-amber-300'
@@ -113,7 +127,10 @@ export default function QuanLyNguoiDung() {
               placeholder="Tìm theo họ tên, tài khoản, email, SĐT..."
               className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400"
               value={tu_khoa}
-              onChange={(e) => setTuKhoa(e.target.value)}
+              onChange={(e) => {
+                setTuKhoa(e.target.value);
+                setTrang(1);
+              }}
             />
           </div>
 
@@ -141,7 +158,7 @@ export default function QuanLyNguoiDung() {
               </tr>
             </thead>
             <tbody>
-              {hien_thi.map((n) => (
+              {hien_thi_trang.map((n) => (
                 <tr key={n.ten_tk} className="border-t border-slate-100 hover:bg-slate-50">
                   <td className="p-4">
                     <div className="flex items-center gap-3">
@@ -217,6 +234,13 @@ export default function QuanLyNguoiDung() {
             </tbody>
           </table>
         </div>
+
+        {/* Nút chuyển trang dưới bảng người dùng */}
+        <PhanTrang
+          trang={trangChot}
+          soTrang={soTrang}
+          onDoiTrang={setTrang}
+        />
 
         {/* Hộp thoại xác nhận khóa + ghi lý do */}
         {dang_chon && (

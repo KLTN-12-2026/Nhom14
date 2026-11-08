@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/Navbar/Navbar';
 import PostForm from '../../components/Post/PostForm';
 import { taoBaiDang } from '../../services/postService';
+import { tb } from '../../services/thongBaoService';
 
 export default function TaoBaiDang() {
   const navigate = useNavigate();
@@ -15,13 +16,15 @@ export default function TaoBaiDang() {
     setDangGui(true);
 
     try {
-      await taoBaiDang(formData); // BE-first, BE tắt tự lưu cục bộ
-      window.alert(
-        'Tạo bài đăng thành công! Bài của bạn đang chờ quản trị viên duyệt — xem tại trang Bài đăng.'
+      const { tu_be } = await taoBaiDang(formData); // BE-first, BE tắt tự lưu cục bộ
+      tb.thanhCong(
+        tu_be
+          ? 'Tạo bài đăng thành công! Bài đang chờ quản trị viên duyệt.'
+          : 'Tạo bài đăng thành công (lưu tạm trên trình duyệt)! Bài đang chờ duyệt.'
       );
-      navigate('/xem-bai-dang');
+      navigate('/bai-dang-cua-toi');
     } catch (error) {
-      window.alert(error.message);
+      tb.loi(error.message);
     } finally {
       setDangGui(false);
     }

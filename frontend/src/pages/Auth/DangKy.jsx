@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AuthForm from "../../components/Auth/AuthForm";
 import Navbar from "../../components/Navbar/Navbar";
+import { tb } from "../../services/thongBaoService";
 import { register } from "../../services/authService";
 
 const SLIDE_MS = 500;
@@ -25,7 +26,7 @@ export default function DangKy() {
     const password = formData.get("password");
 
     if (password !== formData.get("confirmPassword")) {
-      alert("Mật khẩu xác nhận không khớp!");
+      tb.loi("Mật khẩu xác nhận không khớp!");
       return;
     }
 
@@ -46,11 +47,11 @@ export default function DangKy() {
     setSubmitting(false);
 
     if (!result.thanhCong) {
-      alert(result.loi);
+      tb.loi(result.loi);
       return;
     }
 
-    alert("Đăng ký thành công! Vui lòng đăng nhập.");
+    tb.thanhCong("Đăng ký thành công! Vui lòng đăng nhập.");
     navigate("/dang-nhap");
   }
 

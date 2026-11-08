@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import AuthForm from "../../components/Auth/AuthForm";
 import Navbar from "../../components/Navbar/Navbar";
+import { tb } from "../../services/thongBaoService";
 import { login } from "../../services/authService";
 
 const SLIDE_MS = 500;
@@ -44,7 +45,7 @@ export default function DangNhap() {
     setSubmitting(false);
 
     if (!result.thanhCong) {
-      alert(result.loi);
+      tb.loi(result.loi);
       return;
     }
 

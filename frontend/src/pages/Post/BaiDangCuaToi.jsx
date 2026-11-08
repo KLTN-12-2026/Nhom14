@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../../components/Navbar/Navbar";
 import FooterTrangChu from "../../components/Home/FooterTrangChu";
+import PhanTrang from "../../components/Common/PhanTrang";
+import { tb } from "../../services/thongBaoService";
 import { getSession } from "../../services/authService";
 import {
   getPosts,
@@ -35,6 +37,9 @@ const STAT_CARDS = [
   { value: "rejected", nhan: "Bị từ chối", mau: "bg-rose-500 text-white" },
 ];
 
+// Số bài mỗi trang (lưới 2 cột -> 6 bài/trang là vừa màn hình)
+const SO_TRANG_KICH_THUOC = 6;
+
 export default function BaiDangCuaToi() {
   const session = getSession();
   const username = session?.ten_tk;
@@ -45,6 +50,7 @@ export default function BaiDangCuaToi() {
   );
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [trang, setTrang] = useState(1);
 
   // BE đang chạy -> lấy bài cờ tượng BE /api/bai-dang/cua-toi (PB09).
   // BE không chạy -> giữ danh sách cục bộ như cũ.
@@ -87,12 +93,23 @@ export default function BaiDangCuaToi() {
     ).length;
   };
 
-  const handleDelete = async (id) => {
-    const confirmDelete = window.confirm(
-      "Bạn có chắc muốn xóa bài đăng này?"
-    );
+  // Phân trang sau lọc/tìm kiếm (chéo trang an toàn khi danh sách thu nhỏ)
+  const soTrang = Math.max(1, Math.ceil(filteredPosts.length / SO_TRANG_KICH_THUOC));
+  const trangChot = Math.min(trang, soTrang);
+  const filteredPostsTrang = filteredPosts.slice(
+    (trangChot - 1) * SO_TRANG_KICH_THUOC,
+    trangChot * SO_TRANG_KICH_THUOC
+  );
 
-    if (!confirmDelete) return;
+  const handleDelete = async (id) => {
+    const dongY = await tb.xacNhan({
+      tieuDe: 'Xóa bài đăng?',
+      noiDung: 'Bài đăng sẽ bị gỡ khỏi hệ thống và không thể khôi phục.',
+      nhanXacNhan: 'Xóa bài',
+      netLoai: 'danger',
+    });
+
+    if (!dongY) return;
 
     try {
       const { tu_be } = await xoaBaiDang(id);
@@ -100,13 +117,11 @@ export default function BaiDangCuaToi() {
       layBaiDangCuaToi()
         .then((danh_sach) => setPosts(danh_sach))
         .catch(() => {});
-      alert(
-        tu_be
-          ? "Đã xóa bài đăng trên hệ thống!"
-          : "Xóa bài đăng thành công!"
+      tb.thanhCong(
+        tu_be ? 'Đã xóa bài đăng trên hệ thống!' : 'Xóa bài đăng thành công!'
       );
     } catch (error) {
-      alert(error.message);
+      tb.loi(error.message);
     }
   };
 
@@ -165,7 +180,10 @@ export default function BaiDangCuaToi() {
               <button
                 key={stat.value}
                 type="button"
-                onClick={() => setFilter(stat.value)}
+                onClick={() => {
+                  setFilter(stat.value);
+                  setTrang(1);
+                }}
                 className={`rounded-2xl border p-5 text-left shadow-sm transition ${
                   dangChon
                     ? "border-gray-900 bg-white ring-2 ring-amber-300"
@@ -194,7 +212,10 @@ export default function BaiDangCuaToi() {
             type="text"
             placeholder="Tìm kiếm bài đăng..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setTrang(1);
+            }}
             className="w-full bg-transparent text-sm text-gray-800 outline-none placeholder:text-gray-400"
           />
         </div>
@@ -218,8 +239,9 @@ export default function BaiDangCuaToi() {
             </Link>
           </div>
         ) : (
-          <div className="mt-6 grid gap-6 pb-10 md:grid-cols-2">
-            {filteredPosts.map((post) => {
+          <>
+            <div className="mt-6 grid gap-6 pb-10 md:grid-cols-2">
+            {filteredPostsTrang.map((post) => {
               const status =
                 statusList[post.status || "pending"] ||
                 statusList.pending;
@@ -328,6 +350,14 @@ export default function BaiDangCuaToi() {
               );
             })}
           </div>
+
+          {/* Nút chuyển trang dưới lưới bài đăng */}
+          <PhanTrang
+            trang={trangChot}
+            soTrang={soTrang}
+            onDoiTrang={setTrang}
+          />
+          </>
         )}
       </main>
 

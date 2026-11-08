@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/Button/Button';
 import KhungQuanTri from '../../components/Admin/KhungQuanTri';
+import PhanTrang from '../../components/Common/PhanTrang';
 import { reviewPost, layDanhSachDuyet, dongBoAdminTuBe } from '../../services/adminService';
 
 const statusLabels = { pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Từ chối' };
@@ -25,6 +26,7 @@ export default function DuyetBaiDang() {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
+  const [trang, setTrang] = useState(1);
   const refresh = () => setPosts(layDanhSachDuyet());
 
   // BE chạy -> tải danh sách quản trị thật (/api/admin/bai-dang) vào cache
@@ -52,6 +54,15 @@ export default function DuyetBaiDang() {
   const visible = useMemo(() => posts.filter(p => (filter === 'all' || p.status === filter) &&
     `${p.title || ''} ${p.creator || ''} ${p.description || ''}`.toLowerCase().includes(keyword.toLowerCase())).sort((a,b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)), [posts, filter, keyword]);
 
+  // Phân trang 8 bài/trang — chéo trang khi bộ lọc làm danh sách thu nhỏ
+  const SO_TRANG_KICH_THUOC = 8;
+  const soTrang = Math.max(1, Math.ceil(visible.length / SO_TRANG_KICH_THUOC));
+  const trangChot = Math.min(trang, soTrang);
+  const visibleTrang = visible.slice(
+    (trangChot - 1) * SO_TRANG_KICH_THUOC,
+    trangChot * SO_TRANG_KICH_THUOC
+  );
+
   function decide(decision) {
     if (!selected) return;
     reviewPost(selected.id, decision, reason)
@@ -77,7 +88,10 @@ export default function DuyetBaiDang() {
           <button
             type="button"
             key={key}
-            onClick={() => setFilter(key)}
+            onClick={() => {
+              setFilter(key);
+              setTrang(1);
+            }}
             className={`rounded-2xl border bg-white p-5 text-left shadow-sm transition ${
               filter === key
                 ? 'border-gray-900 ring-2 ring-amber-300'
@@ -104,7 +118,10 @@ export default function DuyetBaiDang() {
             placeholder="Tìm theo tên dự án, người đăng..."
             className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400"
             value={keyword}
-            onChange={e => setKeyword(e.target.value)}
+            onChange={(e) => {
+              setKeyword(e.target.value);
+              setTrang(1);
+            }}
           />
         </div>
 
@@ -134,7 +151,7 @@ export default function DuyetBaiDang() {
           </thead>
 
           <tbody>
-            {visible.map(p => (
+            {visibleTrang.map(p => (
               <tr key={p.id} className="border-t border-gray-100 transition hover:bg-amber-50/50">
                 <td className="max-w-xs p-4 font-semibold">{p.title || 'Chưa có tiêu đề'}</td>
                 <td className="p-4">{p.creator || '—'}</td>
@@ -166,6 +183,13 @@ export default function DuyetBaiDang() {
           </tbody>
         </table>
       </div>
+
+      {/* Nút chuyển trang dưới bảng duyệt */}
+      <PhanTrang
+        trang={trangChot}
+        soTrang={soTrang}
+        onDoiTrang={setTrang}
+      />
 
       <p className="mt-4 text-xs text-slate-500">
         Bản demo frontend: dữ liệu lưu trong localStorage của trình duyệt. Chưa có xác thực quyền quản trị hoặc đồng bộ máy chủ.

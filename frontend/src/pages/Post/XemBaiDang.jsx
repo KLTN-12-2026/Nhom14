@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 
 import Navbar from "../../components/Navbar/Navbar";
 import FooterTrangChu from "../../components/Home/FooterTrangChu";
+import PhanTrang from "../../components/Common/PhanTrang";
 
 import ViewSidebar from "../../components/View/ViewSidebar";
 import ViewToolbar from "../../components/View/ViewToolbar";
@@ -18,11 +19,15 @@ import {
 // Các mục lọc khớp với menu bên ViewSidebar
 const LOAI_MENU = ["Tất cả", "Gọi Vốn", "Quyên Góp", "Đầu Tư"];
 
+// Số bài trên mỗi trang — đủ cho lưới 3 cột, không kéo dài vô hạn
+const SO_TRANG_KICH_THUOC = 9;
+
 const XemBaiDang = () => {
   // Bộ lọc loại bài (sidebar) + từ khóa tìm kiếm và sắp xếp (toolbar)
   const [loaiChon, setLoaiChon] = useState("Tất cả");
   const [tuKhoa, setTuKhoa] = useState("");
   const [sapXep, setSapXep] = useState("Phù hợp nhất");
+  const [trang, setTrang] = useState(1);
 
   // Hợp nhất hai nguồn bài đăng (demo + bài từ form) trung qua
   // contributionService — dùng chung helper với trang chủ để số đếm khớp.
@@ -66,6 +71,28 @@ const XemBaiDang = () => {
     return sauTim;
   }, [danhSachGoc, loaiChon, tuKhoa, sapXep]);
 
+  // Phân trang: chéo trang không vượt quá tổng số trang sau khi lọc
+  const soTrang = Math.max(1, Math.ceil(danhSach.length / SO_TRANG_KICH_THUOC));
+  const trangChot = Math.min(trang, soTrang);
+  const danhSachTrang = danhSach.slice(
+    (trangChot - 1) * SO_TRANG_KICH_THUOC,
+    trangChot * SO_TRANG_KICH_THUOC
+  );
+
+  // Đổi lọc/tìm/sắp xếp luôn về trang 1 (danh sách thay đổi đột ngột)
+  const chonLoaiVaVeTrang = (loai) => {
+    setLoaiChon(loai);
+    setTrang(1);
+  };
+  const nhanTuKhoaVaVeTrang = (chuoi) => {
+    setTuKhoa(chuoi);
+    setTrang(1);
+  };
+  const chonSapXepVaVeTrang = (kieu) => {
+    setSapXep(kieu);
+    setTrang(1);
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
       {/* Navbar */}
@@ -106,19 +133,25 @@ const XemBaiDang = () => {
       <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row">
         <ViewSidebar
           luaChon={loaiChon}
-          onChon={setLoaiChon}
+          onChon={chonLoaiVaVeTrang}
           soDem={soDem}
         />
 
         <section className="min-w-0 flex-1">
           <ViewToolbar
             tuKhoa={tuKhoa}
-            onTuKhoa={setTuKhoa}
+            onTuKhoa={nhanTuKhoaVaVeTrang}
             sapXep={sapXep}
-            onSapXep={setSapXep}
+            onSapXep={chonSapXepVaVeTrang}
           />
 
-          <ViewList posts={danhSach} />
+          <ViewList posts={danhSachTrang} />
+
+          <PhanTrang
+            trang={trangChot}
+            soTrang={soTrang}
+            onDoiTrang={setTrang}
+          />
         </section>
       </main>
 

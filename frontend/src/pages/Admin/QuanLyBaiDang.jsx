@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/Button/Button';
 import KhungQuanTri from '../../components/Admin/KhungQuanTri';
+import PhanTrang from '../../components/Common/PhanTrang';
 import {
   layDanhSachQuanLy,
   anBaiDang,
@@ -34,6 +35,7 @@ export default function QuanLyBaiDang() {
   const [tu_khoa, setTuKhoa] = useState('');
   const [dang_xem, setDangXem] = useState(null);
   const [thong_bao, setThongBao] = useState('');
+  const [trang, setTrang] = useState(1);
   const nhat_ky = docNhatKyQuanLy();
 
   const lam_moi = () => setBaiDang(layDanhSachQuanLy());
@@ -51,6 +53,15 @@ export default function QuanLyBaiDang() {
     const chuoi = `${p.tieu_de} ${p.id_nguoi_dang} ${p.loai_bai_dang}`.toLowerCase();
     return chuoi.includes(tu_khoa.toLowerCase());
   }).sort((a, b) => new Date(b.ngay_tao || 0) - new Date(a.ngay_tao || 0)), [bai_dang, bo_loc, tu_khoa]);
+
+  // Phân trang 8 bài/trang
+  const SO_TRANG_KICH_THUOC = 8;
+  const soTrang = Math.max(1, Math.ceil(hien_thi.length / SO_TRANG_KICH_THUOC));
+  const trangChot = Math.min(trang, soTrang);
+  const hien_thi_trang = hien_thi.slice(
+    (trangChot - 1) * SO_TRANG_KICH_THUOC,
+    trangChot * SO_TRANG_KICH_THUOC
+  );
 
   function xu_ly(fn, thong_bao_mo) {
     try {
@@ -79,7 +90,10 @@ export default function QuanLyBaiDang() {
             <button
               type="button"
               key={gia_tri}
-              onClick={() => setBoLoc(gia_tri)}
+              onClick={() => {
+                setBoLoc(gia_tri);
+                setTrang(1);
+              }}
               className={`rounded-2xl border bg-white p-5 text-left shadow-sm transition ${
                 bo_loc === gia_tri
                   ? 'border-gray-900 ring-2 ring-amber-300'
@@ -107,7 +121,10 @@ export default function QuanLyBaiDang() {
               placeholder="Tìm theo tiêu đề, người đăng, loại..."
               className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400"
               value={tu_khoa}
-              onChange={(e) => setTuKhoa(e.target.value)}
+              onChange={(e) => {
+                setTuKhoa(e.target.value);
+                setTrang(1);
+              }}
             />
           </div>
 
@@ -136,7 +153,7 @@ export default function QuanLyBaiDang() {
               </tr>
             </thead>
             <tbody>
-              {hien_thi.map((p) => (
+              {hien_thi_trang.map((p) => (
                 <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50">
                   <td className="max-w-xs p-4">
                     <div className="flex items-center gap-2">
@@ -199,6 +216,13 @@ export default function QuanLyBaiDang() {
             </tbody>
           </table>
         </div>
+
+        {/* Nút chuyển trang dưới bảng quản lý */}
+        <PhanTrang
+          trang={trangChot}
+          soTrang={soTrang}
+          onDoiTrang={setTrang}
+        />
 
         {/* Hộp thoại xem chi tiết */}
         {dang_xem && (
