@@ -30,7 +30,7 @@ export function coToken() {
   return layToken() !== null;
 }
 
-export async function goiApi(path, { method = 'GET', body, token = true } = {}) {
+export async function goiApi(path, { method = 'GET', body, token = true, thoiGian = 15000 } = {}) {
   const headers = { 'Content-Type': 'application/json' };
 
   if (token) {
@@ -40,6 +40,14 @@ export async function goiApi(path, { method = 'GET', body, token = true } = {}) 
     }
   }
 
+  // Chống treo vĩnh viễn: BE chạy nhưng request không trả lời (kết nối kẹt,
+  // Atlas chậm...) thì hủy sau `thoiGian` ms -> service rơi về bản demo, UI
+  // không đứng trên "Đang xử lý..." mãi.
+  let signal;
+  if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
+    signal = AbortSignal.timeout(thoiGian);
+  }
+
   let response;
 
   try {
@@ -47,9 +55,10 @@ export async function goiApi(path, { method = 'GET', body, token = true } = {}) 
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal,
     });
   } catch {
-    // fetch chỉ ném Error khi không kết nối được (DNS/refused/CORS chặn)
+    // fetch chỉ ném Error khi không kết nối được (DNS/refused/CORS chặn/timeout)
     throw new Error(LOI_KHONG_KET_NOI);
   }
 

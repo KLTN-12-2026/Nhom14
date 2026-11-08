@@ -17,7 +17,8 @@ from app.services.nguoi_dung import (
     update_user,
     change_password,
     DuplicateUserError,
-    InvalidCredentialsError
+    InvalidCredentialsError,
+    TaiKhoanBiKhoaError
 )
 
 from app.utils.auth import get_current_user
@@ -71,6 +72,15 @@ async def login(user_data: NguoiDungLogin):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Tên tài khoản hoặc mật khẩu không chính xác."
+        )
+
+    except TaiKhoanBiKhoaError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Tài khoản của bạn đã bị khóa. "
+                "Vui lòng liên hệ quản trị viên để biết thêm chi tiết."
+            )
         )
 
 

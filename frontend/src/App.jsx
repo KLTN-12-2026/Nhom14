@@ -3,13 +3,27 @@ import AppRoutes from './routes/AppRoutes';
 import ToanCanhThongBao from './components/ThongBao/ToanCanhThongBao';
 import { dongBoTuBe } from './services/postService';
 import { dongBoAdminTuBe } from './services/adminService';
+import { dongBoViTuBe } from './services/walletService';
+import { coToken } from './services/apiClient';
 
 function App() {
-  // Mở tab: tải bài thật từ BE (nếu BE đang chạy) vào cache localStorage.
+  // Mở tab: tải dữ liệu thật từ BE (nếu BE đang chạy) vào cache localStorage.
   // Lỗi bỏ qua im lặng — BE tắt thì mọi trang vẫn đọc cache/demo như cũ.
   useEffect(() => {
-    dongBoTuBe().catch(() => {});
-    dongBoAdminTuBe().catch(() => {});
+    const dong_bo_het = () => {
+      dongBoTuBe().catch(() => {});
+      dongBoAdminTuBe().catch(() => {});
+
+      // Ví cần token: chưa đăng nhập thì BE chắc chắn trả 401, khỏi gọi
+      if (coToken()) {
+        dongBoViTuBe().catch(() => {});
+      }
+    };
+
+    dong_bo_het();
+    // Quay lại tab/đăng nhập xong đồng bộ lại một nhịp
+    window.addEventListener('focus', dong_bo_het);
+    return () => window.removeEventListener('focus', dong_bo_het);
   }, []);
 
   return (

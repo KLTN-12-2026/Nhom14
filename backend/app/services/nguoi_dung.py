@@ -17,6 +17,11 @@ class InvalidCredentialsError(Exception):
     pass
 
 
+class TaiKhoanBiKhoaError(Exception):
+    """Đăng nhập bị chặn vì tài khoản bị khóa (PB17)."""
+    pass
+
+
 async def register_user(user_data: dict) -> dict:
     collection = database["nguoi_dung"]
 
@@ -46,6 +51,7 @@ async def register_user(user_data: dict) -> dict:
         "email": user_data["email"],
         "ten_tk": user_data["ten_tk"],
         "mat_khau": hash_password(user_data["mat_khau"]),
+        "trang_thai": "Hoat_Dong",
         "ngay_tao": now,
         "ngay_cap_nhat": now
     }
@@ -74,6 +80,10 @@ async def login_user(ten_tk: str, mat_khau: str):
 
     if not verify_password(mat_khau, user["mat_khau"]):
         raise InvalidCredentialsError()
+
+    # PB17: tài khoản bị khóa không cho đăng nhập vào hệ thống
+    if user.get("trang_thai", "Hoat_Dong") == "Bi_Khoa":
+        raise TaiKhoanBiKhoaError()
 
     token = create_access_token({
         "sub": str(user["_id"])

@@ -60,6 +60,10 @@ const Navbar = () => {
                 Bài đăng của tôi
               </Link>
 
+              <Link to="/nap-so-du" className={itemClass}>
+                💳 Ví của tôi
+              </Link>
+
               <Link to="/thong-tin-ca-nhan" className={itemClass}>
                 {session.ten_tk}
               </Link>

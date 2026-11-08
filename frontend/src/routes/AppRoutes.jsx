@@ -7,6 +7,8 @@ import TaoBaiDang from '../pages/Post/TaoBaiDang';
 import CapNhatBaiDang from '../pages/Post/CapNhatBaiDang';
 import DoiMatKhau from '../pages/Account/DoiMatKhau';
 import ThongTinCaNhan from '../pages/Account/ThongTinCaNhan';
+import NapSoDu from '../pages/Account/NapSoDu';
+import LichSuSoDu from '../pages/Account/LichSuSoDu';
 import DuyetBaiDang from '../pages/Admin/DuyetBaiDang';
 import QuanLyNguoiDung from '../pages/Admin/QuanLyNguoiDung';
 import QuanLyBaiDang from '../pages/Admin/QuanLyBaiDang';
@@ -33,6 +35,8 @@ export default function AppRoutes() {
         <Route element={<ProtectedRoute />}>
           <Route path="/doi-mat-khau" element={<DoiMatKhau />} />
           <Route path="/thong-tin-ca-nhan" element={<ThongTinCaNhan />} />
+          <Route path="/nap-so-du" element={<NapSoDu />} />
+          <Route path="/lich-su-so-du" element={<LichSuSoDu />} />
           <Route path="/bai-dang/tao-moi" element={<TaoBaiDang />} />
           <Route path="/bai-dang-cua-toi" element={<BaiDangCuaToi />} />
           <Route

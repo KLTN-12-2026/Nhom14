@@ -12,6 +12,8 @@ from app.config.database import (
 from app.routers.nguoi_dung import router as nguoi_dung_router
 from app.routers.bai_dang import router as bai_dang_router
 from app.routers.admin import router as admin_bai_dang_router
+from app.routers.so_du import router as so_du_router
+from app.routers.admin_nguoi_dung import router as admin_nguoi_dung_router
 
 
 @asynccontextmanager
@@ -45,6 +47,8 @@ app.add_middleware(
 app.include_router(nguoi_dung_router)
 app.include_router(bai_dang_router)
 app.include_router(admin_bai_dang_router)
+app.include_router(so_du_router)
+app.include_router(admin_nguoi_dung_router)
 
 
 @app.get("/")

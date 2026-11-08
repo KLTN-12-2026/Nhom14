@@ -1,9 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Button from '../../components/Button/Button';
 import KhungQuanTri from '../../components/Admin/KhungQuanTri';
 import PhanTrang from '../../components/Common/PhanTrang';
+import { tb } from '../../services/thongBaoService';
 import {
   layDanhSachNguoiDung,
+  dongBoNguoiDungTuBe,
+  dongBoNhatKyTuBe,
   khoaTaiKhoan,
   moKhoaTaiKhoan,
   doiVaiTro,
@@ -35,16 +38,27 @@ const ngay = (gia_tri) =>
   gia_tri ? new Date(gia_tri).toLocaleString('vi-VN') : '—';
 
 export default function QuanLyNguoiDung() {
+  // Ban đầu: cache BE (nếu có) hoặc danh sách demo cục bộ - render không chờ
   const [nguoi_dung, setNguoiDung] = useState(() => layDanhSachNguoiDung());
   const [bo_loc, setBoLoc] = useState('all');
   const [tu_khoa, setTuKhoa] = useState('');
   const [dang_chon, setDangChon] = useState(null); // tài khoản đang khóa
   const [ly_do, setLyDo] = useState('');
-  const [thong_bao, setThongBao] = useState('');
   const [trang, setTrang] = useState(1);
-  const nhat_ky = docNhatKy();
+  const [nhat_ky, setNhatKy] = useState(() => docNhatKy());
 
-  const lam_moi = () => setNguoiDung(layDanhSachNguoiDung());
+  const lam_moi = () => {
+    setNguoiDung(layDanhSachNguoiDung());
+    setNhatKy(docNhatKy());
+  };
+
+  // Mở trang admin: khớp danh sách + nhật ký thật từ BE (nếu BE chạy)
+  useEffect(() => {
+    Promise.allSettled([
+      dongBoNguoiDungTuBe().then(() => setNguoiDung(layDanhSachNguoiDung())),
+      dongBoNhatKyTuBe().then(() => setNhatKy(docNhatKy())),
+    ]);
+  }, []);
 
   const so_dem = useMemo(() => ({
     all: nguoi_dung.length,
@@ -68,13 +82,14 @@ export default function QuanLyNguoiDung() {
     trangChot * SO_TRANG_KICH_THUOC
   );
 
-  function hanh_dong(fn, mau_thong_bao) {
+  // Chạy một thao tác quản trị (khóa/mở/đổi quyền) - BE-first, lỗi → toast
+  async function hanh_dong(fn, thong_bao_thanh_cong) {
     try {
-      fn();
-      setThongBao(mau_thong_bao);
+      await fn();
+      tb.thanhCong(thong_bao_thanh_cong);
       lam_moi();
     } catch (error) {
-      setThongBao(`⚠️ ${error.message}`);
+      tb.loi(error.message);
     }
     setDangChon(null);
     setLyDo('');
@@ -137,13 +152,6 @@ export default function QuanLyNguoiDung() {
           <Button variant="outline" onClick={lam_moi}>🔄 Làm mới danh sách</Button>
         </div>
 
-        {thong_bao && (
-          <div role="status" className="mb-4 flex justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            {thong_bao}
-            <button type="button" onClick={() => setThongBao('')} aria-label="Đóng thông báo">✕</button>
-          </div>
-        )}
-
         {/* Bảng người dùng */}
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full min-w-[860px] text-left text-sm">
@@ -195,7 +203,6 @@ export default function QuanLyNguoiDung() {
                               `Đã mở khóa tài khoản @${n.ten_tk}.`
                             );
                           } else {
-                            setThongBao('');
                             setLyDo('');
                             setDangChon(n);
                           }
@@ -310,10 +317,9 @@ export default function QuanLyNguoiDung() {
         </section>
 
         <p className="mt-6 text-xs text-slate-500">
-          Bản demo frontend: trạng thái khóa/vai trò lưu localStorage; cấu trúc trường khớp
-          tài liệu DB (ten_tk, ho_ten, email, vai_tro, trang_thai, ngay_tao...) — chỉ cần cắm
-          GET/PUT /api/admin/nguoi-dung khi backend hoàn thành. Người dùng bị khóa sẽ bị
-          chặn đăng nhập phía frontend.
+          Dữ liệu lấy ưu tiên từ BE (GET /api/admin/nguoi-dung, nhat_ky_quan_tri);
+          BE tắt tự rơi về bản demo localStorage. Người dùng bị khóa bị chặn đăng
+          nhập cả phía BE lẫn phía FE.
         </p>
     </KhungQuanTri>
   );
