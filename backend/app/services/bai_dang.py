@@ -34,28 +34,78 @@ def _date_to_datetime(ngay: date | None):
     return datetime.combine(ngay, time.min, tzinfo=timezone.utc)
 
 
-def _chuan_hoa(doc: dict, hinh_anh: list | None = None) -> dict:
+def _utc_aware(thoi_gian: datetime):
+    # MongoDB trả datetime "naive" (mất timezone) khi đọc từ DB, còn dữ liệu
+    # guest mới từ FE luôn có tzinfo UTC -> so sánh >= giữa 2 kiểu văng
+    # TypeError (can't compare offset-naive and offset-aware datetimes).
+    if thoi_gian is None or thoi_gian.tzinfo is not None:
+        return thoi_gian
+
+    return thoi_gian.replace(tzinfo=timezone.utc)
+
+
+def _chuan_hoa(
+    doc: dict,
+    hinh_anh: list | None = None,
+    ten_nguoi_dang: str | None = None,
+) -> dict:
     # Đưa tài liệu MongoDB về dạng JSON thân thiện FE:
-    # ObjectId -> str, datetime -> ISO, kèm hinh_anh[] theo hinh_anh_bai_dang
+    # ObjectId -> str, datetime -> ISO, kèm hinh_anh[] theo hinh_anh_bai_dang.
+    # Phòng thủ: dùng .get() cho mọi trường — bản ghi cũ thiếu trường
+    # (tạo từ phiên trước/seed khác) vẫn trả JSON, không crash endpoint
+    # (crash ngoài ExceptionMiddleware sẽ mất CORS header -> FE tưởng BE tắt).
+    thoi_gian_bat_dau = doc.get("thoi_gian_bat_dau")
+    thoi_gian_ket_thuc = doc.get("thoi_gian_ket_thuc")
+    ngay_tao = doc.get("ngay_tao")
+    ngay_cap_nhat = doc.get("ngay_cap_nhat") or ngay_tao
+
     return {
         "id": str(doc["_id"]),
-        "loai_bai_dang": doc["loai_bai_dang"],
-        "tieu_de": doc["tieu_de"],
-        "noi_dung": doc["noi_dung"],
-        "trang_thai": doc["trang_thai"],
-        "muc_tieu": doc["muc_tieu"],
+        "loai_bai_dang": doc.get("loai_bai_dang", ""),
+        "tieu_de": doc.get("tieu_de", ""),
+        # Ghép tên tại thời điểm đọc (bai_dang vẫn chỉ lưu id_nguoi_dang):
+        # truy vấn trang chi tiết/danh sách thêm bảng tên người dùng theo id,
+        # ai xem (kể cả tài khoản thường) cũng thấy tên người đăng.
+        "ten_nguoi_dang": ten_nguoi_dang or None,
+        "noi_dung": doc.get("noi_dung", ""),
+        "trang_thai": doc.get("trang_thai", "Cho_Duyet"),
+        "muc_tieu": doc.get("muc_tieu", 0),
         "don_vi_tien_te": doc.get("don_vi_tien_te", "VND"),
-        "thoi_gian_bat_dau": doc["thoi_gian_bat_dau"].isoformat()
-        if doc.get("thoi_gian_bat_dau")
+        "thoi_gian_bat_dau": thoi_gian_bat_dau.isoformat()
+        if thoi_gian_bat_dau
         else None,
-        "thoi_gian_ket_thuc": doc["thoi_gian_ket_thuc"].isoformat()
-        if doc.get("thoi_gian_ket_thuc")
+        "thoi_gian_ket_thuc": thoi_gian_ket_thuc.isoformat()
+        if thoi_gian_ket_thuc
         else None,
-        "id_nguoi_dang": str(doc["id_nguoi_dang"]),
-        "id_nguoi_duyet": str(doc["id_nguoi_duyet"]) if doc.get("id_nguoi_duyet") else None,
-        "ngay_tao": doc["ngay_tao"].isoformat(),
-        "ngay_cap_nhat": doc["ngay_cap_nhat"].isoformat(),
+        "id_nguoi_dang": str(doc["id_nguoi_dang"])
+        if doc.get("id_nguoi_dang")
+        else None,
+        "id_nguoi_duyet": str(doc["id_nguoi_duyet"])
+        if doc.get("id_nguoi_duyet")
+        else None,
+        "ngay_tao": ngay_tao.isoformat() if ngay_tao else None,
+        "ngay_cap_nhat": ngay_cap_nhat.isoformat() if ngay_cap_nhat else None,
         "hinh_anh": hinh_anh or [],
+    }
+
+
+async def lay_ban_do_ten_nguoi_dang(danh_sach_id: list) -> dict:
+    # Ghép tên hiển thị theo id người dùng tại thời điểm đọc — collection
+    # bai_dang vẫn chỉ lưu id_nguoi_dang (không đổi schema DB). Một truy vấn
+    # duy nhất với $in cho cả danh sách nên chi phí thấp.
+    id_hop_le = [
+        ObjectId(ma) for ma in danh_sach_id if ma and ObjectId.is_valid(ma)
+    ]
+    if not id_hop_le:
+        return {}
+
+    cursor = database["nguoi_dung"].find({"_id": {"$in": id_hop_le}})
+
+    return {
+        str(nguoi_dung["_id"]): (
+            nguoi_dung.get("ho_ten") or nguoi_dung.get("ten_tk") or ""
+        )
+        async for nguoi_dung in cursor
     }
 
 
@@ -131,7 +181,10 @@ async def tao_bai_dang(du_lieu: dict, id_nguoi_dang: ObjectId) -> dict:
 
     return _chuan_hoa(
         bai_dang,
-        await doc_hinh_anh(bai_dang["_id"])
+        await doc_hinh_anh(bai_dang["_id"]),
+        (await lay_ban_do_ten_nguoi_dang([str(id_nguoi_dang)])).get(
+            str(id_nguoi_dang)
+        ),
     )
 
 
@@ -152,7 +205,10 @@ async def lay_bai_dang_theo_id(id_bai_dang: str) -> dict:
 
     return _chuan_hoa(
         bai_dang,
-        await doc_hinh_anh(bai_dang["_id"])
+        await doc_hinh_anh(bai_dang["_id"]),
+        (await lay_ban_do_ten_nguoi_dang([str(bai_dang.get("id_nguoi_dang"))])).get(
+            str(bai_dang.get("id_nguoi_dang"))
+        ),
     )
 
 
@@ -175,13 +231,23 @@ async def lay_bai_dang_cong_khai(
         "ngay_tao", -1
     ).skip(max(0, skip)).limit(max(1, min(100, limit)))
 
-    ket_qua = []
+    danh_sach = []
     async for bai_dang in cursor:
-        ket_qua.append(
-            _chuan_hoa(bai_dang, await doc_hinh_anh(bai_dang["_id"]))
-        )
+        danh_sach.append(bai_dang)
 
-    return ket_qua
+    # Ghép tên người đăng một truy vấn cho cả danh sách
+    ban_do_ten = await lay_ban_do_ten_nguoi_dang(
+        [str(bai_dang.get("id_nguoi_dang")) for bai_dang in danh_sach]
+    )
+
+    return [
+        _chuan_hoa(
+            bai_dang,
+            await doc_hinh_anh(bai_dang["_id"]),
+            ban_do_ten.get(str(bai_dang.get("id_nguoi_dang"))),
+        )
+        for bai_dang in danh_sach
+    ]
 
 
 async def lay_bai_dang_cua_toi(id_nguoi_dang: ObjectId) -> list:
@@ -190,13 +256,22 @@ async def lay_bai_dang_cua_toi(id_nguoi_dang: ObjectId) -> list:
         "id_nguoi_dang": id_nguoi_dang
     }).sort("ngay_tao", -1)
 
-    ket_qua = []
+    danh_sach = []
     async for bai_dang in cursor:
-        ket_qua.append(
-            _chuan_hoa(bai_dang, await doc_hinh_anh(bai_dang["_id"]))
-        )
+        danh_sach.append(bai_dang)
 
-    return ket_qua
+    ban_do_ten = await lay_ban_do_ten_nguoi_dang(
+        [str(bai_dang.get("id_nguoi_dang")) for bai_dang in danh_sach]
+    )
+
+    return [
+        _chuan_hoa(
+            bai_dang,
+            await doc_hinh_anh(bai_dang["_id"]),
+            ban_do_ten.get(str(bai_dang.get("id_nguoi_dang"))),
+        )
+        for bai_dang in danh_sach
+    ]
 
 
 async def cap_nhat_bai_dang(id_bai_dang: str, du_lieu: dict,
@@ -237,6 +312,11 @@ async def cap_nhat_bai_dang(id_bai_dang: str, du_lieu: dict,
     ket_thuc = du_lieu_moi.get(
         "thoi_gian_ket_thuc", bai_dang.get("thoi_gian_ket_thuc")
     )
+
+    if bat_dau and ket_thuc:
+        # Mọi phép so sánh đều dùng chuẩn UTC-aware (Mongo trả naive)
+        bat_dau = _utc_aware(bat_dau)
+        ket_thuc = _utc_aware(ket_thuc)
 
     if bat_dau and ket_thuc and bat_dau >= ket_thuc:
         raise ValueError("Thời gian kết thúc phải sau thời gian bắt đầu.")
@@ -290,13 +370,22 @@ async def lay_bai_dang_quan_tri(trang_thai: str | None = None) -> list:
 
     cursor = database["bai_dang"].find(dieu_kien).sort("ngay_tao", -1)
 
-    ket_qua = []
+    danh_sach = []
     async for bai_dang in cursor:
-        ket_qua.append(
-            _chuan_hoa(bai_dang, await doc_hinh_anh(bai_dang["_id"]))
-        )
+        danh_sach.append(bai_dang)
 
-    return ket_qua
+    ban_do_ten = await lay_ban_do_ten_nguoi_dang(
+        [str(bai_dang.get("id_nguoi_dang")) for bai_dang in danh_sach]
+    )
+
+    return [
+        _chuan_hoa(
+            bai_dang,
+            await doc_hinh_anh(bai_dang["_id"]),
+            ban_do_ten.get(str(bai_dang.get("id_nguoi_dang"))),
+        )
+        for bai_dang in danh_sach
+    ]
 
 
 async def duyet_bai_dang(id_bai_dang: str, hanh_dong: str,

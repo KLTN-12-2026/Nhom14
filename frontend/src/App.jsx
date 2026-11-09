@@ -3,6 +3,7 @@ import AppRoutes from './routes/AppRoutes';
 import ToanCanhThongBao from './components/ThongBao/ToanCanhThongBao';
 import { dongBoTuBe } from './services/postService';
 import { dongBoAdminTuBe } from './services/adminService';
+import { dongBoNguoiDungTuBe } from './services/adminUserService';
 import { dongBoViTuBe } from './services/walletService';
 import { coToken } from './services/apiClient';
 
@@ -13,6 +14,9 @@ function App() {
     const dong_bo_het = () => {
       dongBoTuBe().catch(() => {});
       dongBoAdminTuBe().catch(() => {});
+      // Danh sách người dùng (quyền admin): dùng để tra tên người đăng theo
+      // id bài đăng. Tài khoản thường BE trả 403 -> bỏ im lặng, dùng cache cũ.
+      dongBoNguoiDungTuBe().catch(() => {});
 
       // Ví cần token: chưa đăng nhập thì BE chắc chắn trả 401, khỏi gọi
       if (coToken()) {

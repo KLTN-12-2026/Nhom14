@@ -2,7 +2,12 @@ import { getTypeOption } from '../data/mockPosts';
 import { posts as POST_DEMO } from '../data/PostDemo/posts';
 import { getSession } from './authService';
 import { getUser } from './userService';
-import { getPosts, layBaiTuBe, tangTienHuyDong as tangTienPostService } from './postService';
+import { layNguoiDungBangId } from './adminUserService';
+import {
+  getPosts,
+  layBaiTuBe,
+  tangTienHuyDong as tangTienPostService,
+} from './postService';
 
 const BASE_KEY = 'rising-idea-contributions';
 
@@ -77,8 +82,20 @@ export function layNoiDung(post) {
   return post?.noi_dung || post?.description || '';
 }
 
+// Tên người đăng: 1) tên đã ghi trong bài (demo: ten_nguoi_dang, form: creator),
+// 2) tra theo id_nguoi_dang với danh sách người dùng (bài BE chỉ lưu id),
+// 3) "Người dùng" khi không tra được (danh sách user chưa đồng bộ / BE tắt).
 export function layNguoiDang(post) {
-  return post?.ten_nguoi_dang || post?.creator || 'Người dùng';
+  const ghiTrongBai = post?.ten_nguoi_dang || post?.creator;
+
+  if (ghiTrongBai) return ghiTrongBai;
+
+  const nguoi_dung = layNguoiDungBangId(post?.id_nguoi_dang);
+
+  if (nguoi_dung?.ho_ten) return nguoi_dung.ho_ten;
+  if (nguoi_dung?.ten_tk) return nguoi_dung.ten_tk;
+
+  return 'Người dùng';
 }
 
 // Mục tiêu tiền: bài demo là muc_tieu, bài từ form là goal.
@@ -118,7 +135,16 @@ export function layDanhSachTongHop() {
   const tuForm = [...getPosts()].filter(
     (post) => (post.status || 'pending') !== 'rejected'
   );
-  return [...POST_DEMO, ...tuForm, ...layBaiTuBe()];
+
+  // getPosts() đã hợp nhất bài BE vào list cục bộ rồi — nếu thêm
+  // layBaiTuBe() nữa thì bài BE bị nhân đôi (đăng 1 hiện 2 sau khi duyệt).
+  // -> Đếm id đã có trong tuForm, chỉ bury thêm bài BE thật sự chưa có.
+  const daCo = new Set(tuForm.map((post) => String(layMaBaiDang(post))));
+  const beThem = layBaiTuBe().filter(
+    (post) => !daCo.has(String(layMaBaiDang(post)))
+  );
+
+  return [...POST_DEMO, ...tuForm, ...beThem];
 }
 
 // Re-export helper tìm bài mọi nguồn (cache hợp nhất -> BE trực tiếp).

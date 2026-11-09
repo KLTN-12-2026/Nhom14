@@ -29,8 +29,20 @@ const MUC_NHANH = [
   { so_tien: 2000000, nhan: "2.000.000" },
 ];
 
-// US13 - Nạp tiền vào ví: BE-first (POST /api/so-du/nap-tien),
-// BE tắt tự rơi về lưu cục bộ, giao dịch nào cũng có lịch sử.
+// Tạo mã QR chuyển khoản: nội dung mã chứa hướng dẫn nạp theo tài khoản.
+// Bản demo dùng api.qrserver.com (quét mã sẽ thấy thông tin nạp của bạn);
+// khi tích hợp VietQR/thanh toán thật chỉ cần thay link QR này.
+function taoLinkQR({ ten_tk, so_tien }) {
+  const noi_dung_qr = `RISING-IDEA | NAP SO DU | @${ten_tk} | ${new Intl.NumberFormat(
+    "vi-VN"
+  ).format(so_tien)} VND`;
+  return `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&data=${encodeURIComponent(
+    noi_dung_qr
+  )}`;
+}
+
+// US13 - Nạp tiền qua QR: gọi số tiền -> hiện mã QR chuyển khoản ->
+// người nạp quét/trả -> nhấn "Đã thanh toán" -> ghi giao dịch (BE-first).
 export default function NapSoDu() {
   const session = getSession();
 
@@ -38,6 +50,7 @@ export default function NapSoDu() {
   const [so_tien, setSoTien] = useState("");
   const [mo_ta, setMoTa] = useState("");
   const [dang_gui, setDangGui] = useState(false);
+  const [ho_so_qr, setHoSoQr] = useState(null); // {so_tien} khi mở modal QR
 
   // Mở trang: khớp ví thật từ BE (nếu BE chạy) vào cache + số dư
   useEffect(() => {
@@ -54,7 +67,6 @@ export default function NapSoDu() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    if (dang_gui) return;
 
     const amount = Number(so_tien);
 
@@ -68,11 +80,25 @@ export default function NapSoDu() {
       return;
     }
 
+    if (amount < 10000) {
+      tb.loi("Số tiền tối thiểu là 10.000 VNĐ.");
+      return;
+    }
+
+    // Bước 1: hiện QR chuyển khoản — tiền chỉ ghi khi xác nhận đã thanh toán
+    setHoSoQr({ so_tien: amount });
+  }
+
+  // Bước 2: người nạp "quét" QR (mô phỏng) -> nhấn Đã thanh toán -> ghi giao dịch
+  async function handleDaThanhToan() {
+    if (!ho_so_qr || dang_gui) return;
+
+    const soTienGiaoDich = ho_so_qr.so_tien;
     setDangGui(true);
 
     try {
       const ket_qua = await napTien({
-        soTien: amount,
+        soTien: soTienGiaoDich,
         moTa: mo_ta,
       });
 
@@ -81,21 +107,22 @@ export default function NapSoDu() {
         return;
       }
 
-      tb.thanhCong(
-        ket_qua.tu_be
-          ? `Nạp ${VND.format(amount)} vào ví thành công!`
-          : `Nạp thành công (lưu tạm trình duyệt)! Số tiền sẽ được đồng bộ khi BE kết nối.`
-      );
-
+      setHoSoQr(null); // đóng modal QR sau khi ghi giao dịch
       setSoTien("");
       setMoTa("");
       lamMoiVi();
+
+      tb.thanhCong(
+        ket_qua.tu_be
+          ? `Quét QR thành công! Nạp ${VND.format(soTienGiaoDich)} vào ví.`
+          : `Nạp thành công (lưu tạm trình duyệt)! Số tiền sẽ được đồng bộ khi BE kết nối.`
+      );
     } catch (error) {
-      // Lỗi bất ngờ không lọt qua napTien (mismatch dữ liệu...) — phải hiện ra
-      // để người dùng biết, không im lặng trên nút "Đang xử lý...".
+      // Lỗi bất ngờ không lọt qua napTien — phải hiện cho người dùng biết,
+      // không im lặng trên nút "Đang xử lý...".
       tb.loi(
         error?.message === LOI_KHONG_KET_NOI
-          ? "Không kết nối được hệ thống BE. Đang kiểm tra..."
+          ? "Không kết nối được hệ thống BE. Vui lòng thử lại."
           : `Nạp tiền thất bại: ${error?.message || "lỗi không xác định"}`
       );
     } finally {
@@ -205,7 +232,7 @@ export default function NapSoDu() {
           </div>
 
           <Button type="submit" size="lg" className="mt-6 w-full">
-            {dang_gui ? "Đang xử lý..." : "💳 Nạp tiền"}
+            {dang_gui ? "Đang xử lý..." : "💳 Nạp tiền qua QR"}
           </Button>
         </form>
 
@@ -226,6 +253,77 @@ export default function NapSoDu() {
           </Link>
         </div>
       </main>
+
+      {/* Modal QR chuyển khoản — bước 2 của luồng nạp tiền */}
+      {ho_so_qr && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !dang_gui) setHoSoQr(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-sm rounded-3xl bg-white p-7 text-center shadow-2xl"
+          >
+            <h2 className="font-inknut text-xl font-extrabold text-gray-900">
+              Quét mã để nạp tiền
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Quét mã này bằng app ngân hàng của bạn, chuyển đúng số tiền rồi
+              nhấn nút xác nhận bên dưới (mô phỏng).
+            </p>
+
+            <p className="mt-4 rounded-xl bg-amber-50 py-2.5 font-inknut text-2xl font-extrabold text-amber-700 ring-1 ring-amber-200">
+              {VND.format(ho_so_qr.so_tien)}
+            </p>
+
+            {/* Mã QR — lỗi tải (mất mạng) thì hiện nội dung dưới dạng chữ */}
+            <img
+              src={taoLinkQR({
+                ten_tk: session?.ten_tk || "nhatquang",
+                so_tien: ho_so_qr.so_tien,
+              })}
+              alt="Mã QR nạp tiền"
+              width={260}
+              height={260}
+              className="mx-auto mt-4 rounded-2xl border border-gray-200 bg-white p-2 shadow-sm"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+            />
+            <p className="mt-2 truncate text-[11px] text-gray-400">
+              Rising Idea · @{session?.ten_tk || "nhatquang"} ·{" "}
+              {new Intl.NumberFormat("vi-VN").format(ho_so_qr.so_tien)} VND
+            </p>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setHoSoQr(null)}
+                disabled={dang_gui}
+                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:border-gray-900 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleDaThanhToan}
+                disabled={dang_gui}
+                className="flex-[1.3] rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-emerald-500/30 transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {dang_gui ? "Đang ghi giao dịch..." : "✅ Tôi đã thanh toán"}
+              </button>
+            </div>
+
+            <p className="mt-3 text-[11px] leading-4 text-gray-400">
+              Demo: QR sinh từ api.qrserver.com — khi tích hợp thanh toán thật,
+              thay bằng VietQR/major gateway của ngân hàng.
+            </p>
+          </section>
+        </div>
+      )}
 
       <FooterTrangChu />
     </div>

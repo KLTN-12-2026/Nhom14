@@ -170,6 +170,25 @@ function docDanhSach() {
   return docTaiKhoan();
 }
 
+// Tra một người dùng theo id BE (ObjectId trong collection nguoi_dung).
+// Dùng để hiển thị tên người đăng bài: DB bài đăng (bai_dang) chỉ lưu
+// id_nguoi_dang — muốn hiện tên thì ghép id với danh sách người dùng.
+// Danh sách lấy từ cache BE (do /api/admin/nguoi-dung nạp, xem adminUserService).
+export function layNguoiDungBangId(idNguoiDung) {
+  if (!idNguoiDung) return null;
+
+  const nguoi_dung = docCacheBe().find(
+    (item) => String(item.id) === String(idNguoiDung)
+  );
+
+  if (!nguoi_dung) return null;
+
+  return {
+    ten_tk: nguoi_dung.ten_tk,
+    ho_ten: nguoi_dung.ho_ten || nguoi_dung.ten_tk || '',
+  };
+}
+
 // ---- Hành động quản trị (BE-first) ----
 
 export async function doiVaiTro(ten_tk, vai_tro_moi) {
