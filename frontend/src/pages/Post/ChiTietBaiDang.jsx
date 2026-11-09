@@ -10,6 +10,8 @@ import LienHeDauTu from "../../components/Post/LienHeDauTu";
 import { isLoggedIn } from "../../services/authService";
 import { getUser } from "../../services/userService";
 import { getPostById } from "../../services/postService";
+import { taoToCao, LY_DO_TO_CAO } from "../../services/toCaoService";
+import { tb } from "../../services/thongBaoService";
 import {
   daHetHan,
   layBaiDangBangId,
@@ -73,6 +75,10 @@ const ChiTietBaiDang = () => {
   const [lanLamMoi, setLanLamMoi] = useState(0);
   const [moHoTro, setMoHoTro] = useState(false);
   const [moLienHeDauTu, setMoLienHeDauTu] = useState(false);
+  // Form tố cáo (PB11): lý do chọn nhanh + mô tả chi tiết (không bắt buộc)
+  const [moToCao, setMoToCao] = useState(false);
+  const [formToCao, setFormToCao] = useState({ ly_do: "", mo_ta: "" });
+  const [dang_bao_cao, setDangBaoCao] = useState(false);
 
   const baiDangCache = useMemo(
     () => timBaiDang(),
@@ -237,6 +243,64 @@ const ChiTietBaiDang = () => {
   const handleHoTroThanhCong = () => {
     setLanLamMoi((lan) => lan + 1);
   };
+
+  // Mở modal báo cáo — cần đăng nhập (to_cao_bai_dang bắt buộc id_nguoi_to_cao)
+  const handleMoToCao = () => {
+    if (!isLoggedIn()) {
+      navigate("/dang-nhap", {
+        state: { from: location.pathname },
+      });
+      return;
+    }
+
+    setMoToCao(true);
+  };
+
+  // Gửi tố cáo bài đăng (PB11) — BE-first, BE tắt lưu cục bộ chờ đồng bộ
+  async function guiToCao(event) {
+    event.preventDefault();
+
+    if (!formToCao.ly_do) {
+      tb.loi("Vui lòng chọn lý do tố cáo.");
+      return;
+    }
+
+    if (formToCao.mo_ta.length > 1000) {
+      tb.loi("Mô tả tối đa 1000 ký tự.");
+      return;
+    }
+
+    setDangBaoCao(true);
+
+    try {
+      const ket_qua = await taoToCao({
+        id_bai_dang: layMaBaiDang(baiDang),
+        ly_do: formToCao.ly_do,
+        mo_ta: formToCao.mo_ta,
+        tieu_de_bai_dang: layTieuDe(baiDang),
+      });
+
+      if (!ket_qua.thanhCong) {
+        tb.loi(ket_qua.loi || "Gửi tố cáo thất bại.");
+        return;
+      }
+
+      tb.thanhCong(
+        ket_qua.tu_be
+          ? "Đã ghi nhận tố cáo — quản trị viên sẽ xem xét bài đăng này."
+          : "Đã ghi nhận tố cáo (lưu tạm trình duyệt) — sẽ gửi lên hệ thống khi backend kết nối."
+      );
+
+      setMoToCao(false);
+      setFormToCao({ ly_do: "", mo_ta: "" });
+    } catch (error) {
+      tb.loi(
+        `Gửi tố cáo thất bại: ${error?.message || "lỗi không xác định"}`
+      );
+    } finally {
+      setDangBaoCao(false);
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
@@ -494,6 +558,16 @@ const ChiTietBaiDang = () => {
                   ? "Đầu tư được kết nối trực tiếp qua nhóm phát triển."
                   : "Mọi đóng góp được ghi nhận minh bạch trong danh sách."}
               </p>
+
+              {/* Nút báo cáo bài đăng (PB11) — hàng nút phụ, mảnh để không
+                  cạnh tranh với nút hành động chính */}
+              <button
+                type="button"
+                onClick={handleMoToCao}
+                className="mt-3 w-full rounded-xl border border-gray-200 px-4 py-2 text-xs font-bold text-gray-500 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600"
+              >
+                🚩 Báo cáo bài đăng
+              </button>
             </div>
           </aside>
         </div>
@@ -518,6 +592,117 @@ const ChiTietBaiDang = () => {
           post={baiDang}
           onClose={() => setMoLienHeDauTu(false)}
         />
+      )}
+
+      {/* Modal báo cáo bài đăng (PB11 — collection to_cao_bai_dang) */}
+      {moToCao && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !dang_bao_cao)
+              setMoToCao(false);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl sm:p-8"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-100 text-xl">
+                  🚩
+                </span>
+
+                <h2 className="mt-3 font-inknut text-xl font-extrabold text-gray-900">
+                  Báo cáo bài đăng
+                </h2>
+
+                <p className="mt-1 text-sm leading-6 text-gray-500">
+                  Dự án “<b className="text-gray-800">{layTieuDe(baiDang)}</b>"
+                  có gì không hợp lệ? Quản trị viên sẽ kiểm tra và xử lý.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => !dang_bao_cao && setMoToCao(false)}
+                aria-label="Đóng"
+                className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form className="mt-5" onSubmit={guiToCao}>
+              <label
+                htmlFor="to-cao-ly-do"
+                className="mb-1.5 block text-sm font-semibold text-gray-700"
+              >
+                Lý do <span className="text-rose-500">*</span>
+              </label>
+
+              <select
+                id="to-cao-ly-do"
+                value={formToCao.ly_do}
+                onChange={(e) =>
+                  setFormToCao({ ...formToCao, ly_do: e.target.value })
+                }
+                className="w-full rounded-xl border border-gray-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-100"
+              >
+                <option value="">— Chọn lý do —</option>
+
+                {LY_DO_TO_CAO.map((ly_do) => (
+                  <option key={ly_do} value={ly_do}>
+                    {ly_do}
+                  </option>
+                ))}
+              </select>
+
+              <label
+                htmlFor="to-cao-mo-ta"
+                className="mt-4 mb-1.5 block text-sm font-semibold text-gray-700"
+              >
+                Mô tả chi tiết{" "}
+                <span className="text-xs font-normal text-gray-400">
+                  (không bắt buộc)
+                </span>
+              </label>
+
+              <textarea
+                id="to-cao-mo-ta"
+                rows={4}
+                maxLength={1000}
+                value={formToCao.mo_ta}
+                onChange={(e) =>
+                  setFormToCao({ ...formToCao, mo_ta: e.target.value })
+                }
+                placeholder="Mô tả cụ thể để quản trị viên lần ra vấn đề nhanh hơn..."
+                className="w-full resize-y rounded-xl border border-gray-200 bg-slate-50 p-3 text-sm outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-100"
+              />
+            </form>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setMoToCao(false)}
+                disabled={dang_bao_cao}
+                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:border-gray-900 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Hủy
+              </button>
+
+              <button
+                type="button"
+                onClick={guiToCao}
+                disabled={dang_bao_cao}
+                className="flex-[1.3] rounded-xl bg-rose-500 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-rose-500/30 transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {dang_bao_cao ? "Đang gửi..." : "🚩 Gửi báo cáo"}
+              </button>
+            </div>
+          </section>
+        </div>
       )}
     </div>
   );

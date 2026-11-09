@@ -9,6 +9,7 @@ const CAC_NOI_DUNG = [
   { to: '/admin/duyet-bai', title: 'Duyệt bài đăng', icon: '✅' },
   { to: '/admin/quan-ly-nguoi-dung', title: 'Người dùng', icon: '👥' },
   { to: '/admin/quan-ly-bai-dang', title: 'Bài đăng', icon: '📄' },
+  { to: '/admin/xu-ly-to-cao', title: 'Tố cáo', icon: '🚩' },
 ];
 
 const KhungQuanTri = ({ tieuDe, moTa, children }) => {

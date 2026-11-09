@@ -10,6 +10,32 @@
      khắc phục lỗi chữ như "Đăng xuất" bị gãy dấu do font hệ thống thiếu glyph.
      Ghi đè --font-sans để toàn bộ app dùng font này theo mặc định. */
   --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+
+  /* Animation chuông thông báo: panel mở từ trên xuống, mượt không giật */
+  --animate-chuong-mo: chuong-mo 0.18s ease-out;
+  --animate-chuong-tin: chuong-tin 1.6s ease-in-out;
+
+  @keyframes chuong-mo {
+    from {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  /* NEW nhấp nháy nhẹ 1 nhịp thay vì bounce liên tục (tránh giật layout) */
+  @keyframes chuong-tin {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.12);
+    }
+  }
 }
 
 html {

@@ -10,6 +10,7 @@ import {
   docNhatKyQuanLy,
   MAP_TRANG_THAI_P18,
 } from '../../services/adminService';
+import { tb } from '../../services/thongBaoService';
 
 const TRANG_THAI_STYLE = {
   Cho_Duyet: 'bg-amber-100 text-amber-800',
@@ -34,7 +35,6 @@ export default function QuanLyBaiDang() {
   const [bo_loc, setBoLoc] = useState('all');
   const [tu_khoa, setTuKhoa] = useState('');
   const [dang_xem, setDangXem] = useState(null);
-  const [thong_bao, setThongBao] = useState('');
   const [trang, setTrang] = useState(1);
   const nhat_ky = docNhatKyQuanLy();
 
@@ -66,10 +66,10 @@ export default function QuanLyBaiDang() {
   function xu_ly(fn, thong_bao_mo) {
     try {
       fn();
-      setThongBao(thong_bao_mo);
+      tb.thanhCong(thong_bao_mo);
       lam_moi();
     } catch (error) {
-      setThongBao(`⚠️ ${error.message}`);
+      tb.loi(error.message);
     }
   }
 
@@ -131,13 +131,6 @@ export default function QuanLyBaiDang() {
           <Button variant="outline" onClick={lam_moi}>🔄 Làm mới danh sách</Button>
         </div>
 
-        {thong_bao && (
-          <div role="status" className="mb-4 flex justify-between rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            {thong_bao}
-            <button type="button" onClick={() => setThongBao('')} aria-label="Đóng thông báo">✕</button>
-          </div>
-        )}
-
         {/* Bảng bài đăng */}
         <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full min-w-[900px] text-left text-sm">
@@ -162,7 +155,9 @@ export default function QuanLyBaiDang() {
                     </div>
                   </td>
                   <td className="p-4">{p.loai_bai_dang}</td>
-                  <td className="p-4">{p.id_nguoi_dang || '—'}</td>
+                  <td className="p-4">
+                    {p.ten_nguoi_dang || p.id_nguoi_dang || '—'}
+                  </td>
                   <td className="p-4">{tien(p.muc_tieu)}</td>
                   <td className="p-4">{ngay(p.ngay_tao)}</td>
                   <td className="p-4">
@@ -309,10 +304,10 @@ export default function QuanLyBaiDang() {
         )}
 
         <p className="mt-6 text-xs text-slate-500">
-          Bản demo frontend: danh sách hợp nhất bài demo + bài người dùng tạo (localStorage),
-          trường khớp tài liệu DB (loai_bai_dang, tieu_de, trang_thai Cho_Duyet/Da_Duyet/
-          Tu_Choi/Da_An, ngay_tao...). Khi backend hoàn thành: GET /api/admin/bai-dang và
-          PUT /api/admin/bai-dang/:id/duyet sẽ thay trực tiếp các hàm trong adminService.
+          Danh sách hợp nhất bài từ MongoDB (GET /api/admin/bai-dang) và bài
+          cục bộ khi BE tắt; trạng thái theo chuẩn DB: Cho_Duyet/Da_Duyet/
+          Tu_Choi/Da_An. Nút Ẩn/Hiện lưu trạng thái cục bộ — khi BE cung cấp
+          endpoint ẩn bài sẽ chuyển tiếp tự động.
         </p>
     </KhungQuanTri>
   );

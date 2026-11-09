@@ -1,5 +1,6 @@
 
 import { getCurrentAccount, getSession } from './authService';
+import { goiApi, LOI_KHONG_KET_NOI, coToken } from './apiClient';
 
 // Bản thử nghiệm frontend: lưu thông tin cá nhân vào trình duyệt (localStorage),
 // riêng cho từng tài khoản đang đăng nhập.
@@ -52,6 +53,64 @@ export function getUser() {
     // Đọc lỗi -> dùng dữ liệu mặc định
   }
   return defaultUser();
+}
+
+// ---- Hồ sơ BE (GET/PUT /api/users/me) - BE-first + fallback cục bộ ----
+// Nguồn so_du: BE trả /api/so-du/cua-toi qua walletService (không nằm ở /me).
+
+// Nạp hồ sơ chuẩn từ BE -> cache cục bộ (trang ThongTinCaNhan gọi khi mở).
+// BE tắt -> trả null, trang dùng dữ liệu cục bộ như cũ.
+export async function dongBoHoSoTuBe() {
+  if (!coToken()) return null;
+
+  try {
+    const ho_so = await goiApi('/api/users/me');
+
+    if (ho_so?.ten_tk) {
+      updateUser({
+        ho_ten: ho_so.ho_ten,
+        nam_sinh: ho_so.nam_sinh?.slice(0, 10) || '',
+        gioi_tinh: ho_so.gioi_tinh,
+        email: ho_so.email,
+        dien_thoai: ho_so.dien_thoai,
+      });
+      return ho_so;
+    }
+  } catch (error) {
+    if (error.message !== LOI_KHONG_KET_NOI) throw error;
+  }
+
+  return null;
+}
+
+// Cập nhật hồ sơ: BE-first (PUT /api/users/me), BE tắt -> lưu cục bộ.
+// Trả { thanhCong, tu_be, loi?, ho_so } — đúng pattern sai khát walletService.
+export async function capNhatHoSo(formData) {
+  if (coToken()) {
+    try {
+      const ho_so = await goiApi('/api/users/me', {
+        method: 'PUT',
+        body: formData,
+      });
+
+      if (ho_so?.ten_tk) {
+        updateUser(formData); // cache cục bộ khớp bản BE
+        return { thanhCong: true, tu_be: true, ho_so };
+      }
+    } catch (error) {
+      if (error.message !== LOI_KHONG_KET_NOI) {
+        return { thanhCong: false, loi: error.message };
+      }
+      // BE tắt giữa chừng -> rơi về lưu cục bộ bên dưới
+    }
+  }
+
+  try {
+    updateUser(formData);
+    return { thanhCong: true, tu_be: false };
+  } catch (error) {
+    return { thanhCong: false, loi: error.message };
+  }
 }
 
 export function updateUser(newData) {

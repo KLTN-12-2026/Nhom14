@@ -5,6 +5,7 @@ import Navbar from '../../components/Navbar/Navbar';
 import PostForm from '../../components/Post/PostForm';
 import { taoBaiDang } from '../../services/postService';
 import { tb } from '../../services/thongBaoService';
+import { themThongBao } from '../../services/chuongService';
 
 export default function TaoBaiDang() {
   const navigate = useNavigate();
@@ -16,12 +17,22 @@ export default function TaoBaiDang() {
     setDangGui(true);
 
     try {
-      const { tu_be } = await taoBaiDang(formData); // BE-first, BE tắt tự lưu cục bộ
+      const { tu_be, baiDang } = await taoBaiDang(formData); // BE-first, BE tắt tự lưu cục bộ
       tb.thanhCong(
         tu_be
           ? 'Tạo bài đăng thành công! Bài đang chờ quản trị viên duyệt.'
           : 'Tạo bài đăng thành công (lưu tạm trên trình duyệt)! Bài đang chờ duyệt.'
       );
+
+      // Chuông thông báo: nhắc «đang chờ duyệt» để người dùng không quên bài
+      themThongBao({
+        loai_thong_bao: 'Ket_Qua_Duyet',
+        tieu_de: `Bài "${baiDang?.title || formData.title}" đang chờ duyệt`,
+        noi_dung:
+          'Quản trị viên sẽ kiểm tra nội dung trước khi công khai. Khi được duyệt, bài sẽ hiển thị trên danh mục dự án.',
+        loai_doi_tuong: baiDang?.id ? `bai_dang:${baiDang.id}` : null,
+      });
+
       navigate('/bai-dang-cua-toi');
     } catch (error) {
       tb.loi(error.message);

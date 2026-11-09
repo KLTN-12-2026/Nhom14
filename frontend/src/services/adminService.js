@@ -34,6 +34,8 @@ export function layDanhSachDuyet() {
         'Đầu Tư': 'invest',
       }[post.loai_bai_dang] || post.loai_bai_dang,
     image: post.hinh_anh?.[0]?.duong_dan_hinh_anh || null,
+    // Tên người đăng BE ghép theo id (không còn ObjectId khô khan)
+    creator: post.ten_nguoi_dang || '',
     createdAt: post.ngay_tao || '',
     status:
       {
@@ -85,6 +87,8 @@ function chuanHoaBaiBe(post) {
     muc_tieu: Number(post.muc_tieu) || 0,
     don_vi_tien_te: post.don_vi_tien_te || 'VND',
     id_nguoi_dang: String(post.id_nguoi_dang || ''),
+    // BE ghép tên người đăng theo id lúc đọc — hiển thị tên thay ObjectId
+    ten_nguoi_dang: post.ten_nguoi_dang || '',
     ngay_tao: post.ngay_tao || '',
     ngay_cap_nhat: post.ngay_cap_nhat || '',
     trang_thai: post.trang_thai || 'Cho_Duyet',
@@ -329,4 +333,44 @@ export function hienBaiDang(id) {
   delete bang[id];
   luuDanhSachAn(bang);
   ghiNhatKyQuanLy('Hien_Bai', `bai_dang:${id}`);
+}
+
+// ---- Lịch sử duyệt bài (GET /api/admin/bai-dang/{id}/lich-su-duyet) ----
+
+// BE-first: BE chạy trả timeline thật từ collection lich_su_duyet_bai
+// (id_bai_dang, id_nguoi_duyet, hanh_dong, ly_do, ngay_tao).
+// BE tắt -> ghép từ nhật ký quản trị cục bộ lọc theo bài, đủ xem demo.
+export async function docLichSuDuyetBai(id) {
+  try {
+    const lich_su = await goiApi(
+      `/api/admin/bai-dang/${encodeURIComponent(id)}/lich-su-duyet`
+    );
+
+    if (Array.isArray(lich_su)) {
+      return { tu_be: true, lich_su };
+    }
+  } catch (error) {
+    if (error.message !== LOI_KHONG_KET_NOI) throw error;
+  }
+
+  const lich_su = docNhatKyQuanLy()
+    .filter(
+      (dong) =>
+        dong.loai_doi_tuong === `bai_dang:${id}` &&
+        ['Duyet', 'Tu_Choi', 'An_Bai', 'Hien_Bai'].includes(dong.hanh_dong)
+    )
+    .map((dong) => ({
+      id: dong.id,
+      hanh_dong: dong.hanh_dong,
+      ly_do:
+        dong.hanh_dong === 'Tu_Choi'
+          ? dong.ly_do
+          : dong.hanh_dong === 'Duyet'
+            ? 'Duyệt bài đăng'
+            : '',
+      id_nguoi_duyet: dong.id_quan_tri_vien,
+      ngay_tao: dong.ngay_tao,
+    }));
+
+  return { tu_be: false, lich_su };
 }

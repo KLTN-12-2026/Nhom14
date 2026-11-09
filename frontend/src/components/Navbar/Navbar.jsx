@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getSession, logout } from '../../services/authService'
+import ChuongThongBao from './ChuongThongBao'
 
 // Mục menu chung: chữ to + đậm, ráy đổi màu tím khi hover cho bắt mắt
 const itemClass =
@@ -85,6 +86,10 @@ const Navbar = () => {
             </Link>
           )}
         </div>
+
+        {/* Chuông thông báo nằm ngoài khối cuộn (bên phải cùng) — panel
+            dropdown không bị overflow của menu cắt mất, mở ra che luôn ổn */}
+        <ChuongThongBao />
 
       </div>
     </nav>

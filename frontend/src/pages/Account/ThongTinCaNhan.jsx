@@ -1,8 +1,14 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../../components/Navbar/Navbar";
-import { getUser, updateUser } from "../../services/userService";
+import {
+  getUser,
+  dongBoHoSoTuBe,
+  capNhatHoSo,
+} from "../../services/userService";
+import { getWallet } from "../../services/walletService";
+import { tb } from "../../services/thongBaoService";
 import Button from "../../components/Button/Button";
 
 const VND = new Intl.NumberFormat("vi-VN", {
@@ -14,10 +20,11 @@ const VND = new Intl.NumberFormat("vi-VN", {
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-slate-50 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-100";
 
-const labelClass = "mb-1.5 block text-sm font-semibold text-gray-700";
+const labelClass = "mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-gray-700";
 
 // US4 - Cập nhật thông tin cá nhân: xem + chỉnh sửa các trường được phép.
 // Tài khoản và số dư chỉ xem, không cho sửa trong trang này.
+// Nguồn dữ liệu: GET /api/users/me (BE-first) — số dư lấy từ module Ví.
 function ThongTinCaNhan() {
   const [user, setUser] = useState(() => getUser());
   const [form, setForm] = useState(() => {
@@ -32,33 +39,66 @@ function ThongTinCaNhan() {
     };
   });
 
-  const [thongBao, setThongBao] = useState("");
-  const [thanhCong, setThanhCong] = useState(false);
+  const [so_du, setSoDu] = useState(
+    () => getWallet()?.soDu ?? getUser().so_du
+  );
+  const [nguon_be, setNguonBe] = useState(false); // đúng hồ sơ từ MongoDB
+  const [dang_luu, setDangLuu] = useState(false);
+  const [loi, setLoi] = useState("");
+
+  // Mở trang: hồ sơ chuẩn từ BE (MongoDB) + số dư chuẩn từ module Ví
+  useEffect(() => {
+    let tiep_tuc = true;
+
+    dongBoHoSoTuBe()
+      .then(() => {
+        if (!tiep_tuc) return;
+        const moi = getUser();
+
+        setUser(moi);
+        setForm((hien_tai) => ({
+          ...hien_tai,
+          ho_ten: moi.ho_ten,
+          nam_sinh: moi.nam_sinh,
+          gioi_tinh: moi.gioi_tinh,
+          email: moi.email,
+          dien_thoai: moi.dien_thoai,
+        }));
+        setNguonBe(true);
+        setSoDu(getWallet()?.soDu ?? moi.so_du);
+      })
+      .catch(() => {
+        // BE tắt / không có token -> giữ dữ liệu cục bộ
+      });
+
+    return () => {
+      tiep_tuc = false;
+    };
+  }, []);
 
   const handleChange = (e) => {
     setForm({
       ...form,
       [e.target.name]: e.target.value,
     });
-    setThongBao("");
-    setThanhCong(false);
+    setLoi("");
   };
 
-  const handleSubmit = (e) => {
+  async function handleSubmit(e) {
     e.preventDefault();
 
     if (Object.values(form).some((value) => !value || !value.trim())) {
-      setThongBao("Vui lòng nhập đầy đủ thông tin!");
+      setLoi("Vui lòng nhập đầy đủ thông tin!");
       return;
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      setThongBao("Email không hợp lệ!");
+      setLoi("Email không hợp lệ!");
       return;
     }
 
     if (!/^[0-9]{10,11}$/.test(form.dien_thoai)) {
-      setThongBao("Số điện thoại phải có 10 hoặc 11 chữ số!");
+      setLoi("Số điện thoại phải có 10 hoặc 11 chữ số!");
       return;
     }
 
@@ -71,17 +111,29 @@ function ThongTinCaNhan() {
       namSinh.getFullYear() < 1900 ||
       namSinh.getFullYear() >= namHienTai - 10
     ) {
-      setThongBao("Năm sinh không hợp lệ! Người dùng phải trên 10 tuổi.");
+      setLoi("Năm sinh không hợp lệ! Người dùng phải trên 10 tuổi.");
       return;
     }
 
-    // Lưu thành công (bản FE lưu tạm trong trình duyệt).
-    setUser(updateUser(form));
-    setThanhCong(true);
-    setThongBao(
-      "Cập nhật thông tin thành công! (Lưu tạm trên máy bạn — khi có backend sẽ lưu vào MongoDB.)"
-    );
-  };
+    setDangLuu(true);
+
+    try {
+      const ket_qua = await capNhatHoSo(form);
+
+      if (!ket_qua.thanhCong) {
+        setLoi(ket_qua.loi);
+        return;
+      }
+
+      // Đồng bộ lại cache cục bộ đúng bản BE trả về
+      setUser(getUser());
+      tb.thanhCong("Cập nhật thông tin thành công!");
+    } catch (error) {
+      setLoi(`Cập nhật thất bại: ${error?.message || "lỗi không xác định"}`);
+    } finally {
+      setDangLuu(false);
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50">
@@ -93,24 +145,43 @@ function ThongTinCaNhan() {
       />
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10">
-        {/* Banner hồ sơ: avatar chữ cái đầu + tên tài khoản */}
+        {/* Banner hồ sơ: avatar chữ cái đầu + tên tài khoản + số dư */}
         <div className="relative overflow-hidden rounded-3xl bg-slate-950 p-6 text-white shadow-lg sm:p-8">
           <div
             className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-amber-400/25 blur-2xl"
             aria-hidden="true"
           />
+          <div
+            className="pointer-events-none absolute -left-20 bottom-0 h-40 w-40 rounded-full bg-violet-500/20 blur-2xl"
+            aria-hidden="true"
+          />
 
-          <div className="relative flex items-center gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-300 to-violet-400 font-inknut text-2xl font-extrabold text-gray-900 shadow-lg">
-              {user.ho_ten.charAt(0).toUpperCase()}
+          <div className="relative flex flex-wrap items-center gap-4">
+            <div className="relative">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-300 to-violet-400 font-inknut text-2xl font-extrabold text-gray-900 shadow-lg ring-4 ring-white/10">
+                {(user.ho_ten || "?").charAt(0).toUpperCase()}
+              </div>
+
+              {/* Chấm nguồn dữ liệu: xanh = đang khớp MongoDB (BE) */}
+              <span
+                title={
+                  nguon_be
+                    ? "Lấy trực tiếp từ MongoDB qua backend"
+                    : "Dữ liệu trình duyệt — BE không kết nối"
+                }
+                className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-slate-950 ${
+                  nguon_be ? "bg-emerald-400" : "bg-amber-400"
+                }`}
+                aria-hidden="true"
+              />
             </div>
 
-            <div>
+            <div className="min-w-0">
               <h1 className="font-inknut text-2xl font-extrabold sm:text-3xl">
-                Thông tin cá nhân
+                {user.ho_ten || "Người dùng"}
               </h1>
 
-              <p className="mt-1 text-sm text-slate-300">
+              <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-300">
                 @{user.ten_tk}
               </p>
             </div>
@@ -119,27 +190,60 @@ function ThongTinCaNhan() {
           {/* Số dư khả dụng chỉ chủ tài khoản xem được (US4) */}
           <div className="relative mt-5 flex items-center justify-between rounded-2xl bg-white/10 px-5 py-3.5 ring-1 ring-white/20 backdrop-blur">
             <span className="text-xs font-bold uppercase tracking-widest text-slate-300">
-              Số dư khả dụng
+             💰 Số dư ví
             </span>
 
             <span className="font-inknut text-lg font-extrabold text-amber-300">
-              {VND.format(user.so_du)}
+              {VND.format(so_du)}
             </span>
           </div>
         </div>
 
-        <p className="mt-6 text-sm text-gray-500">
-          Xem và cập nhật các thông tin được phép thay đổi của tài khoản —
-          Tài khoản và Số dư chỉ xem, không sửa tại đây.
-        </p>
+        {/* Chuỗi liên kết nhanh hồ sơ + ví */}
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          {[
+            ['/nap-so-du', '💳', 'Nạp tiền qua QR'],
+            ['/lich-su-so-du', '📜', 'Lịch sử số dư'],
+            ['/doi-mat-khau', '🔐', 'Đổi mật khẩu'],
+          ].map(([to, icon, nhan]) => (
+            <Link
+              key={to}
+              to={to}
+              className="group flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-400 hover:text-amber-700 hover:shadow-md"
+            >
+              <span
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-base transition group-hover:bg-amber-100"
+                aria-hidden="true"
+              >
+                {icon}
+              </span>
+              {nhan}
+              <span
+                className="ml-auto text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-amber-500"
+                aria-hidden="true"
+              >
+                →
+              </span>
+            </Link>
+          ))}
+        </div>
 
         <form
-          className="mt-4 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8"
+          className="mt-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8"
           onSubmit={handleSubmit}
         >
+          <div className="mb-5 flex items-baseline justify-between gap-3 border-b border-gray-100 pb-4">
+            <h2 className="font-inknut text-lg font-extrabold text-gray-900">
+              📋 Biểu mẫu cập nhật
+            </h2>
+            <p className="text-xs text-gray-400">
+              Tài khoản và Số dư chỉ xem, không sửa tại đây
+            </p>
+          </div>
+
           <div>
             <label className={labelClass} htmlFor="ho_ten">
-              Họ và tên
+              👤 Họ và tên
             </label>
             <input
               id="ho_ten"
@@ -156,7 +260,7 @@ function ThongTinCaNhan() {
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
               <label className={labelClass} htmlFor="nam_sinh">
-                Năm sinh
+                🎂 Năm sinh
               </label>
               <input
                 id="nam_sinh"
@@ -170,7 +274,7 @@ function ThongTinCaNhan() {
 
             <div>
               <label className={labelClass} htmlFor="gioi_tinh">
-                Giới tính
+                🚻 Giới tính
               </label>
               <select
                 id="gioi_tinh"
@@ -188,7 +292,7 @@ function ThongTinCaNhan() {
 
           <div className="mt-4">
             <label className={labelClass} htmlFor="email">
-              Email
+              ✉️ Email
             </label>
             <input
               id="email"
@@ -204,7 +308,7 @@ function ThongTinCaNhan() {
 
           <div className="mt-4">
             <label className={labelClass} htmlFor="dien_thoai">
-              Số điện thoại
+              📱 Số điện thoại
             </label>
             <input
               id="dien_thoai"
@@ -218,34 +322,27 @@ function ThongTinCaNhan() {
             />
           </div>
 
-          {thongBao && (
+          {loi && (
             <p
-              className={`mt-5 rounded-xl px-4 py-2.5 text-center text-sm font-semibold ${
-                thanhCong
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "bg-rose-50 text-rose-600"
-              }`}
-              role="status"
+              className="mt-5 rounded-xl bg-rose-50 px-4 py-2.5 text-center text-sm font-semibold text-rose-600"
+              role="alert"
             >
-              {thanhCong && "🎉 "}
-              {thongBao}
+              {loi}
             </p>
           )}
 
-          <Button type="submit" size="lg" className="mt-6 w-full">
-            Lưu thay đổi
+          <Button
+            type="submit"
+            size="lg"
+            className="mt-6 w-full"
+            disabled={dang_luu}
+          >
+            {dang_luu ? "Đang lưu thay đổi..." : "💾 Lưu thay đổi"}
           </Button>
         </form>
 
         {/* Liên kết phụ */}
         <div className="mt-6 flex flex-wrap justify-center gap-3 pb-8 text-sm">
-          <Link
-            to="/doi-mat-khau"
-            className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 font-semibold text-gray-700 shadow-sm transition hover:border-amber-400 hover:text-amber-700"
-          >
-            🔐 Đổi mật khẩu
-          </Link>
-
           <Link
             to="/"
             className="rounded-xl border border-gray-200 bg-white px-5 py-2.5 font-semibold text-gray-700 shadow-sm transition hover:border-amber-400 hover:text-amber-700"

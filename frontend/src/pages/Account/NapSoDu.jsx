@@ -5,6 +5,7 @@ import Navbar from "../../components/Navbar/Navbar";
 import FooterTrangChu from "../../components/Home/FooterTrangChu";
 import Button from "../../components/Button/Button";
 import { tb } from "../../services/thongBaoService";
+import { themThongBao } from "../../services/chuongService";
 import {
   getWallet,
   napTien,
@@ -117,6 +118,16 @@ export default function NapSoDu() {
           ? `Quét QR thành công! Nạp ${VND.format(soTienGiaoDich)} vào ví.`
           : `Nạp thành công (lưu tạm trình duyệt)! Số tiền sẽ được đồng bộ khi BE kết nối.`
       );
+
+      // Chuông thông báo: thêm dòng "Ví" mới cho nạp tiền thành công
+      themThongBao({
+        loai_thong_bao: 'Vi',
+        tieu_de: `Nạp ${VND.format(soTienGiaoDich)} vào ví thành công`,
+        noi_dung: ket_qua.tu_be
+          ? 'Giao dịch đã được ghi vào MongoDB và hiển thị trong Lịch sử số dư.'
+          : 'Giao dịch lưu tạm trên trình duyệt — sẽ đồng bộ vào database khi BE kết nối.',
+        loai_doi_tuong: 'so_du',
+      });
     } catch (error) {
       // Lỗi bất ngờ không lọt qua napTien — phải hiện cho người dùng biết,
       // không im lặng trên nút "Đang xử lý...".

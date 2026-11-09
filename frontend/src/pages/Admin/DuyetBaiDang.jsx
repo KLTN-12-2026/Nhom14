@@ -3,12 +3,26 @@ import { Link } from 'react-router-dom';
 import Button from '../../components/Button/Button';
 import KhungQuanTri from '../../components/Admin/KhungQuanTri';
 import PhanTrang from '../../components/Common/PhanTrang';
-import { reviewPost, layDanhSachDuyet, dongBoAdminTuBe } from '../../services/adminService';
+import {
+  reviewPost,
+  layDanhSachDuyet,
+  dongBoAdminTuBe,
+  docLichSuDuyetBai,
+} from '../../services/adminService';
+import { tb } from '../../services/thongBaoService';
 
 const statusLabels = { pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Từ chối' };
 const statusStyles = { pending: 'bg-amber-100 text-amber-800', approved: 'bg-emerald-100 text-emerald-800', rejected: 'bg-rose-100 text-rose-800' };
 const money = (value) => Number(value || 0).toLocaleString('vi-VN') + ' đ';
 const date = (value) => value ? new Date(value).toLocaleDateString('vi-VN') : '—';
+
+// Timeline lịch sử duyệt: icon + màu theo từng hành động
+const HANH_DONG_STYLE = {
+  Duyet: { nhan: 'Duyệt bài', icon: '✅', mau: 'bg-emerald-100 text-emerald-700' },
+  Tu_Choi: { nhan: 'Từ chối', icon: '🚫', mau: 'bg-rose-100 text-rose-700' },
+  An_Bai: { nhan: 'Ẩn bài', icon: '🙈', mau: 'bg-slate-200 text-slate-600' },
+  Hien_Bai: { nhan: 'Hiện lại', icon: '👁', mau: 'bg-sky-100 text-sky-700' },
+};
 
 // Thẻ thống kê/filter nhanh — mỗi trạng thái một màu riêng khớp nhãn badge
 const STAT_CARDS = [
@@ -23,9 +37,9 @@ export default function DuyetBaiDang() {
   const [filter, setFilter] = useState('pending');
   const [keyword, setKeyword] = useState('');
   const [selected, setSelected] = useState(null);
+  const [lich_su, setLichSu] = useState(null); // { tu_be, list } timeline duyệt
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
-  const [message, setMessage] = useState('');
   const [trang, setTrang] = useState(1);
   const refresh = () => setPosts(layDanhSachDuyet());
 
@@ -45,6 +59,26 @@ export default function DuyetBaiDang() {
       tiepTuc = false;
     };
   }, []);
+
+  // Mở modal chi tiết -> nạp lịch sử duyệt của bài (BE-first, timeline)
+  // (setLichSu(null) làm tại nút "Xem chi tiết" — không reset trong effect)
+  useEffect(() => {
+    if (!selected) return;
+
+    let tiep_tuc = true;
+
+    docLichSuDuyetBai(selected.id)
+      .then((ket_qua) => {
+        if (tiep_tuc) setLichSu(ket_qua);
+      })
+      .catch(() => {
+        if (tiep_tuc) setLichSu({ tu_be: false, lich_su: [] });
+      });
+
+    return () => {
+      tiep_tuc = false;
+    };
+  }, [selected]);
   const counts = useMemo(() => ({
     all: posts.length,
     pending: posts.filter(p => p.status === 'pending').length,
@@ -67,14 +101,14 @@ export default function DuyetBaiDang() {
     if (!selected) return;
     reviewPost(selected.id, decision, reason)
       .then(() => {
-        setMessage(
+        tb.thanhCong(
           decision === 'approved'
-            ? '✅ Đã duyệt bài đăng.'
-            : '🚫 Đã từ chối bài đăng.'
+            ? 'Duyệt bài thành công — bài đã công khai!'
+            : 'Đã từ chối bài đăng (lý do hiển thị cho người đăng).'
         );
         setSelected(null); setRejecting(false); setReason(''); refresh();
       })
-      .catch((error) => setMessage(`⚠️ ${error.message}`));
+      .catch((error) => tb.loi(error.message));
   }
 
   return (
@@ -128,14 +162,6 @@ export default function DuyetBaiDang() {
         <Button variant="outline" onClick={refresh}>🔄 Làm mới danh sách</Button>
       </div>
 
-      {/* Thông báo kết quả thao tác */}
-      {message && (
-        <div role="status" className="mb-4 flex justify-between rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
-          {message}
-          <button type="button" onClick={() => setMessage('')} aria-label="Đóng thông báo">✕</button>
-        </div>
-      )}
-
       {/* Bảng bài đăng chờ duyệt */}
       <div className="overflow-x-auto rounded-3xl border border-gray-200 bg-white shadow-sm">
         <table className="w-full min-w-[760px] text-left text-sm">
@@ -163,7 +189,7 @@ export default function DuyetBaiDang() {
                   </span>
                 </td>
                 <td className="p-4">
-                  <Button size="sm" onClick={() => { setSelected(p); setRejecting(false); setReason(''); setMessage(''); }}>
+                  <Button size="sm" onClick={() => { setSelected(p); setLichSu(null); setRejecting(false); setReason(''); }}>
                     Xem chi tiết
                   </Button>
                 </td>
@@ -192,7 +218,9 @@ export default function DuyetBaiDang() {
       />
 
       <p className="mt-4 text-xs text-slate-500">
-        Bản demo frontend: dữ liệu lưu trong localStorage của trình duyệt. Chưa có xác thực quyền quản trị hoặc đồng bộ máy chủ.
+        Dữ liệu quản trị lấy trực tiếp từ MongoDB qua backend (GET
+        /api/admin/bai-dang). Khi backend tắt, danh sách dùng bản cache cục bộ
+        gần nhất của trình duyệt.
       </p>
 
       {/* Modal xem chi tiết + phê duyệt / từ chối */}
@@ -248,6 +276,68 @@ export default function DuyetBaiDang() {
                 <b>Lý do từ chối:</b> {selected.rejectionReason || 'Không có'}
               </p>
             )}
+
+            {/* Timeline lịch sử duyệt — coll. lich_su_duyet_bai theo DB */}
+            <div className="mt-5">
+              <h3 className="mb-2 flex items-center justify-between text-xs font-bold uppercase tracking-widest text-gray-400">
+                Lịch sử duyệt
+
+                {lich_su && (
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal ${
+                      lich_su.tu_be
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    {lich_su.tu_be ? '✓ MongoDB' : 'Nhật ký cục bộ'}
+                  </span>
+                )}
+              </h3>
+
+              {!lich_su ? (
+                <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                  ⏳ Đang tải lịch sử duyệt...
+                </p>
+              ) : !lich_su.lich_su.length ? (
+                <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                  Chưa có thao tác duyệt nào cho bài này.
+                </p>
+              ) : (
+                <ol className="ml-2 space-y-3 border-l-2 border-dashed border-gray-200 pl-5">
+                  {lich_su.lich_su.map((dong) => {
+                    const hd = HANH_DONG_STYLE[dong.hanh_dong] || {
+                      nhan: dong.hanh_dong, icon: '•', mau: 'bg-gray-100 text-gray-600',
+                    };
+
+                    return (
+                      <li key={dong.id} className="relative">
+                        <span
+                          className={`absolute -left-[30px] flex h-6 w-6 items-center justify-center rounded-full text-xs shadow-sm ${hd.mau}`}
+                          aria-hidden="true"
+                        >
+                          {hd.icon}
+                        </span>
+
+                        <p className="flex flex-wrap items-baseline gap-2 text-sm">
+                          <b className="text-gray-800">{hd.nhan}</b>
+                          <span className="text-xs text-gray-400">
+                            {new Date(dong.ngay_tao).toLocaleString('vi-VN')}
+                            {dong.id_nguoi_duyet ? ` · @${dong.id_nguoi_duyet}` : ''}
+                          </span>
+                        </p>
+
+                        {dong.ly_do && (
+                          <p className="mt-0.5 text-xs leading-5 text-gray-500">
+                            “{dong.ly_do}”
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
+            </div>
 
             {selected.status === 'pending' && (
               <div className="mt-6 border-t border-gray-200 pt-5">

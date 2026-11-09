@@ -12,6 +12,7 @@ import LichSuSoDu from '../pages/Account/LichSuSoDu';
 import DuyetBaiDang from '../pages/Admin/DuyetBaiDang';
 import QuanLyNguoiDung from '../pages/Admin/QuanLyNguoiDung';
 import QuanLyBaiDang from '../pages/Admin/QuanLyBaiDang';
+import XuLyToCao from '../pages/Admin/XuLyToCao';
 import ChiTietBaiDang from '../pages/Post/ChiTietBaiDang';
 import ProtectedRoute from './ProtectedRoute';
 import AdminRoute from './AdminRoute';
@@ -50,6 +51,7 @@ export default function AppRoutes() {
           <Route path="/admin/duyet-bai" element={<DuyetBaiDang />} />
           <Route path="/admin/quan-ly-nguoi-dung" element={<QuanLyNguoiDung />} />
           <Route path="/admin/quan-ly-bai-dang" element={<QuanLyBaiDang />} />
+<Route path="/admin/xu-ly-to-cao" element={<XuLyToCao />} />
         </Route>
       </Routes>
     </BrowserRouter>
