@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import Navbar from "../../components/Navbar/Navbar";
+import { goiApi, LOI_KHONG_KET_NOI } from "../../services/apiClient";
 
-// Nhãn + biểu tượng của 3 bước khôi phục mật khẩu (demo FE)
+// Nhãn + biểu tượng của 3 bước khôi phục mật khẩu
 const BUOC = [
   { ten: "Email", icon: "📧" },
   { ten: "Mã xác nhận", icon: "🔑" },
@@ -12,6 +13,11 @@ const BUOC = [
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-slate-50 px-4 py-2.5 text-sm text-gray-800 outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-100";
+
+// BE tắt (KHONG_KET_NOI) -> rơi về chế độ demo như cũ.
+// Riêng 404 là lỗi nghiệp vụ THẬT (email không có trong DB) — báo thẳng,
+// không được che bằng demo (BE đã có module quen_mat_khau).
+const beChuaSanSang = (error) => error.message === LOI_KHONG_KET_NOI;
 
 const QuenMatKhau = () => {
   const [buocHienTai, setBuocHienTai] = useState(1);
@@ -22,62 +28,147 @@ const QuenMatKhau = () => {
   const [xacNhanMatKhau, setXacNhanMatKhau] = useState("");
 
   const [thongBao, setThongBao] = useState("");
+  const [kieuThongBao, setKieuThongBao] = useState("loi"); // loi | xanh
+  const [thanhCong, setThanhCong] = useState(false);
+  const [dangGui, setDangGui] = useState(false);
 
-  const daXacMinhThanhCong = buocHienTai === 3 && thongBao.startsWith("Đặt lại");
+  const hienThiThanhCong = thanhCong; // bước 3 xong: thanh tiến trình đầy
+
+  // Bước 1: gửi yêu cầu -> BE tạo mã 6 số (hiệu lực 10 phút)
+  const guiEmail = async () => {
+    if (!email.trim()) {
+      setThongBao("Vui lòng nhập Email.");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setThongBao("Email không hợp lệ.");
+      return;
+    }
+
+    setDangGui(true);
+    try {
+      const ket_qua = await goiApi("/api/auth/forgot-password", {
+        method: "POST",
+        body: { email: email.trim() },
+      });
+
+      // Gmail SMTP cấu hình xong: mã gửi qua email, KHÔNG hiện mã
+      if (ket_qua.da_gui_email) {
+        setThongBao(
+          `Mã xác nhận đã được gửi tới ${ket_qua.email} (hiệu lực ${ket_qua.thoi_han_phut || 10} phút). Kiểm tra hộp thư — nếu không thấy, xem cả thư mục Spam.`
+        );
+      } else {
+        // Chưa cấu hình SMTP: BE trả mã để demo
+        setThongBao(
+          `Chưa cấu hình gửi email — mã demo: ${ket_qua.ma_xac_thuc} (hiệu lực ${ket_qua.thoi_han_phut || 10} phút)`
+        );
+      }
+      setKieuThongBao("xanh");
+      setBuocHienTai(2);
+    } catch (error) {
+      if (beChuaSanSang(error)) {
+        // Demo cục bộ: không kiểm tra email thật
+        setThongBao("");
+        setBuocHienTai(2);
+      } else {
+        setThongBao(error.message);
+        setKieuThongBao("loi");
+      }
+    } finally {
+      setDangGui(false);
+    }
+  };
+
+  // Bước 2: xác minh mã với BE trước khi cho đặt mật khẩu mới
+  const xacMinhMa = async () => {
+    if (!maXacNhan.trim()) {
+      setThongBao("Vui lòng nhập mã xác nhận.");
+      return;
+    }
+
+    setDangGui(true);
+    try {
+      await goiApi("/api/auth/verify-reset-code", {
+        method: "POST",
+        body: { email: email.trim(), ma_xac_thuc: maXacNhan.trim() },
+      });
+
+      setThongBao("Mã xác nhận đúng! Vui lòng đặt mật khẩu mới.");
+      setKieuThongBao("xanh");
+      setBuocHienTai(3);
+    } catch (error) {
+      if (beChuaSanSang(error)) {
+        setThongBao("");
+        setBuocHienTai(3);
+      } else {
+        setThongBao(error.message);
+        setKieuThongBao("loi");
+      }
+    } finally {
+      setDangGui(false);
+    }
+  };
+
+  // Bước 3: đặt mật khẩu mới (BE băm + lưu, mã bị tiêu dùng)
+  const datLaiMatKhau = async () => {
+    if (!matKhauMoi || !xacNhanMatKhau) {
+      setThongBao("Vui lòng nhập đầy đủ thông tin.");
+      return;
+    }
+
+    if (matKhauMoi.length < 8) {
+      setThongBao("Mật khẩu phải có ít nhất 8 ký tự.");
+      return;
+    }
+
+    if (matKhauMoi !== xacNhanMatKhau) {
+      setThongBao("Mật khẩu nhập lại không khớp.");
+      return;
+    }
+
+    setDangGui(true);
+    try {
+      await goiApi("/api/auth/reset-password", {
+        method: "POST",
+        body: {
+          email: email.trim(),
+          ma_xac_thuc: maXacNhan.trim(),
+          mat_khau_moi: matKhauMoi,
+        },
+      });
+
+      setThongBao("Đặt lại mật khẩu thành công! Hãy đăng nhập bằng mật khẩu mới.");
+      setThanhCong(true);
+    } catch (error) {
+      if (beChuaSanSang(error)) {
+        setThongBao("Đặt lại mật khẩu thành công! (Demo — BE chưa kết nối)");
+        setThanhCong(true);
+      } else {
+        setThongBao(error.message);
+        setKieuThongBao("loi");
+      }
+    } finally {
+      setDangGui(false);
+    }
+  };
 
   // Xử lý chuyển bước
   const xuLyXacNhan = (e) => {
     e.preventDefault();
     setThongBao("");
+    setKieuThongBao("loi"); // mặc định lỗi — nhánh thành công tự đổi lại xanh
 
-    if (buocHienTai === 1) {
-      if (!email.trim()) {
-        setThongBao("Vui lòng nhập Email.");
-        return;
-      }
-
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        setThongBao("Email không hợp lệ.");
-        return;
-      }
-
-      setBuocHienTai(2);
-      return;
-    }
-
-    if (buocHienTai === 2) {
-      if (!maXacNhan.trim()) {
-        setThongBao("Vui lòng nhập mã xác nhận.");
-        return;
-      }
-
-      setBuocHienTai(3);
-      return;
-    }
-
-    if (buocHienTai === 3) {
-      if (!matKhauMoi || !xacNhanMatKhau) {
-        setThongBao("Vui lòng nhập đầy đủ thông tin.");
-        return;
-      }
-
-      if (matKhauMoi.length < 8) {
-        setThongBao("Mật khẩu phải có ít nhất 8 ký tự.");
-        return;
-      }
-
-      if (matKhauMoi !== xacNhanMatKhau) {
-        setThongBao("Mật khẩu nhập lại không khớp.");
-        return;
-      }
-
-      setThongBao("Đặt lại mật khẩu thành công! (Demo)");
-    }
+    if (buocHienTai === 1) guiEmail();
+    else if (buocHienTai === 2) xacMinhMa();
+    else datLaiMatKhau();
   };
 
   // Quay lại bước trước
   const quayLai = () => {
     setThongBao("");
+    setKieuThongBao("loi");
+    setThanhCong(false);
     setBuocHienTai((prev) => Math.max(prev - 1, 1));
   };
 
@@ -115,7 +206,7 @@ const QuenMatKhau = () => {
             <div className="mt-7 flex items-center justify-center">
               {BUOC.map((buoc, thuTu) => {
                 const soThuTuBuoc = thuTu + 1;
-                const daXong = soThuTuBuoc < buocHienTai || daXacMinhThanhCong;
+                const daXong = soThuTuBuoc < buocHienTai || hienThiThanhCong;
                 const dangO = soThuTuBuoc === buocHienTai;
 
                 return (
@@ -224,19 +315,19 @@ const QuenMatKhau = () => {
               {thongBao && (
                 <p
                   className={`mt-4 rounded-xl px-4 py-2.5 text-center text-sm font-semibold ${
-                    daXacMinhThanhCong
+                    kieuThongBao === "xanh"
                       ? "bg-emerald-50 text-emerald-700"
                       : "bg-rose-50 text-rose-600"
                   }`}
                 >
-                  {daXacMinhThanhCong && "🎉 "}
+                  {thanhCong && "🎉 "}
                   {thongBao}
                 </p>
               )}
 
               {/* Các nút */}
               <div className="mt-7 flex justify-center gap-3">
-                {buocHienTai > 1 && !daXacMinhThanhCong && (
+                {buocHienTai > 1 && !hienThiThanhCong && (
                   <button
                     type="button"
                     onClick={quayLai}
@@ -246,12 +337,17 @@ const QuenMatKhau = () => {
                   </button>
                 )}
 
-                {!daXacMinhThanhCong && (
+                {!hienThiThanhCong && (
                   <button
                     type="submit"
-                    className="rounded-xl bg-amber-400 px-7 py-2.5 text-sm font-extrabold text-gray-900 shadow-md ring-2 ring-amber-400/40 transition hover:scale-[1.02] hover:bg-amber-300"
+                    disabled={dangGui}
+                    className="rounded-xl bg-amber-400 px-7 py-2.5 text-sm font-extrabold text-gray-900 shadow-md ring-2 ring-amber-400/40 transition hover:scale-[1.02] hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
                   >
-                    {buocHienTai === 3 ? "Đặt lại mật khẩu" : "Tiếp tục"}
+                    {dangGui
+                      ? "Đang xử lý..."
+                      : buocHienTai === 3
+                        ? "Đặt lại mật khẩu"
+                        : "Tiếp tục"}
                   </button>
                 )}
               </div>

@@ -42,3 +42,26 @@ class NguoiDungUpdate(BaseModel):
 class DoiMatKhauRequest(BaseModel):
     mat_khau_cu: str
     mat_khau_moi: str = Field(min_length=8, max_length=128)
+
+
+# ---- Quên mật khẩu (3 bước, collection quen_mat_khau) ----
+
+class QuenMatKhauRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    email: str = Field(min_length=5, max_length=150)
+
+
+class XacMinhMaRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    email: str = Field(min_length=5, max_length=150)
+    ma_xac_thuc: str = Field(min_length=4, max_length=10)
+
+
+class DatLaiMatKhauRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    email: str = Field(min_length=5, max_length=150)
+    ma_xac_thuc: str = Field(min_length=4, max_length=10)
+    mat_khau_moi: str = Field(min_length=8, max_length=128)

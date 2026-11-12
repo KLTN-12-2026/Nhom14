@@ -50,6 +50,14 @@ backend/
 | PUT | `/api/users/me` | Cập nhật hồ sơ (auto `ngay_cap_nhat` trong DB) | Bearer token |
 | PUT | `/api/users/change-password` | Đổi mật khẩu (sai mật khẩu cũ → **401**) | Bearer token |
 
+### Quên mật khẩu — collection `quen_mat_khau` (mã 6 số, hiệu lực 10 phút)
+
+| Phương thức | Endpoint | Mô tả | Xác thực |
+|---|---|---|---|
+| POST | `/api/auth/forgot-password` | Bước 1: tạo mã xác thực cho email (chưa có SMTP → mã trả về trong response, demo) | — |
+| POST | `/api/auth/verify-reset-code` | Bước 2: xác minh mã (sai/hết hạn/đã dùng → **400**) | — |
+| POST | `/api/auth/reset-password` | Bước 3: tiêu dùng mã + đặt mật khẩu mới (băm) | — |
+
 ### Bài đăng — collections `bai_dang`, `hinh_anh_bai_dang`, `lich_su_duyet_bai`
 
 | Phương thức | Endpoint | Mô tả | Xác thực |
