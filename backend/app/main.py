@@ -14,6 +14,9 @@ from app.routers.bai_dang import router as bai_dang_router
 from app.routers.admin import router as admin_bai_dang_router
 from app.routers.so_du import router as so_du_router
 from app.routers.admin_nguoi_dung import router as admin_nguoi_dung_router
+from app.routers.khoan_gop import router as khoan_gop_router
+from app.routers.to_cao import router as to_cao_router
+from app.routers.thong_bao import router as thong_bao_router
 
 
 @asynccontextmanager
@@ -49,6 +52,9 @@ app.include_router(bai_dang_router)
 app.include_router(admin_bai_dang_router)
 app.include_router(so_du_router)
 app.include_router(admin_nguoi_dung_router)
+app.include_router(khoan_gop_router)
+app.include_router(to_cao_router)
+app.include_router(thong_bao_router)
 
 
 @app.get("/")

@@ -62,3 +62,28 @@ async def duyet_bai_dang(
         raise HTTPException(status_code=404, detail=str(error))
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
+
+
+@router.put("/{id_bai_dang}/an-hien")
+async def an_hien_bai_dang(
+    id_bai_dang: str,
+    yeu_cau: DuyetBaiDangRequest,
+    current_user: dict = Depends(get_current_admin_user)
+):
+    """Ẩn (Da_An) / Hiện lại (Da_Duyet) bài đã duyệt - PB18.
+
+    Dùng cho trang Quản lý bài đăng và luồng xử lý tố cáo: bài vi phạm
+    biến mất khỏi danh sách công khai. Ghi lich_su_duyet_bai + thông
+    báo cho người đăng.
+    """
+    try:
+        return await dich_vu.an_hien_bai_dang(
+            id_bai_dang,
+            yeu_cau.hanh_dong,
+            yeu_cau.ly_do,
+            id_nguoi_duyet=current_user["_id"]
+        )
+    except KhongTimThayBaiDangError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))

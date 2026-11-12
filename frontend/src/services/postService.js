@@ -187,16 +187,25 @@ export async function dongBoTuBe() {
   // Bài đang có thay đổi chưa đồng bộ -> giữ bản cache (không để BE phủ)
   const conCho = new Set(docHangCho().map((muc) => String(muc.id)));
 
-  // Ghi đè cache BE; bài trong hàng chờ ưu tiên giữ bản đã sửa của người dùng
+  // Dựng LẠI cache từ kết quả BE (không giữ mảng cũ): bài bị ẩn/từ chối
+  // rơi khỏi danh sách công khai của BE thì cũng phải biến mất khỏi
+  // cache, nếu không bản cũ "Da_Duyet" ở lại localStorage vĩnh viễn
+  // và lộ lên danh sách dù BE đã ẩn.
   const bang = new Map();
-  for (const baiDang of docCache(KEY_BE)) {
-    bang.set(String(baiDang.id), baiDang);
-  }
   for (const baiDang of ketQua) {
     if (!conCho.has(String(baiDang.id))) {
       bang.set(String(baiDang.id), baiDang);
     }
   }
+
+  // Bài đang có thay đổi chưa đồng bộ (hàng chờ) mà BE chưa trả về:
+  // giữ bản cache cũ để không mất bài người dùng vừa sửa.
+  for (const baiDang of docCache(KEY_BE)) {
+    if (conCho.has(String(baiDang.id)) && !bang.has(String(baiDang.id))) {
+      bang.set(String(baiDang.id), baiDang);
+    }
+  }
+
   localStorage.setItem(KEY_BE, JSON.stringify([...bang.values()]));
 
   return ketQua.length;

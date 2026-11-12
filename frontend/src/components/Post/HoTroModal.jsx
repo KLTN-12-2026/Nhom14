@@ -1,10 +1,8 @@
 import { useState } from "react";
 import Button from "../Button/Button";
-import { thanhToan } from "../../services/walletService";
+import { thucHienGop } from "../../services/contributionService";
 import {
-  ghiNhanGop,
   layLoaiInfo,
-  layMaBaiDang,
   layMucTieu,
   layTieuDe,
 } from "../../services/contributionService";
@@ -42,6 +40,7 @@ function HoTroModal({ post, soDu, onClose, onSuccess }) {
   const [phuongThuc, setPhuongThuc] = useState("vi");
   const [loi, setLoi] = useState("");
   const [ketQua, setKetQua] = useState(null);
+  const [dangGui, setDangGui] = useState(false);
 
   // Trường riêng theo loại bài đăng
   const [loiNhac, setLoiNhac] = useState("");
@@ -93,35 +92,45 @@ function HoTroModal({ post, soDu, onClose, onSuccess }) {
     setStep("xac-nhan");
   };
 
-  const handleXacNhan = () => {
-    const ketQuaGiaoDich = thanhToan({
-      postId: layMaBaiDang(post),
-      postTitle: layTieuDe(post),
-      soTien: soTienNumber,
-      loaiGiaoDich: nhan,
-    });
+  // Xác nhận thanh toán: BE-first (bài MongoDB + phiên BE) — trừ ví BE
+  // (tru_tien), ghi khoản góp, cộng tiến độ; BE tắt tự rơi luồng demo.
+  const handleXacNhan = async () => {
+    setDangGui(true);
 
-    if (!ketQuaGiaoDich.thanhCong) {
-      setLoi(ketQuaGiaoDich.loi);
+    try {
+      const ketQuaGop = await thucHienGop({
+        post,
+        soTien: soTienNumber,
+        loai: nhan,
+        loiNhac,
+        anDanh: loaiLaDon ? anDanh : false,
+        soHuuPhanTram:
+          !loaiLaDon && soHuDanhGia
+            ? Number(soHuDanhGia.toFixed(1))
+            : null,
+      });
+
+      if (!ketQuaGop.thanhCong) {
+        setLoi(ketQuaGop.loi);
+        setStep("nhap");
+        return;
+      }
+
+      setKetQua(ketQuaGop);
+      // Báo về trang chi tiết để cập nhật số dư và tiến độ huy động ngay.
+      onSuccess(
+        ketQuaGop.soDuMoi,
+        Number(ketQuaGop.giaoDich.so_tien) || soTienNumber
+      );
+      setStep("thanh-cong");
+    } catch (error) {
+      setLoi(
+        `Giao dịch thất bại: ${error?.message || "lỗi không xác định"}`
+      );
       setStep("nhap");
-      return;
+    } finally {
+      setDangGui(false);
     }
-
-    // Ghi danh sách người góp + cập nhật số tiền đã huy động của bài đăng.
-    ghiNhanGop({
-      post,
-      soTien: soTienNumber,
-      loai: nhan,
-      loiNhac,
-      anDanh: loaiLaDon ? anDanh : false,
-      soHuuPhanTram: !loaiLaDon && soHuDanhGia ? Number(soHuDanhGia.toFixed(1)) : null,
-      idGiaoDich: ketQuaGiaoDich.giaoDich.id_giao_dich,
-    });
-
-    setKetQua(ketQuaGiaoDich);
-    // Báo về trang chi tiết để cập nhật số dư và tiến độ huy động ngay.
-    onSuccess(ketQuaGiaoDich.soDuMoi, ketQuaGiaoDich.giaoDich.soTien);
-    setStep("thanh-cong");
   };
 
   return (
@@ -412,8 +421,12 @@ function HoTroModal({ post, soDu, onClose, onSuccess }) {
               >
                 ← Quay lại
               </Button>
-              <Button className="flex-1" onClick={handleXacNhan}>
-                Xác nhận thanh toán
+              <Button
+                className="flex-1"
+                onClick={handleXacNhan}
+                disabled={dangGui}
+              >
+                {dangGui ? "Đang xử lý..." : "Xác nhận thanh toán"}
               </Button>
             </div>
           </div>

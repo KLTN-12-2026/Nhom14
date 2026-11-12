@@ -63,10 +63,21 @@ export default function QuanLyBaiDang() {
     trangChot * SO_TRANG_KICH_THUOC
   );
 
-  function xu_ly(fn, thong_bao_mo) {
+  async function xu_ly(fn, thong_bao_mo) {
     try {
-      fn();
-      tb.thanhCong(thong_bao_mo);
+      const ket_qua = await fn();
+
+      // Hàm BE-first trả { thanhCong, tu_be } — lỗi nghiệp vụ BE hiện thẳng
+      if (ket_qua && ket_qua.thanhCong === false) {
+        tb.loi(ket_qua.loi);
+        return;
+      }
+
+      tb.thanhCong(
+        ket_qua?.tu_be === false
+          ? `${thong_bao_mo} (lưu tạm trình duyệt — BE chưa kết nối)`
+          : thong_bao_mo
+      );
       lam_moi();
     } catch (error) {
       tb.loi(error.message);

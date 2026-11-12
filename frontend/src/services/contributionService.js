@@ -3,6 +3,8 @@ import { posts as POST_DEMO } from '../data/PostDemo/posts';
 import { getSession } from './authService';
 import { getUser } from './userService';
 import { layNguoiDungBangId } from './adminUserService';
+import { goiApi, LOI_KHONG_KET_NOI, coToken } from './apiClient';
+import { thanhToan, apDungGiaoDichBe } from './walletService';
 import {
   getPosts,
   layBaiTuBe,
@@ -43,6 +45,7 @@ const TRANG_THAI_BE = {
   Cho_Duyet: 'Chờ duyệt',
   Da_Duyet: 'Đang diễn ra',
   Tu_Choi: 'Đã từ chối',
+  Da_An: 'Đã ẩn',
 };
 
 // Tên hiển thị trên menu sidebar theo ba loại bài đăng.
@@ -128,12 +131,19 @@ export function daHetHan(post) {
 }
 
 // Danh sách hợp nhất toàn hệ thống: bài demo (PostDemo) + bài người dùng
-// tạo từ form (postService, trong localStorage) — bỏ bài bị từ chối.
+// tạo từ form (postService, trong localStorage) — bỏ bài bị từ chối và
+// bài bị ẩn (Da_An theo tố cáo/ẩn thủ công của admin) để không lộ lên
+// danh sách công khai; admin vẫn xem được trong trang quản lý riêng.
 // Trang chủ (số liệu thống kê) và trang danh mục (XemBaiDang) dùng chung
 // nguồn này để số đếm luôn khớp nhau.
 export function layDanhSachTongHop() {
+  const khongHien = (post) =>
+    ['rejected', 'Đã từ chối', 'Đã ẩn'].includes(
+      post.status || layTrangThai(post)
+    ) || layTrangThai(post) === 'Đã ẩn';
+
   const tuForm = [...getPosts()].filter(
-    (post) => (post.status || 'pending') !== 'rejected'
+    (post) => (post.status || 'pending') !== 'rejected' && !khongHien(post)
   );
 
   // getPosts() đã hợp nhất bài BE vào list cục bộ rồi — nếu thêm
@@ -141,7 +151,7 @@ export function layDanhSachTongHop() {
   // -> Đếm id đã có trong tuForm, chỉ bury thêm bài BE thật sự chưa có.
   const daCo = new Set(tuForm.map((post) => String(layMaBaiDang(post))));
   const beThem = layBaiTuBe().filter(
-    (post) => !daCo.has(String(layMaBaiDang(post)))
+    (post) => !daCo.has(String(layMaBaiDang(post))) && !khongHien(post)
   );
 
   return [...POST_DEMO, ...tuForm, ...beThem];
@@ -223,7 +233,8 @@ export function chuanHoaGop(gop) {
     loai: gop.loai || '',
     id_bai_dang: gop.id_bai_dang || '',
     id_nguoi_gop: gop.id_nguoi_gop || '',
-    ten: gop.ten || 'Người ủng hộ',
+    // BE trả tên ghép theo id lúc đọc (ten_nguoi_gop); demo lưu ten
+    ten: gop.ten || gop.ten_nguoi_gop || 'Người ủng hộ',
     so_tien: Number(gop.so_tien ?? gop.soTien) || 0,
     trang_thai: gop.trang_thai || 'Thanh_cong',
     ngay_tao: gop.ngay_tao || gop.thoiGian || '',
@@ -239,8 +250,32 @@ export function chuanHoaGop(gop) {
 
 export function layDanhSachGop(postId) {
   if (!postId) return [];
+
+  // ƯU TIÊN: bản BE thật (GET /api/bai-dang/{id}/nguoi-gop do
+  // dongBoNguoiGopTuBe nạp) — đúng MongoDB, gồm cả người góp tài khoản khác.
+  const be = docDanhSachBe(postId);
+
+  if (be.length) {
+    return be.map(chuanHoaGop).filter(Boolean);
+  }
+
+  // BE chưa có (tắt/chưa đồng bộ) -> danh sách cục bộ của bài này
   return docDanhSach(postId);
 }
+
+// Cache danh sách người góp từ BE, riêng theo mã bài đăng
+function docDanhSachBe(postId) {
+  try {
+    const saved = JSON.parse(
+      localStorage.getItem(`${KEY_BE_GOP_PREFIX}:${postId}`) || '[]'
+    );
+    return Array.isArray(saved) ? saved : [];
+  } catch {
+    return [];
+  }
+}
+
+const KEY_BE_GOP_PREFIX = 'rising-idea-be-gop';
 
 export function layTongTienGop(postId) {
   return layDanhSachGop(postId).reduce(
@@ -310,4 +345,137 @@ export function ghiNhanGop({
   }
 
   return gop;
+}
+
+// ---- BE-FIRST: góp vốn/quyên góp qua module khoan_gop ----
+//
+// Endpoint BE (đã dựng):
+//   POST /api/bai-dang/{id}/gop          — trừ ví (tru_tien) + ghi khoản
+//   GET  /api/bai-dang/{id}/nguoi-gop    — danh sách người góp (công khai)
+//   GET  /api/gop/cua-toi                — khoản tôi đã góp
+//
+// Bài demo / BE tắt (KHONG_KET_NOI) / BE cũ chưa có module (404) ->
+// tự rơi về luồng demo: thanhToan() cục bộ + ghi danh sách người góp local.
+
+// Nạp danh sách người góp thật từ BE vào cache (trang chi tiết gọi khi mở).
+export async function dongBoNguoiGopTuBe(postId) {
+  try {
+    const danh_sach = await goiApi(
+      `/api/bai-dang/${encodeURIComponent(postId)}/nguoi-gop`
+    );
+
+    if (Array.isArray(danh_sach)) {
+      localStorage.setItem(
+        `${KEY_BE_GOP_PREFIX}:${postId}`,
+        JSON.stringify(danh_sach)
+      );
+      return danh_sach.length;
+    }
+  } catch (error) {
+    const be_chua_co = error.statusCode === 404;
+    if (!be_chua_co && error.message !== LOI_KHONG_KET_NOI) throw error;
+  }
+
+  return null;
+}
+
+// Thực hiện trọn vẹn một lần góp: BE-first, fallback demo.
+// Trả { thanhCong, tu_be, soDuMoi, giaoDich, gop } hoặc { thanhCong:false, loi }.
+export async function thucHienGop({
+  post,
+  soTien,
+  loai,
+  loiNhac = '',
+  anDanh = false,
+  soHuuPhanTram = null,
+}) {
+  const postId = layMaBaiDang(post);
+  if (!postId) {
+    return { thanhCong: false, loi: 'Không xác định được bài đăng.' };
+  }
+
+  const soTienNumber = Number(soTien);
+  const laBaiBe = !laBaiDangDemo(post);
+
+  // ---- ƯU TIÊN: BE thật (bài từ MongoDB + phiên đăng nhập của BE) ----
+  if (laBaiBe && coToken()) {
+    try {
+      const ket_qua = await goiApi(
+        `/api/bai-dang/${encodeURIComponent(postId)}/gop`,
+        {
+          method: 'POST',
+          body: {
+            so_tien: soTienNumber,
+            an_danh: Boolean(anDanh),
+            loi_nhac: String(loiNhac || '').trim(),
+            so_huu_phan_tram:
+              soHuuPhanTram != null ? Number(soHuuPhanTram) : null,
+          },
+        }
+      );
+
+      if (ket_qua?.gop?.id) {
+        // 1) Nạp khoản góp vào cache BE của bài (thêm lên đầu)
+        const cache = docDanhSachBe(postId).filter(
+          (item) => String(item.id) !== String(ket_qua.gop.id)
+        );
+        localStorage.setItem(
+          `${KEY_BE_GOP_PREFIX}:${postId}`,
+          JSON.stringify([ket_qua.gop, ...cache])
+        );
+
+        // 2) Tiến độ bài (raised) cập nhật tức thì trong mọi cache FE
+        tangTienPostService(
+          postId,
+          Number(ket_qua.gop.so_tien) || soTienNumber
+        );
+
+        // 3) Ví: số dư mới + giao dịch Giam vào cache ví (không cần reload)
+        apDungGiaoDichBe(ket_qua.giao_dich, ket_qua.vi.so_du);
+
+        return {
+          thanhCong: true,
+          tu_be: true,
+          soDuMoi: ket_qua.vi.so_du,
+          // BE trả id — chuẩn hóa sang id_giao_dich để modal hiển thị
+          giaoDich: { ...ket_qua.giao_dich, id_giao_dich: ket_qua.giao_dich.id },
+          gop: ket_qua.gop,
+        };
+      }
+    } catch (error) {
+      if (error.message !== LOI_KHONG_KET_NOI) {
+        if (error.statusCode !== 404) {
+          // BE chạy + từ chối nghiệp vụ thật (402 hết tiền, 409 chưa duyệt,
+          // 400 số tiền sai) -> báo thẳng người dùng, KHÔNG giả demo
+          return { thanhCong: false, loi: error.message };
+        }
+        // 404 = BE cũ chưa có module -> rơi về demo bên dưới
+      }
+      // BE tắt -> rơi về demo bên dưới
+    }
+  }
+
+  // ---- FALLBACK DEMO: trừ ví cục bộ + ghi danh sách người góp local ----
+  const ketQuaGiaoDich = thanhToan({
+    postId,
+    postTitle: layTieuDe(post),
+    soTien: soTienNumber,
+    loaiGiaoDich: loai,
+  });
+
+  if (!ketQuaGiaoDich.thanhCong) {
+    return ketQuaGiaoDich;
+  }
+
+  const gop = ghiNhanGop({
+    post,
+    soTien: soTienNumber,
+    loai,
+    loiNhac,
+    anDanh,
+    soHuuPhanTram,
+    idGiaoDich: ketQuaGiaoDich.giaoDich.id_giao_dich,
+  });
+
+  return { ...ketQuaGiaoDich, tu_be: false, gop };
 }

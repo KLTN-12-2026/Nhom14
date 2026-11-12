@@ -183,8 +183,7 @@ export default function NapSoDu() {
             Nạp số dư
           </h1>
           <p className="mt-1 text-sm text-gray-500">
-            Số tiền tối thiểu 10.000 VNĐ. Tiền nạp dùng cho Góp vốn / Quyên góp
-            (US13, US14).
+            Số tiền tối thiểu 10.000 VNĐ. Tiền nạp dùng cho Góp vốn / Quyên góp.
           </p>
 
           {/* Mức nạp nhanh */}

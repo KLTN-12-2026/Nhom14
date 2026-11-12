@@ -189,6 +189,20 @@ export async function napTien({ soTien, moTa = '' }) {
   };
 }
 
+// Ghi giao dịch Trừ tiền từ BE (khoản góp/quyên góp qua module khoan_gop)
+// vào cache ví + cập nhật số dư — gọi từ contributionService sau khi BE
+// xác nhận giao dịch, để Ví + Lịch sử số dư hiện đúng ngay không cần reload.
+export function apDungGiaoDichBe(giao_dich, so_du_moi) {
+  const cache = docCacheBe() || { giao_dich: [] };
+
+  luuCacheBe({
+    ...cache,
+    so_du: so_du_moi,
+    giao_dich: [giao_dich, ...(cache.giao_dich || [])],
+  });
+  updateUser({ so_du: so_du_moi });
+}
+
 // Thực hiện giao dịch trừ số dư (Góp vốn / Quyên góp - US13, US14).
 // Bản demo trừ cục bộ; khi BE có module khoan_gop_von/khoan_quyen_gop
 // sẽ chuyển sang gọi BE tru_tien (services so_du.tru_tien) trước ghi khoản.

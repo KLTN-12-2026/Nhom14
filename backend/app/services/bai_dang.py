@@ -70,6 +70,10 @@ def _chuan_hoa(
         "noi_dung": doc.get("noi_dung", ""),
         "trang_thai": doc.get("trang_thai", "Cho_Duyet"),
         "muc_tieu": doc.get("muc_tieu", 0),
+        # Tổng đã huy động (khoan_gop_von/khoan_quyen_gop/khoan_dau_tu
+        # cộng dồn vào bai_dang sau mỗi lần góp) — FE đọc trực tiếp
+        # cho thanh tiến độ, không cần gọi thêm API danh sách người góp.
+        "so_tien_da_gop": float(doc.get("so_tien_da_gop") or 0),
         "don_vi_tien_te": doc.get("don_vi_tien_te", "VND"),
         "thoi_gian_bat_dau": thoi_gian_bat_dau.isoformat()
         if thoi_gian_bat_dau
@@ -423,6 +427,100 @@ async def duyet_bai_dang(id_bai_dang: str, hanh_dong: str,
         "ly_do": ly_do.strip(),
         "ngay_tao": now,
     })
+
+    # Thông báo cho người đăng kết quả duyệt (module thong_bao)
+    try:
+        from app.services.thong_bao import tao_thong_bao
+
+        if trang_thai_moi == "Da_Duyet":
+            await tao_thong_bao(
+                bai_dang["id_nguoi_dang"],
+                loai_thong_bao="Ket_Qua_Duyet",
+                tieu_de=f'Bài "{bai_dang.get("tieu_de", "")}" đã được duyệt ✅',
+                noi_dung=(
+                    "Chúc mừng! Bài đăng của bạn đã được quản trị viên phê "
+                    "duyệt và đang hiển thị công khai trên danh mục dự án."
+                ),
+                loai_doi_tuong=f"bai_dang:{id_bai_dang}",
+            )
+        else:
+            await tao_thong_bao(
+                bai_dang["id_nguoi_dang"],
+                loai_thong_bao="Ket_Qua_Duyet",
+                tieu_de=f'Bài "{bai_dang.get("tieu_de", "")}" đã bị từ chối 🚫',
+                noi_dung=(
+                    f"Lý do: {ly_do.strip()}. Bạn có thể chỉnh sửa nội dung "
+                    "và gửi duyệt lại bất cứ lúc nào."
+                ),
+                loai_doi_tuong=f"bai_dang:{id_bai_dang}",
+            )
+    except Exception:
+        # Thông báo là phụ trợ — lỗi không được làm sập duyệt bài
+        pass
+
+    return await lay_bai_dang_theo_id(id_bai_dang)
+
+
+async def an_hien_bai_dang(
+    id_bai_dang: str,
+    hanh_dong: str,
+    ly_do: str,
+    id_nguoi_duyet: ObjectId,
+) -> dict:
+    """Ẩn / Hiện bài đã duyệt - PB18 (trạng thái Da_An / Da_Duyet).
+
+    Bài bị ẩn biến mất khỏi danh sách công khai (lay_bai_dang_cong_khai
+    chỉ trả Da_Duyet) và hiển thị rõ trong trang quản lý. Mỗi lần ẩn/hiện
+    đều ghi lich_su_duyet_bai để truy vết như duyệt/từ chối.
+    """
+    bai_dang = await doc_bai_dang(id_bai_dang)
+
+    if not bai_dang:
+        raise KhongTimThayBaiDangError("Không tìm thấy bài đăng.")
+
+    if hanh_dong == "An":
+        if bai_dang["trang_thai"] == "Da_An":
+            raise ValueError("Bài đăng đã ở trạng thái ẩn.")
+        trang_thai_moi = "Da_An"
+    elif hanh_dong == "Hien":
+        if bai_dang["trang_thai"] != "Da_An":
+            raise ValueError("Chỉ hiện lại bài đang bị ẩn.")
+        trang_thai_moi = "Da_Duyet"
+    else:
+        raise ValueError("Hành động không hợp lệ. Nhận 'An' hoặc 'Hien'.")
+
+    now = datetime.now(timezone.utc)
+
+    await database["bai_dang"].update_one(
+        {"_id": bai_dang["_id"]},
+        {"$set": {"trang_thai": trang_thai_moi, "ngay_cap_nhat": now}},
+    )
+
+    await database["lich_su_duyet_bai"].insert_one({
+        "id_bai_dang": bai_dang["_id"],
+        "id_nguoi_duyet": id_nguoi_duyet,
+        "hanh_dong": "An_Bai" if hanh_dong == "An" else "Hien_Bai",
+        "ly_do": ly_do.strip(),
+        "ngay_tao": now,
+    })
+
+    # Thông báo cho người đăng khi bài bị ẩn (khi hiện lại không cần báo)
+    if hanh_dong == "An":
+        try:
+            from app.services.thong_bao import tao_thong_bao
+
+            await tao_thong_bao(
+                bai_dang["id_nguoi_dang"],
+                loai_thong_bao="He_Thong",
+                tieu_de=f'Bài "{bai_dang.get("tieu_de", "")}" đã bị ẩn 🙈',
+                noi_dung=(
+                    f"Lý do: {ly_do.strip() or 'vi phạm quy định nội dung'}. "
+                    "Liên hệ quản trị viên nếu bạn cho rằng đây là nhầm lẫn."
+                ),
+                loai_doi_tuong=f"bai_dang:{id_bai_dang}",
+            )
+        except Exception:
+            pass
 
     return await lay_bai_dang_theo_id(id_bai_dang)
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import Navbar from "../../components/Navbar/Navbar";
@@ -12,12 +12,16 @@ import { getUser } from "../../services/userService";
 import { getPostById } from "../../services/postService";
 import { taoToCao, LY_DO_TO_CAO } from "../../services/toCaoService";
 import { tb } from "../../services/thongBaoService";
+import { themThongBao } from "../../services/chuongService";
 import {
   daHetHan,
+  dongBoNguoiGopTuBe,
+  laBaiDangDemo,
   layBaiDangBangId,
   layDanhSachGop,
   layDanhSachHinhAnh,
   layLoaiInfo,
+  layLoaiMenu,
   layMaBaiDang,
   layNguoiDang,
   layNoiDung,
@@ -86,6 +90,8 @@ const ChiTietBaiDang = () => {
     [id, lanLamMoi]
   );
   const [baiDangBe, setBaiDangBe] = useState(null);
+  // Số người góp đã đồng bộ từ BE lần gần nhất — chặn effect lặp vô hạn
+  const soNguoiGopDaDongBo = useRef(0);
 
   // Cache chưa có bài (ví dụ vào thẳng link bài của BE trước khi đồng bộ)
   // -> nạp trực tiếp GET /api/bai-dang/{id}.
@@ -108,6 +114,34 @@ const ChiTietBaiDang = () => {
   }, [id, baiDangCache]);
 
   const baiDang = baiDangCache || baiDangBe;
+
+  // Danh sách người góp: tải bản thật từ BE (nếu là bài MongoDB) vào cache
+  // — chạy khi mở trang và mỗi lần góp thành công (lanLamMoi tăng).
+  const postIdHienTai = layMaBaiDang(baiDang);
+
+  useEffect(() => {
+    if (!postIdHienTai || laBaiDangDemo(baiDang)) return;
+
+    let tiep_tuc = true;
+
+    dongBoNguoiGopTuBe(postIdHienTai)
+      .then((so_dong) => {
+        // Chỉ re-render khi số người góp thay đổi (chặn vòng lặp effect)
+        if (tiep_tuc && so_dong != null && so_dong !== soNguoiGopDaDongBo.current) {
+          soNguoiGopDaDongBo.current = so_dong;
+          setLanLamMoi((lan) => lan + 1);
+        }
+      })
+      .catch(() => {
+        // BE tắt / chưa có module -> danh sách cục bộ như cũ
+      });
+
+    return () => {
+      tiep_tuc = false;
+    };
+    // baiDang trong deps qua postIdHienTai — tránh nạp lại mỗi render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postIdHienTai, lanLamMoi]);
 
   // Dữ liệu chuẩn hóa dùng cho cả màn hết hạn lẫn màn chi tiết bình thường
   const loaiInfo = layLoaiInfo(baiDang);
@@ -240,8 +274,16 @@ const ChiTietBaiDang = () => {
   };
 
   // Sau khi góp thành công: nạp lại danh sách người góp + thanh tiến độ
-  const handleHoTroThanhCong = () => {
+  const handleHoTroThanhCong = (soDuMoi, soTien) => {
     setLanLamMoi((lan) => lan + 1);
+
+    // Chuông thông báo: ghi nhận khoản góp vào hộp thư cá nhân
+    themThongBao({
+      loai_thong_bao: "Vi",
+      tieu_de: `${layLoaiMenu(baiDang)} ${soTien ? soTien.toLocaleString("vi-VN") + " ₫" : ""} thành công`,
+      noi_dung: `Bạn đã ủng hộ dự án "${layTieuDe(baiDang)}". Giao dịch hiển thị trong Lịch sử số dư.`,
+      loai_doi_tuong: `bai_dang:${layMaBaiDang(baiDang)}`,
+    });
   };
 
   // Mở modal báo cáo — cần đăng nhập (to_cao_bai_dang bắt buộc id_nguoi_to_cao)
@@ -331,6 +373,21 @@ const ChiTietBaiDang = () => {
             {layTrangThai(baiDang)}
           </span>
         </nav>
+
+        {/* Bài bị ẩn (Da_An): chỉ chủ bài / admin xem được qua link trực tiếp
+            — giải thích rõ vì sao bài không còn trong danh sách công khai */}
+        {layTrangThai(baiDang) === 'Đã ẩn' && (
+          <div className="mb-6 flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-gray-700">
+            <span aria-hidden="true" className="text-lg leading-none">🙈</span>
+            <span>
+              <b className="text-rose-600">Bài đăng này đang bị ẩn.</b>
+              <span className="mt-0.5 block text-xs text-gray-500">
+                Bài không hiển thị với mọi người trong danh sách công khai.
+                Liên hệ quản trị viên nếu bạn cho rằng đây là nhầm lẫn.
+              </span>
+            </span>
+          </div>
+        )}
 
         <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
           {/* ===== Cột trái: nội dung dự án ===== */}

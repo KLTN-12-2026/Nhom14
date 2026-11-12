@@ -63,20 +63,65 @@ function ganNguoiDung(danh_sach) {
   }));
 }
 
-// Danh sách thông báo: mới nhất lên đầu
+// Danh sách thông báo: mới nhất lên đầu.
+// Hợp nhất 2 nguồn: bản BE thật (collection thong_bao do
+// dongBoThongBaoTuBe nạp) + bản cục bộ (demo/seed nền tảng) —
+// trùng id giữ 1, loại bỏ bản BE đã bị xóa/trùng lặp.
 export function docThongBao() {
   const saved = docCacheRaw();
+  const be = docCacheBeThongBao();
 
-  if (!saved) {
+  if (!saved && !be.length) {
     // Lần đầu -> nạp thông báo mặc định của nền tảng (sự kiện web...)
     const khoi_dau = ganNguoiDung(taoThongBaoKhoiDau());
     luuCache(khoi_dau);
     return khoi_dau;
   }
 
-  return [...saved].sort(
-    (a, b) => new Date(b.ngay_tao || 0) - new Date(a.ngay_tao || 0)
-  );
+  // Bản BE trả chuẩn schema (id ObjectId); bản cục bộ id 'TB-...' —
+  // không trùng nhau, union ghép lại vẫn đúng thứ tự thời gian.
+  const ban_be = be.map(beSangThongBao);
+  const ban_cuc_bo = (saved || []).map((item) => ({
+    ...item,
+    tu_be: false,
+  }));
+
+  const da_co = new Set(ban_be.map((item) => String(item.id)));
+
+  return [
+    ...ban_be,
+    ...ban_cuc_bo.filter((item) => !da_co.has(String(item.id))),
+  ].sort((a, b) => new Date(b.ngay_tao || 0) - new Date(a.ngay_tao || 0));
+}
+
+// Cache thông báo BE do dongBoThongBaoTuBe ghi sau mỗi lần mở trang
+function docCacheBeThongBao() {
+  const session = getSession();
+  if (!session) return [];
+
+  try {
+    const danh_sach = JSON.parse(
+      localStorage.getItem(`rising-idea-thong-bao-be:${session.ten_tk}`) || '[]'
+    );
+    return Array.isArray(danh_sach) ? danh_sach : [];
+  } catch {
+    return [];
+  }
+}
+
+// Bản BE -> shape FE chuông (giữ nguyên schema chuẩn, gắn cờ tu_be)
+function beSangThongBao(dong) {
+  return {
+    id: dong.id || dong._id || '',
+    id_nguoi_dung: dong.id_nguoi_dung || null,
+    loai_thong_bao: dong.loai_thong_bao || 'He_Thong',
+    tieu_de: dong.tieu_de || '',
+    noi_dung: dong.noi_dung || '',
+    loai_doi_tuong: dong.loai_doi_tuong || null,
+    da_doc: Boolean(dong.da_doc),
+    ngay_tao: dong.ngay_tao || '',
+    tu_be: true,
+  };
 }
 
 // Thông báo mặc định khi lần đầu mở chuông (sự kiện/hướng dẫn nền tảng)
@@ -139,25 +184,80 @@ export function themThongBao({
     ngay_tao: new Date().toISOString(),
   };
 
-  luuCache([thong_bao, ...docThongBao()]);
+  luuCache([thong_bao, ...(docCacheRaw() || [])]);
   phatChuong();
 
   return thong_bao;
 }
 
-// Đánh dấu 1 thông báo đã đọc (click vào dòng)
-export function danhDauDaDoc(id) {
+// Đánh dấu 1 thông báo đã đọc (click vào dòng).
+// BE-first với thông báo từ MongoDB (PUT /api/thong-bao/{id}/doc),
+// bản demo cục bộ cập nhật local như cũ.
+export async function danhDauDaDoc(id) {
+  const tu_be = docCacheBeThongBao().some(
+    (dong) => String(dong.id || dong._id) === String(id)
+  );
+
+  if (tu_be) {
+    try {
+      await goiApi(
+        `/api/thong-bao/${encodeURIComponent(id)}/doc`,
+        { method: 'PUT' }
+      );
+      // Cập nhật cache BE — badge giảm ngay không cần chờ sync lần sau
+      const session = getSession();
+      if (session) {
+        const danh_sach = docCacheBeThongBao().map((dong) =>
+          String(dong.id || dong._id) === String(id)
+            ? { ...dong, da_doc: true }
+            : dong
+        );
+        localStorage.setItem(
+          `rising-idea-thong-bao-be:${session.ten_tk}`,
+          JSON.stringify(danh_sach)
+        );
+      }
+      phatChuong();
+      return;
+    } catch (error) {
+      if (error.message !== LOI_KHONG_KET_NOI) throw error;
+      // BE tắt giữa chừng -> vẫn đánh dấu local bên dưới
+    }
+  }
+
   luuCache(
-    docThongBao().map((item) =>
+    (docCacheRaw() || []).map((item) =>
       String(item.id) === String(id) ? { ...item, da_doc: true } : item
     )
   );
   phatChuong();
 }
 
-// Nút "Đọc tất cả" — xóa sạch badge/chữ NEW
-export function danhDauTatCaDaDoc() {
-  luuCache(docThongBao().map((item) => ({ ...item, da_doc: true })));
+// Nút "Đọc tất cả" — xóa sạch badge/chữ NEW (BE-first + local)
+export async function danhDauTatCaDaDoc() {
+  if (getSession()) {
+    try {
+      await goiApi('/api/thong-bao/doc-tat-ca', { method: 'PUT' });
+
+      const session = getSession();
+      if (session) {
+        const danh_sach = docCacheBeThongBao().map((dong) => ({
+          ...dong,
+          da_doc: true,
+        }));
+        localStorage.setItem(
+          `rising-idea-thong-bao-be:${session.ten_tk}`,
+          JSON.stringify(danh_sach)
+        );
+      }
+    } catch (error) {
+      if (error.message !== LOI_KHONG_KET_NOI) throw error;
+    }
+  }
+
+  luuCache(
+    (docCacheRaw() || []).map((item) => ({ ...item, da_doc: true }))
+  );
   phatChuong();
 }
 
@@ -181,6 +281,7 @@ export async function dongBoThongBaoTuBe() {
         `rising-idea-thong-bao-be:${session.ten_tk}`,
         JSON.stringify(danh_sach)
       );
+      phatChuong(); // badge/timeline cập nhật ngay khi có thông báo mới
       return danh_sach.length;
     }
   } catch (error) {

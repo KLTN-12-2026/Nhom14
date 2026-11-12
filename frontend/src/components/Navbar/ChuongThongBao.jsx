@@ -1,12 +1,37 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   dangKyThongBao,
   danhDauDaDoc,
   danhDauTatCaDaDoc,
   LOAI_THONG_BAO,
 } from '../../services/chuongService';
-import { getSession } from '../../services/authService';
+import { getSession, isAdmin } from '../../services/authService';
+
+// Chuốt đường điều hướng theo thông báo:
+//   to_cao:xxx   -> trang xử lý tố cáo (admin)
+//   bai_dang:xxx -> trang chi tiết bài đăng
+// Fallback theo tiêu đề: thông báo về tố cáo luôn dẫn admin tới trang
+// xử lý tố cáo, kể cả khi loai_doi_tuong thiếu hoặc gắn bai_dang.
+function duongDanTheoDoiTuong(thong_bao) {
+  const loai_doi_tuong = String(thong_bao?.loai_doi_tuong || '');
+  const tieu_de = String(thong_bao?.tieu_de || '');
+
+  if (loai_doi_tuong.startsWith('to_cao:') || /tố cáo/i.test(tieu_de)) {
+    return '/admin/xu-ly-to-cao';
+  }
+
+  const khop = loai_doi_tuong.match(/^bai_dang:(.+)$/);
+  if (!khop) return null;
+
+  // "Bài ... đã bị ẩn 🙈": admin đến trang quản lý (Hiện lại được ngay),
+  // chủ bài thường đến chi tiết bài để biết tình trạng.
+  if (/bị ẩn/i.test(tieu_de) && isAdmin()) {
+    return '/admin/quan-ly-bai-dang';
+  }
+
+  return `/bai-dang/${khop[1]}`;
+}
 
 // Thời điểm hiển thị kiểu "x phút trước" — tinh gọn cho dòng thông báo
 function thoiDiem(ngay_tao) {
@@ -31,6 +56,7 @@ const ChuongThongBao = () => {
   const [danh_sach, setDanhSach] = useState(null); // null = mới mount
 
   const phanTu = useRef(null);
+  const navigate = useNavigate();
 
   // Đăng ký dữ liệu: bất kỳ service nào thêm/cập nhật -> chuông tức thì
   useEffect(() => {
@@ -143,7 +169,18 @@ const ChuongThongBao = () => {
                   <li key={thong_bao.id}>
                     <button
                       type="button"
-                      onClick={() => danhDauDaDoc(thong_bao.id)}
+                      onClick={() => {
+                        danhDauDaDoc(thong_bao.id);
+
+                        // Thông báo gắn đối tượng -> bấm là đến nơi luôn:
+                        // tố cáo -> trang xử lý, bài đăng -> chi tiết bài
+                        const duong_dan = duongDanTheoDoiTuong(thong_bao);
+
+                        if (duong_dan) {
+                          setMoRong(false);
+                          navigate(duong_dan);
+                        }
+                      }}
                       className={`flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50 ${
                         thong_bao.da_doc ? '' : 'bg-amber-50/70'
                       }`}

@@ -98,7 +98,8 @@ export default function XuLyToCao() {
       const ket_qua = await xuLyToCao(
         dang_xu_ly.id,
         dang_xu_ly.trang_thai,
-        dang_xu_ly.ghi_chu
+        dang_xu_ly.ghi_chu,
+        dang_xu_ly.an_bai
       );
 
       if (!ket_qua.thanhCong) {
@@ -106,7 +107,11 @@ export default function XuLyToCao() {
         return;
       }
 
-      tb.thanhCong('Cập nhật xử lý tố cáo thành công!');
+      tb.thanhCong(
+        dang_xu_ly.an_bai
+          ? 'Đã xử lý tố cáo và ẩn bài vi phạm khỏi danh sách công khai!'
+          : 'Cập nhật xử lý tố cáo thành công! (người tố cáo nhận thông báo)'
+      );
       setDangXuLy(null);
       lam_moi();
     } catch (error) {
@@ -232,6 +237,7 @@ export default function XuLyToCao() {
                         id: t.id,
                         trang_thai: t.trang_thai,
                         ghi_chu: t.ghi_chu || '',
+                        an_bai: false,
                       })
                     }
                   >
@@ -349,6 +355,29 @@ export default function XuLyToCao() {
                   className="w-full resize-y rounded-xl border border-gray-200 bg-slate-50 p-3 text-sm outline-none transition focus:border-amber-400 focus:bg-white focus:ring-2 focus:ring-amber-100"
                 />
               </div>
+
+              {/* Ẩn bài vi phạm: bài biến mất khỏi danh sách công khai,
+                  người đăng nhận thông báo kèm lý do (ghi lich_su_duyet_bai) */}
+              <label className="mt-4 flex cursor-pointer items-start gap-2.5 rounded-xl bg-rose-50 px-4 py-3 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={Boolean(dang_xu_ly.an_bai)}
+                  onChange={(e) =>
+                    setDangXuLy({
+                      ...dang_xu_ly,
+                      an_bai: e.target.checked,
+                    })
+                  }
+                  className="mt-0.5 accent-rose-500"
+                />
+                <span>
+                  <b className="text-rose-600">Ẩn bài đăng vi phạm</b>
+                  <span className="mt-0.5 block text-xs text-gray-500">
+                    Bài sẽ biến mất khỏi mọi danh sách công khai; người đăng
+                    nhận thông báo kèm lý do.
+                  </span>
+                </span>
+              </label>
 
               <div className="mt-6 flex flex-wrap justify-end gap-3 border-t border-gray-200 pt-5">
                 <Button

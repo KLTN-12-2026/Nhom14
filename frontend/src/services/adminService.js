@@ -321,18 +321,70 @@ export function layDanhSachQuanLy() {
   }));
 }
 
-export function anBaiDang(id, ly_do = '') {
+// Ẩn bài: BE-first (PUT /api/admin/bai-dang/{id}/an-hien, trạng thái
+// Da_An) — BE tắt hoặc bài là bản demo cục bộ -> xử lý local như cũ.
+export async function anBaiDang(id, ly_do = '') {
+  if (coToken()) {
+    try {
+      await goiApi(
+        `/api/admin/bai-dang/${encodeURIComponent(id)}/an-hien`,
+        {
+          method: 'PUT',
+          body: { hanh_dong: 'An', ly_do: ly_do.trim() },
+        }
+      );
+
+      capNhatCacheSauDuyet(id, 'Da_An');
+      ghiNhatKyQuanLy('An_Bai', `bai_dang:${id}`, ly_do.trim());
+      return { thanhCong: true, tu_be: true };
+    } catch (error) {
+      // BE cũ chưa có module (404) hoặc BE tắt -> cục bộ; lỗi khác ném ra
+      if (
+        error.message !== LOI_KHONG_KET_NOI &&
+        error.statusCode !== 404
+      ) {
+        throw error;
+      }
+    }
+  }
+
   const bang = docDanhSachAn();
   bang[id] = true;
   luuDanhSachAn(bang);
   ghiNhatKyQuanLy('An_Bai', `bai_dang:${id}`, ly_do.trim());
+  return { thanhCong: true, tu_be: false };
 }
 
-export function hienBaiDang(id) {
+// Hiện lại bài đã ẩn: BE-first (Da_Duyet) + fallback local
+export async function hienBaiDang(id) {
+  if (coToken()) {
+    try {
+      await goiApi(
+        `/api/admin/bai-dang/${encodeURIComponent(id)}/an-hien`,
+        {
+          method: 'PUT',
+          body: { hanh_dong: 'Hien', ly_do: '' },
+        }
+      );
+
+      capNhatCacheSauDuyet(id, 'Da_Duyet');
+      ghiNhatKyQuanLy('Hien_Bai', `bai_dang:${id}`);
+      return { thanhCong: true, tu_be: true };
+    } catch (error) {
+      if (
+        error.message !== LOI_KHONG_KET_NOI &&
+        error.statusCode !== 404
+      ) {
+        throw error;
+      }
+    }
+  }
+
   const bang = docDanhSachAn();
   delete bang[id];
   luuDanhSachAn(bang);
   ghiNhatKyQuanLy('Hien_Bai', `bai_dang:${id}`);
+  return { thanhCong: true, tu_be: false };
 }
 
 // ---- Lịch sử duyệt bài (GET /api/admin/bai-dang/{id}/lich-su-duyet) ----

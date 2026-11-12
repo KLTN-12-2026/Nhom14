@@ -172,13 +172,17 @@ export async function taoToCao({ id_bai_dang, ly_do, mo_ta = '', tieu_de_bai_dan
 
 // ---- Quản trị viên xử lý tố cáo ----
 
-export async function xuLyToCao(id, trang_thai_moi, ghi_chu = '') {
+export async function xuLyToCao(id, trang_thai_moi, ghi_chu = '', an_bai = false) {
   try {
     const dong = await goiApi(
       `/api/admin/to-cao/${encodeURIComponent(id)}/xu-ly`,
       {
         method: 'PUT',
-        body: { trang_thai: trang_thai_moi, ghi_chu: ghi_chu.trim() || null },
+        body: {
+          trang_thai: trang_thai_moi,
+          ghi_chu: ghi_chu.trim() || null,
+          an_bai: Boolean(an_bai),
+        },
       }
     );
 
@@ -187,6 +191,26 @@ export async function xuLyToCao(id, trang_thai_moi, ghi_chu = '') {
         (item) => String(item.id) !== String(id)
       );
       localStorage.setItem(KEY_BE, JSON.stringify([...cache, dong]));
+
+      // Admin chọn Ẩn bài vi phạm: cập nhật cache bài đăng NGAY (cả bản
+      // BE lẫn bản hợp nhất), danh sách công khai biến mất tức thì
+      // không phải chờ đồng bộ lần sau.
+      if (an_bai && dong.id_bai_dang) {
+        const ma_bai = String(dong.id_bai_dang);
+
+        for (const key of ['rising-idea-be-posts', 'rising-idea-posts']) {
+          const danh_sach = docCache(key);
+          const vi_tri = danh_sach.findIndex(
+            (post) => String(post.id) === ma_bai
+          );
+
+          if (vi_tri !== -1) {
+            danh_sach[vi_tri] = { ...danh_sach[vi_tri], trang_thai: 'Da_An' };
+            localStorage.setItem(key, JSON.stringify(danh_sach));
+          }
+        }
+      }
+
       return { thanhCong: true, tu_be: true };
     }
   } catch (error) {
