@@ -60,6 +60,16 @@ app.include_router(thong_bao_router)
 app.include_router(quen_mat_khau_router)
 app.include_router(chatbot_router)
 
+# Ảnh bài đăng lưu trên đĩa (backend/media) — phục vụ trực tiếp qua URL,
+# DB không giữ base64 (tránh response lớn làm tràn cache FE).
+from pathlib import Path as _Path
+
+from fastapi.staticfiles import StaticFiles
+
+_media = _Path(__file__).resolve().parents[1] / "media"
+_media.mkdir(exist_ok=True)
+app.mount("/api/media", StaticFiles(directory=_media), name="media")
+
 
 @app.get("/")
 async def root():

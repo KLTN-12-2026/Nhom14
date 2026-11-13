@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import Navbar from "../../components/Navbar/Navbar";
 import FooterTrangChu from "../../components/Home/FooterTrangChu";
@@ -15,6 +15,7 @@ import {
   layThoiGian,
   layTieuDe,
 } from "../../services/contributionService";
+import { dongBoTuBe } from "../../services/postService";
 
 // Các mục lọc khớp với menu bên ViewSidebar
 const LOAI_MENU = ["Tất cả", "Gọi Vốn", "Quyên Góp", "Đầu Tư"];
@@ -31,7 +32,21 @@ const XemBaiDang = () => {
 
   // Hợp nhất hai nguồn bài đăng (demo + bài từ form) trung qua
   // contributionService — dùng chung helper với trang chủ để số đếm khớp.
-  const danhSachGoc = useMemo(() => layDanhSachTongHop(), []);
+  // Dùng STATE (không useMemo một lần) + tự đồng bộ từ BE khi mở trang:
+  // admin vừa duyệt bài thì danh sách công khai phải hiện ngay, không cần F5.
+  const [danhSachGoc, setDanhSachGoc] = useState(() => layDanhSachTongHop());
+
+  useEffect(() => {
+    let conGan = true;
+    dongBoTuBe()
+      .catch(() => {})
+      .finally(() => {
+        if (conGan) setDanhSachGoc(layDanhSachTongHop());
+      });
+    return () => {
+      conGan = false;
+    };
+  }, []);
 
   // Số lượng bài theo từng loại — đếm trên danh sách GỐC (trước khi lọc)
   // để sidebar không bị nhảy số khi đang bọc bộ lọc.

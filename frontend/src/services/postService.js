@@ -9,7 +9,10 @@ import { LOI_KHONG_KET_NOI, coToken, goiApi } from './apiClient';
 import { MOCK_POSTS, TYPE_OPTIONS } from '../data/mockPosts';
 
 const STORAGE_KEY = 'rising-idea-posts'; // bài cục bộ (demo/tạo khi BE tắt)
-const KEY_BE = 'rising-idea-be-posts'; // cache bài chạy BE (Atlas thật)
+const KEY_BE = 'rising-idea-be-posts'; // cache bài CÔNG KHAI chạy BE (Atlas thật)
+const KEY_BE_MINE = 'rising-idea-be-posts-mine'; // cache "Bài đăng của tôi"
+// (mọi trạng thái: Chờ duyệt / Từ chối / Bị ẩn) — tách khỏi cache công khai
+// để bài chưa duyệt KHÔNG bao giờ lộ lên danh sách bài đăng chung.
 // Hàng chờ các lần sửa bài chưa tới được DB (BE tắt lúc lưu) — khi BE chạy
 // lại, App gọi dongBoTuBe() sẽ tự PUT lại vào DB, tránh bị sync phủ mất.
 const KEY_CHO_DONG_BO = 'rising-idea-cho-dong-bo';
@@ -42,6 +45,18 @@ function docCache(prefix) {
   }
 }
 
+// Ghi cache an toàn: localStorage chỉ có ~5MB — cache lớn (ảnh base64 cũ,
+// danh sách dài) văng QuotaExceededError làm cả trang sập. Lỗi quota thì
+// bỏ qua im lặng: các trang vẫn render từ dữ liệu vừa tải, lần sync sau
+// (bài đã có ảnh dạng URL nhỏ) cache sẽ vào bình thường.
+function ghiCache(key, giaTri) {
+  try {
+    window['localStorage'].setItem(key, giaTri);
+  } catch {
+    // Quota vượt / privacy mode — không dừng luồng
+  }
+}
+
 // ---- Hàng chờ đồng bộ lại các lần sửa (BE tắt lúc lưu) ----
 
 function docHangCho() {
@@ -49,7 +64,7 @@ function docHangCho() {
 }
 
 function luuHangCho(hang_doi) {
-  localStorage.setItem(KEY_CHO_DONG_BO, JSON.stringify(hang_doi));
+  ghiCache(KEY_CHO_DONG_BO, JSON.stringify(hang_doi));
 }
 
 async function duaHangChoCoDongBo() {
@@ -68,7 +83,7 @@ async function duaHangChoCoDongBo() {
         const bang = docCache(KEY_BE).filter(
           (item) => String(item.id) !== String(be.id)
         );
-        localStorage.setItem(KEY_BE, JSON.stringify([...bang, be]));
+        ghiCache(KEY_BE, JSON.stringify([...bang, be]));
         da_xong.add(String(muc.id));
       }
     } catch (error) {
@@ -98,12 +113,18 @@ const TRANG_THAI_BE_SANG_FE = {
   Tu_Choi: 'rejected',
 };
 
+// Đường dẫn ảnh tương đối (/api/media/...) -> đầy đủ kèm origin BE,
+// vì trang FE chạy cổng khác (5173) — <img src="/api/.."> sẽ trỏ sai.
+import { hoanChinhDuongDan as _hoanChinhDuongDan } from '../utils/duongDan';
+
 // Đưa JSON của BE về shape bài đăng FE đang dùng (title/type/goal...).
 // BE bản thân là source-of-truth của schema DB, nên các trường mới cũng
 // được đưa qua (tieu_de/loai_bai_dang... để các trang quản trị dùng được).
+// Ảnh BE lưu dạng đường dẫn (/api/media/... hay URL ngoài) — đường dẫn
+// tương đối cần ghép origin của BE để <img> hiển thị được từ trang FE.
 function beSangFe(baiDang) {
   const anh = baiDang.hinh_anh || [];
-  const duongDanDau = anh[0]?.duong_dan_hinh_anh || null;
+  const duongDanDau = _hoanChinhDuongDan(anh[0]?.duong_dan_hinh_anh);
   const ngayKetThuc = baiDang.thoi_gian_ket_thuc || null;
 
   return {
@@ -130,7 +151,9 @@ function beSangFe(baiDang) {
     type: LOAI_BE_SANG_FE[baiDang.loai_bai_dang] || baiDang.loai_bai_dang,
     deadline: ngayKetThuc ? ngayKetThuc.slice(0, 10) : '',
     image: duongDanDau,
-    images: anh.map((item) => item.duong_dan_hinh_anh),
+    images: anh
+      .map((item) => _hoanChinhDuongDan(item.duong_dan_hinh_anh))
+      .filter(Boolean),
     raised: baiDang.raised || baiDang.so_tien_da_gop || 0,
     createdAt: baiDang.ngay_tao || '',
     updatedAt: baiDang.ngay_cap_nhat || '',
@@ -156,15 +179,29 @@ function feSangBe(formData) {
   };
 }
 
-// GET /api/bai-dang công khai (+ /cua-toi nếu đã đăng nhập) -> cache.
+// GET /api/bai-dang công khai -> cache công khai; GET /cua-toi (mọi trạng
+// thái) -> cache RIÊNG "Bài đăng của tôi". Hai nguồn tách bạch để bài Chờ
+// duyệt / Từ chối / Bị ẩn không bao giờ lộ lên danh sách bài đăng chung.
 // Gọi khi mở trang (App.jsx mount) — các trang đọc cache ngay sau đó.
 export async function dongBoTuBe() {
-  const ketQua = [];
+  let dem = 0;
 
-  let congKhai;
   try {
-    congKhai = await goiApi('/api/bai-dang?limit=100');
-    if (Array.isArray(congKhai)) ketQua.push(...congKhai);
+    // BE vừa kết nối: gửi lại các lần sửa chưa tới DB (hàng chờ) trước
+    await duaHangChoCoDongBo();
+
+    const congKhai = await goiApi('/api/bai-dang?limit=100');
+
+    if (Array.isArray(congKhai)) {
+      dem = congKhai.length;
+
+      // Dựng LẠI cache từ kết quả BE (không giữ mảng cũ): bài bị ẩn/từ chối
+      // rơi khỏi danh sách công khai của BE thì cũng phải biến mất khỏi
+      // cache, nếu không bản cũ "Da_Duyet" ở lại localStorage vĩnh viễn
+      // và lộ lên danh sách dù BE đã ẩn. Bản sửa "chờ duyệt" của cá nhân
+      // vẫn hiển thị đúng ở trang "Bài đăng của tôi" (overlay hàng chờ).
+      ghiCache(KEY_BE, JSON.stringify(congKhai));
+    }
   } catch (error) {
     if (error.message === LOI_KHONG_KET_NOI) return 0;
     // BE trả lỗi khác 4xx/5xx -> vẫn thử lấy bài của tôi bên dưới
@@ -173,42 +210,17 @@ export async function dongBoTuBe() {
   if (coToken()) {
     try {
       const cuaToi = await goiApi('/api/bai-dang/cua-toi');
-      if (Array.isArray(cuaToi)) ketQua.push(...cuaToi);
+      if (Array.isArray(cuaToi)) {
+        // Cache riêng cho trang "Bài đăng của tôi" — KHÔNG hợp vào cache
+        // công khai (bài chờ duyệt/từ chối/bị ẩn chỉ chủ bài được thấy).
+        ghiCache(KEY_BE_MINE, JSON.stringify(cuaToi));
+      }
     } catch {
       // chưa đăng nhập trên BE / lỗi — bỏ qua, bài công khai vẫn có
     }
   }
 
-  if (!ketQua.length) return 0;
-
-  // BE vừa kết nối: gửi lại các lần sửa chưa tới DB (hàng chờ), xong mới sync
-  await duaHangChoCoDongBo();
-
-  // Bài đang có thay đổi chưa đồng bộ -> giữ bản cache (không để BE phủ)
-  const conCho = new Set(docHangCho().map((muc) => String(muc.id)));
-
-  // Dựng LẠI cache từ kết quả BE (không giữ mảng cũ): bài bị ẩn/từ chối
-  // rơi khỏi danh sách công khai của BE thì cũng phải biến mất khỏi
-  // cache, nếu không bản cũ "Da_Duyet" ở lại localStorage vĩnh viễn
-  // và lộ lên danh sách dù BE đã ẩn.
-  const bang = new Map();
-  for (const baiDang of ketQua) {
-    if (!conCho.has(String(baiDang.id))) {
-      bang.set(String(baiDang.id), baiDang);
-    }
-  }
-
-  // Bài đang có thay đổi chưa đồng bộ (hàng chờ) mà BE chưa trả về:
-  // giữ bản cache cũ để không mất bài người dùng vừa sửa.
-  for (const baiDang of docCache(KEY_BE)) {
-    if (conCho.has(String(baiDang.id)) && !bang.has(String(baiDang.id))) {
-      bang.set(String(baiDang.id), baiDang);
-    }
-  }
-
-  localStorage.setItem(KEY_BE, JSON.stringify([...bang.values()]));
-
-  return ketQua.length;
+  return dem;
 }
 
 // Bài đăng dạng FE từ cache BE
@@ -218,15 +230,27 @@ export function layBaiTuBe() {
 
 export function getPosts() {
   // Hợp nhất: bài cục bộ (demo + tạo khi BE tắt) + bài chạy BE thật.
-  // Đặt bài BE sau và bỏ bài trùng id để không hiện 2 bài giống nhau.
   const posts = docCache(STORAGE_KEY);
+  const baiBe = layBaiTuBe();
 
   if (!laDuLieuHopLe(posts)) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_POSTS));
-    return hopNhatKhongTrung(MOCK_POSTS, layBaiTuBe());
+    ghiCache(STORAGE_KEY, JSON.stringify(MOCK_POSTS));
+    return hopNhatKhongTrung(MOCK_POSTS, baiBe);
   }
 
-  return hopNhatKhongTrung(posts, layBaiTuBe());
+  if (baiBe.length) {
+    // BE đang có bài thật: BỎ các bài mẫu demo (MOCK_POSTS) — BE đã có
+    // bản thật cùng nội dung, giữ cả hai sẽ hiện 2 bài giống nhau và
+    // người dùng bấm vào bản demo thì góp vốn/quyên góp chỉ lưu cục bộ.
+    // Bài người dùng tự tạo khi BE tắt (id không thuộc MOCK_POSTS) vẫn giữ.
+    const maMock = new Set(MOCK_POSTS.map((mock) => String(mock.id)));
+    return hopNhatKhongTrung(
+      posts.filter((post) => !maMock.has(String(post.id))),
+      baiBe
+    );
+  }
+
+  return hopNhatKhongTrung(posts, baiBe);
 }
 
 // Nối 2 dảy bài, bỏ con trùng mã bài đăng (ưu tiên các mục bên phải giữ lại)
@@ -243,7 +267,7 @@ function hopNhatKhongTrung(danhSachGoc, danhSachThem) {
 }
 
 function savePosts(posts) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(posts));
+  ghiCache(STORAGE_KEY, JSON.stringify(posts));
 }
 
 export function getPostById(id) {
@@ -263,7 +287,7 @@ export async function layBaiDangBangId(id) {
       const bang = docCache(KEY_BE).filter(
         (item) => String(item.id) !== String(id)
       );
-      localStorage.setItem(KEY_BE, JSON.stringify([...bang, be]));
+      ghiCache(KEY_BE, JSON.stringify([...bang, be]));
       return beSangFe(be);
     }
   } catch {
@@ -310,12 +334,13 @@ export async function taoBaiDang(postData) {
     });
 
     if (be?.id) {
-      // nạp cache để danh sách hiện bài mới luôn
-      localStorage.setItem(
-        KEY_BE,
-        JSON.stringify([...docCache(KEY_BE).filter(
+      // Bài mới là Chờ duyệt -> vào cache "Bài đăng của tôi", KHÔNG vào
+      // cache công khai (chỉ hiện ở danh sách chung sau khi admin duyệt).
+      ghiCache(
+        KEY_BE_MINE,
+        JSON.stringify([be, ...docCache(KEY_BE_MINE).filter(
           (item) => String(item.id) !== String(be.id)
-        ), be])
+        )])
       );
       return { baiDang: beSangFe(be), tu_be: true };
     }
@@ -363,7 +388,7 @@ export function updatePost(id, postData) {
     }
 
     cacheBe[viTriBe] = baiCapNhat;
-    localStorage.setItem(KEY_BE, JSON.stringify(cacheBe));
+    ghiCache(KEY_BE, JSON.stringify(cacheBe));
 
     // Đánh dấu bản sửa chưa tới DB: đưa vào hàng chờ, dongBoTuBe() sẽ tự
     // PUT lại vào MongoDB khi BE đủ chạy — tránh lần sync sau phủ mất thay đổi.
@@ -413,7 +438,7 @@ export async function capNhatBaiDang(id, postData) {
       console.log(
         `[postService] Cập nhật đã lưu vào DATABASE BE (bài ${id}, ngày cập nhật ${be.ngay_cap_nhat})`
       );
-      localStorage.setItem(
+      ghiCache(
         KEY_BE,
         JSON.stringify([...docCache(KEY_BE).filter(
           (item) => String(item.id) !== String(id)
@@ -450,7 +475,7 @@ export function tangTienHuyDong(id, soTien) {
       ...cacheBe[viTriBe],
       raised: (cacheBe[viTriBe].raised || 0) + soTien,
     };
-    localStorage.setItem(KEY_BE, JSON.stringify(cacheBe));
+    ghiCache(KEY_BE, JSON.stringify(cacheBe));
     return beSangFe(cacheBe[viTriBe]);
   }
 
@@ -496,7 +521,7 @@ export function deletePost(id) {
     (item) => String(item.id) !== String(id)
   );
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedPosts));
+  ghiCache(STORAGE_KEY, JSON.stringify(updatedPosts));
 
   return true;
 }
@@ -508,10 +533,20 @@ export async function xoaBaiDang(id) {
 
     if (!be) {
       // BE xóa xong (204 không nội dung)
-      localStorage.setItem(
+      ghiCache(
         KEY_BE,
         JSON.stringify(
           docCache(KEY_BE).filter(
+            (item) => String(item.id) !== String(id)
+          )
+        )
+      );
+      // Dọn cả cache quản trị: nếu không, bài đã xóa còn nằm trong trang
+      // Duyệt/Quản lý của admin -> từ chối lại báo "Không tìm thấy bài đăng".
+      ghiCache(
+        'rising-idea-be-admin-posts',
+        JSON.stringify(
+          docCache('rising-idea-be-admin-posts').filter(
             (item) => String(item.id) !== String(id)
           )
         )

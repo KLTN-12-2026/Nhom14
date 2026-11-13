@@ -68,21 +68,55 @@ export default function PostForm({
       return;
     }
 
-    const reader = new FileReader();
+    // Nén ảnh trước khi lưu: BE từng lưu base64 thô (1 ảnh ~2MB) làm tràn
+    // cache localStorage của FE. Canvas thu nhỏ về tối đa 1280px + JPEG
+    // 0.8 -> ~100KB. Lỗi nén thì dùng data URL nguyên bản như cũ.
+    nenAnh(file)
+      .then((dataUrl) => {
+        setForm((current) => ({ ...current, image: dataUrl }));
+        setError('');
+      })
+      .catch(() => {
+        setError('Không thể đọc ảnh. Vui lòng thử lại.');
+      });
+  }
 
-    reader.onload = () => {
-      setForm((current) => ({
-        ...current,
-        image: String(reader.result),
-      }));
-      setError('');
-    };
+  // Trả Promise<dataURL> — ảnh đã thu nhỏ + nén JPEG.
+  function nenAnh(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
 
-    reader.onerror = () => {
-      setError('Không thể đọc ảnh. Vui lòng thử lại.');
-    };
+      reader.onerror = () => reject(new Error('doc anh loi'));
 
-    reader.readAsDataURL(file);
+      reader.onload = () => {
+        try {
+          const img = new Image();
+
+          img.onerror = () => reject(new Error('tai anh loi'));
+          img.onload = () => {
+            try {
+              const TOI_DA = 1280;
+              const tiLe = Math.min(1, TOI_DA / Math.max(img.width, img.height));
+              const canvas = document.createElement('canvas');
+              canvas.width = Math.round(img.width * tiLe);
+              canvas.height = Math.round(img.height * tiLe);
+              canvas
+                .getContext('2d')
+                .drawImage(img, 0, 0, canvas.width, canvas.height);
+              resolve(canvas.toDataURL('image/jpeg', 0.8));
+            } catch {
+              resolve(String(reader.result));
+            }
+          };
+
+          img.src = String(reader.result);
+        } catch {
+          reject(new Error('nen anh loi'));
+        }
+      };
+
+      reader.readAsDataURL(file);
+    });
   }
 
   function handleSubmit(event) {

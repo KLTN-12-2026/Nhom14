@@ -71,17 +71,22 @@ Database mặc định `crowdfunding_db` (đổi được bằng biến `DATABAS
 | Collection | Vai trò |
 |---|---|
 | `nguoi_dung` | Tài khoản: ho_ten, email, ten_tk, mat_khau (argon2), vai_tro, trang_thai… |
-| `so_du` | Ví của người dùng — trường `so_du` (Decimal128) |
-| `giao_dich_so_du` | Lịch sử nạp tiền / góp vốn của ví |
+| `chuc_vu` | Danh mục chức vụ |
+| `nguoi_dung_cv` | Liên kết người dùng ↔ chức vụ |
+| `quen_mat_khau` | Mã khôi phục mật khẩu 6 số (hết hạn sau 10 phút) |
 | `bai_dang` | Bài đăng: loai_bai (Goi_Von/Quyen_Gop/Dau_Tu), trang_thai (Cho_Duyet/Da_Duyet/Da_An/Tu_Choi)… |
-| `khoan_gop` | Các khoản góp vào bài đăng (người góp, số tiền, thời điểm) |
-| `to_cao` | Tố cáo bài vi phạm + kết quả xử lý của quản trị viên |
-| `thong_bao` | Thông báo đẩy trong chuông (duyệt bài, ẩn bài, tố cáo…) |
+| `hinh_anh_bai_dang` | Hình ảnh của bài đăng |
 | `lich_su_duyet_bai` | Lịch sử duyệt / từ chối / ẩn bài |
-| `nhat_ky_quan_tri` | Nhật ký thao tác quản trị |
+| `to_cao_bai_dang` | Tố cáo bài vi phạm + kết quả xử lý của quản trị viên |
+| `khoan_gop_von` | Các khoản góp vốn / đầu tư vào bài loại Gọi Vốn & Đầu Tư |
+| `khoan_quyen_gop` | Các khoản quyên góp vào bài loại Quyên Góp |
+| `so_du` | Ví của người dùng — trường `so_du` (Decimal128) |
+| `giao_dich` | Lịch sử giao dịch (nạp tiền, góp vốn) của ví |
+| `bien_dong_so_du` | Lịch sử biến động số dư |
 | `cuoc_hoi_thoai` | Hội thoại của trợ lý AI (mỗi người dùng nhiều hội thoại) |
 | `tin_nhan_chatbot` | Tin nhắn trong hội thoại (loai_nguoi_gui: Nguoi_Dung / Chatbot) |
-| `ma_dat_lai_mat_khau` | Mã khôi phục mật khẩu 6 số (hết hạn sau 10 phút) |
+| `thong_bao` | Thông báo đẩy trong chuông (duyệt bài, ẩn bài, tố cáo…) |
+| `nhat_ky_quan_tri` | Nhật ký thao tác quản trị |
 
 ## 5. API endpoints
 

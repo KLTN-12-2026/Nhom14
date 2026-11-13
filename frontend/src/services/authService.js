@@ -193,6 +193,42 @@ export function logout() {
   luuToken(null);
 }
 
+// Tự chữa vai trò cũ mỗi khi mở app (App.jsx gọi khi mount): probe endpoint
+// quản trị với token hiện có. Chữa được các phiên cũ lưu sai role='user'
+// (lần đăng nhập trước BE trả 500/lỗi tạm thời) — không cần đăng nhập lại.
+// BE tắt -> giữ nguyên role cũ (không hạ cấp khi offline).
+export async function dongBoVaiTro() {
+  const session = getSession();
+  if (!coToken() || !session) return;
+
+  let role;
+  try {
+    await goiApi('/api/admin/bai-dang');
+    role = 'admin';
+  } catch (error) {
+    if (error.message === LOI_KHONG_KET_NOI) return;
+    role = 'user';
+  }
+
+  if (session.role === role) return;
+
+  sessionStorage.setItem(
+    SESSION_KEY,
+    JSON.stringify({ ...session, role })
+  );
+
+  // Cập nhật luôn bản tài khoản cục bộ (role lưu kèm)
+  const accounts = getAccounts();
+  const index = accounts.findIndex(
+    (item) => (item.ten_tk || '').toLowerCase()
+      === (session.ten_tk || '').toLowerCase()
+  );
+  if (index >= 0 && accounts[index].role !== role) {
+    accounts[index] = { ...accounts[index], role };
+    saveAccounts(accounts);
+  }
+}
+
 // ---- Đăng nhập / đăng ký / đổi mật khẩu ----
 
 // `ten_tk` có thể là tên đăng nhập hoặc email (chế độ cục bộ).
@@ -212,14 +248,19 @@ export async function login(taiKhoan, matKhau) {
 
     luuToken(ketQua.access_token);
 
-    // BE không trả role trong câu trả lời đăng nhập — xác định bằng cách
-    // thử một endpoint quản trị: 200 = Quản trị viên, 401/403 = Người dùng.
+    // BE trả vai_tro ngay trong câu trả lời đăng nhập (xác định qua
+    // chuc_vu + nguoi_dung_cv) — chính xác hơn việc probe HTTP.
     let role = 'user';
-    try {
-      await goiApi('/api/admin/bai-dang');
-      role = 'admin';
-    } catch {
-      role = 'user';
+    if (ketQua.vai_tro) {
+      role = /Quan_Tri/i.test(ketQua.vai_tro) ? 'admin' : 'user';
+    } else {
+      // BE cũ chưa trả vai_tro — probe endpoint quản trị: 200 = admin
+      try {
+        await goiApi('/api/admin/bai-dang');
+        role = 'admin';
+      } catch {
+        role = 'user';
+      }
     }
 
     // Upsert tài khoản cục bộ: các trang hồ sơ/ví còn đọc so_du, nam_sinh...

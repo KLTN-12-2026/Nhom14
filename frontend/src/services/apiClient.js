@@ -9,7 +9,7 @@
 //   - Không kết nối được BE (tắt server/CORS) -> ném Error "KHONG_KET_NOI"
 //     để các service rơi về chế độ demo cục bộ (localStorage).
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+export const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const TOKEN_KEY = 'rising-idea-token';
 
 export const LOI_KHONG_KET_NOI = 'KHONG_KET_NOI';

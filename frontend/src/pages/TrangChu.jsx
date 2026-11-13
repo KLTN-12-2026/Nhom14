@@ -15,7 +15,7 @@
 import ChatbotAI from '../components/Chatbot/ChatbotAI';
 import heroNen from '../assets/anh-web/hero-nen.jpg';
 import { Link } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Navbar from '../components/Navbar/Navbar';
 import Hero from '../components/Home/Hero';
 import FeatureSection from '../components/Home/FeatureSection';
@@ -25,6 +25,7 @@ import SectionHeading from '../components/Home/SectionHeading';
 import FooterTrangChu from '../components/Home/FooterTrangChu';
 import Button from '../components/Button/Button';
 import { rutGonSoTien, soDuAnDangChay, tongMucTieuDangChay } from '../services/contributionService';
+import { dongBoTuBe } from '../services/postService';
 
 // Chip nhắc nhanh 3 hình thức trên băng slogan (tên riêng giữ tiếng Anh)
 const CHIP_HINH_THUC = [
@@ -60,9 +61,25 @@ const QUY_TRINH = [
 
 const TrangChu = () => {
   // Số dự án đang chạy + tổng mục tiêu gây quỹ của các dự án đó,
-  // tính 1 lần mỗi lần vào trang từ dữ liệu thật (khớp số ở danh mục).
-  const soDuAn = useMemo(() => soDuAnDangChay(), []);
-  const tongMucTieu = useMemo(() => tongMucTieuDangChay(), []);
+  // tính từ dữ liệu thật (khớp số ở danh mục). Dùng STATE + tự đồng bộ
+  // từ BE khi mở trang — admin vừa duyệt bài thì số phải nhảy ngay.
+  const [soDuAn, setSoDuAn] = useState(() => soDuAnDangChay());
+  const [tongMucTieu, setTongMucTieu] = useState(() => tongMucTieuDangChay());
+
+  useEffect(() => {
+    let conGan = true;
+    dongBoTuBe()
+      .catch(() => {})
+      .finally(() => {
+        if (conGan) {
+          setSoDuAn(soDuAnDangChay());
+          setTongMucTieu(tongMucTieuDangChay());
+        }
+      });
+    return () => {
+      conGan = false;
+    };
+  }, []);
 
   // Resolved sẵn giá trị trước khi render — 3 thẻ luôn có số, không ternary
   const soLieuHienThi = useMemo(

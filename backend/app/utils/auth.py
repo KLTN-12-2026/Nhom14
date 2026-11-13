@@ -56,6 +56,22 @@ async def get_current_user(
 TEN_CHUC_VU_ADMIN = ("Quan_Tri_Vien", "Quản Trị Viên", "Admin")
 
 
+async def get_user_tuy_chon(
+    credentials: HTTPAuthorizationCredentials | None = Depends(
+        bearer_scheme
+    ),
+):
+    """Đọc người dùng từ token NẾU có — không token thì trả None.
+
+    Dùng cho endpoint công khai nhưng cần biết người xem là ai (ví dụ
+    chi tiết bài đăng: chủ bài được xem bài chưa duyệt của chính mình).
+    Token CÓ mà sai/hết hạn -> vẫn chặn, không lặng lẽ coi như khách.
+    """
+    if credentials is None:
+        return None
+    return await get_current_user(credentials)
+
+
 async def la_admin(user: dict) -> bool:
     # Phân quyền theo tài liệu database: chuc_vu (ten_cv, mo_ta_cv)
     # + nguoi_dung_cv (id_nguoi_dung, id_chuc_vu, ngay_phan_quyen)

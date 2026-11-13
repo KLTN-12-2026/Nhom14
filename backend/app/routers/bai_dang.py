@@ -7,7 +7,7 @@ from app.services.bai_dang import (
     KhongCoQuyenBaiDangError,
     KhongTimThayBaiDangError,
 )
-from app.utils.auth import get_current_user
+from app.utils.auth import get_current_user, get_user_tuy_chon
 
 
 router = APIRouter(
@@ -65,10 +65,24 @@ async def tao_bai_dang(
 
 
 @router.get("/{id_bai_dang}")
-async def chi_tiet_bai_dang(id_bai_dang: str):
-    """Chi tiết bài đăng - PB10."""
+async def chi_tiet_bai_dang(
+    id_bai_dang: str,
+    nguoi_hien_tai: dict | None = Depends(get_user_tuy_chon),
+):
+    """Chi tiết bài đăng - PB10 (công khai; bài chưa duyệt/bị ẩn chỉ chủ
+    bài hoặc quản trị viên xem được)."""
+    from app.utils.auth import la_admin
+
     try:
-        return await dich_vu.lay_bai_dang_theo_id(id_bai_dang)
+        return await dich_vu.lay_bai_dang_theo_id(
+            id_bai_dang,
+            id_nguoi_hien_tai=(
+                nguoi_hien_tai["_id"] if nguoi_hien_tai else None
+            ),
+            la_quan_tri=(
+                bool(nguoi_hien_tai and await la_admin(nguoi_hien_tai))
+            ),
+        )
     except KhongTimThayBaiDangError as error:
         raise HTTPException(status_code=404, detail=str(error))
 

@@ -221,7 +221,16 @@ async def xu_ly_to_cao(
     if not cap_nhat:
         raise KhongTimThayToCaoError("Không tìm thấy tố cáo.")
 
-    # Thông báo cho người tố cáo kết quả (module thong_bao) — phụ trợ,
+    # Ghi nhật ký quản trị (nhat_ky_quan_tri)
+    await database["nhat_ky_quan_tri"].insert_one({
+        "id_quan_tri_vien": id_nguoi_xu_ly,
+        "hanh_dong": f"Xu_Ly_To_Cao_{trang_thai}",
+        "loai_doi_tuong": f"to_cao:{ma_to_cao}",
+        "ly_do": (ghi_chu or "").strip(),
+        "ngay_tao": now,
+    })
+
+    # Thông báo cho người tố cáo kết quả (module thong_bao) - phụ trợ,
     # lỗi không làm sập xử lý chính.
     try:
         from app.services.thong_bao import tao_thong_bao

@@ -4,6 +4,7 @@ import {
   coToken,
   goiApi,
 } from './apiClient';
+import { hoanChinhDuongDan } from '../utils/duongDan';
 
 const KEY = 'rising-idea-posts';
 // Cache danh sách bài đăng quản trị (khớp JSON BE /api/admin/bai-dang)
@@ -33,7 +34,7 @@ export function layDanhSachDuyet() {
         'Quyên Góp': 'donation',
         'Đầu Tư': 'invest',
       }[post.loai_bai_dang] || post.loai_bai_dang,
-    image: post.hinh_anh?.[0]?.duong_dan_hinh_anh || null,
+    image: hoanChinhDuongDan(post.hinh_anh?.[0]?.duong_dan_hinh_anh),
     // Tên người đăng BE ghép theo id (không còn ObjectId khô khan)
     creator: post.ten_nguoi_dang || '',
     createdAt: post.ngay_tao || '',
@@ -46,7 +47,17 @@ export function layDanhSachDuyet() {
     rejectionReason: post.ly_do_tu_choi || '',
   }));
 
-  return [...baiBe, ...getAllPostsForReview()];
+  // Tập id bản BE để khử bài cục bộ trùng (đã merge dòng dưới)
+  const idBeCoSan = new Set(baiBe.map((p) => p.id));
+
+  return [
+    ...baiBe,
+    // Bài cục bộ: bỏ bản trùng id với BE (bài BE có thể còn bản cũ cục bộ
+    // → không khử trùng sẽ hiện 2 dòng cùng bài, duyệt 1 dòng dòng kia vẫn lơ lửng)
+    ...getAllPostsForReview().filter(
+      (p) => !idBeCoSan.has(String(p.id))
+    ),
+  ];
 }
 
 export function getAllPostsForReview() {
@@ -100,16 +111,22 @@ function chuanHoaBaiBe(post) {
 
 // Cập nhật trạng thái trong cache BE sau khi duyệt từ chối thành công,
 // để các trang công khai (cache postService) phản ánh ngay.
+// try/catch: localStorage tràn quota không được làm hỏng thao tác chính
+// (BE đã duyệt thành công rồi — lỗi cache chỉ làm danh sách stale, F5 tự hết).
 function capNhatCacheSauDuyet(id, trangThaiMoI) {
   for (const cacheKey of [KEY_BE_ADMIN, 'rising-idea-be-posts']) {
-    const danhSach = docCache(cacheKey);
-    const viTri = danhSach.findIndex(item => String(item.id) === String(id));
-    if (viTri !== -1) {
-      danhSach[viTri] = {
-        ...danhSach[viTri],
-        trang_thai: trangThaiMoI,
-      };
-      localStorage.setItem(cacheKey, JSON.stringify(danhSach));
+    try {
+      const danhSach = docCache(cacheKey);
+      const viTri = danhSach.findIndex(item => String(item.id) === String(id));
+      if (viTri !== -1) {
+        danhSach[viTri] = {
+          ...danhSach[viTri],
+          trang_thai: trangThaiMoI,
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(danhSach));
+      }
+    } catch {
+      // Quota vượt / privacy mode — bỏ qua, đồng bộ BE sau đó sẽ sửa
     }
   }
 }
@@ -136,6 +153,11 @@ export async function reviewPost(id, decision, reason = '') {
 
       capNhatCacheSauDuyet(id, hamDong === 'Duyet' ? 'Da_Duyet' : 'Tu_Choi');
       ghiNhatKyQuanLy(hamDong, `bai_dang:${id}`, lyDo);
+
+      // Đồng bộ lại cache quản trị từ BE ngay: danh sách admin khớp DB
+      // 100% (bài bị xóa/đã duyệt trước đó cũng biến mất khỏi cache ma).
+      await dongBoAdminTuBe().catch(() => {});
+
       return { tu_be: true };
     } catch (error) {
       // Bài không tồn tại trên BE (demo/bài cục bộ) hoặc BE tắt -> cục bộ
@@ -143,6 +165,13 @@ export async function reviewPost(id, decision, reason = '') {
         error.message !== LOI_KHONG_KET_NOI &&
         error.statusCode !== 404
       ) {
+        throw error;
+      }
+
+      // BE trả 404 (bài đã bị xóa / id không có) -> đồng bộ lại cache
+      // để bài ma biến mất khỏi trang, rồi vẫn ném lỗi BE lên UI.
+      if (error.statusCode === 404) {
+        await dongBoAdminTuBe().catch(() => {});
         throw error;
       }
     }
@@ -336,6 +365,7 @@ export async function anBaiDang(id, ly_do = '') {
 
       capNhatCacheSauDuyet(id, 'Da_An');
       ghiNhatKyQuanLy('An_Bai', `bai_dang:${id}`, ly_do.trim());
+      await dongBoAdminTuBe().catch(() => {});
       return { thanhCong: true, tu_be: true };
     } catch (error) {
       // BE cũ chưa có module (404) hoặc BE tắt -> cục bộ; lỗi khác ném ra
@@ -369,6 +399,7 @@ export async function hienBaiDang(id) {
 
       capNhatCacheSauDuyet(id, 'Da_Duyet');
       ghiNhatKyQuanLy('Hien_Bai', `bai_dang:${id}`);
+      await dongBoAdminTuBe().catch(() => {});
       return { thanhCong: true, tu_be: true };
     } catch (error) {
       if (

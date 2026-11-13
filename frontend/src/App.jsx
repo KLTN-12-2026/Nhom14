@@ -7,11 +7,16 @@ import { dongBoNguoiDungTuBe } from './services/adminUserService';
 import { dongBoThongBaoTuBe } from './services/chuongService';
 import { dongBoViTuBe } from './services/walletService';
 import { coToken } from './services/apiClient';
+import { dongBoVaiTro } from './services/authService';
 
 function App() {
   // Mở tab: tải dữ liệu thật từ BE (nếu BE đang chạy) vào cache localStorage.
   // Lỗi bỏ qua im lặng — BE tắt thì mọi trang vẫn đọc cache/demo như cũ.
   useEffect(() => {
+    // Tự chữa vai trò cũ (phiên trước lưu sai role='user' do BE lỗi tạm
+    // thời) — chạy trước để Navbar hiện đúng menu Quản trị ngay từ đầu.
+    dongBoVaiTro().catch(() => {});
+
     const dong_bo_het = () => {
       dongBoTuBe().catch(() => {});
       dongBoAdminTuBe().catch(() => {});

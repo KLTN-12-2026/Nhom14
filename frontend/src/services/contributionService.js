@@ -131,20 +131,22 @@ export function daHetHan(post) {
 }
 
 // Danh sách hợp nhất toàn hệ thống: bài demo (PostDemo) + bài người dùng
-// tạo từ form (postService, trong localStorage) — bỏ bài bị từ chối và
-// bài bị ẩn (Da_An theo tố cáo/ẩn thủ công của admin) để không lộ lên
-// danh sách công khai; admin vẫn xem được trong trang quản lý riêng.
-// Trang chủ (số liệu thống kê) và trang danh mục (XemBaiDang) dùng chung
-// nguồn này để số đếm luôn khớp nhau.
+// tạo từ form (postService, trong localStorage) — bỏ bài bị từ chối, bài
+// bị ẩn (Da_An theo tố cáo/ẩn thủ công của admin) và bài CHỜ DUYỆT (phải
+// qua quản trị viên duyệt mới được công khai — chỉ hiện ở "Bài đăng của
+// tôi") để không lộ lên danh sách công khai; admin vẫn xem trong trang
+// quản lý riêng. Trang chủ (số liệu thống kê) và trang danh mục
+// (XemBaiDang) dùng chung nguồn này để số đếm luôn khớp nhau.
 export function layDanhSachTongHop() {
+  const trangThai = (post) => post.status || layTrangThai(post);
   const khongHien = (post) =>
-    ['rejected', 'Đã từ chối', 'Đã ẩn'].includes(
-      post.status || layTrangThai(post)
-    ) || layTrangThai(post) === 'Đã ẩn';
+    ['rejected', 'Đã từ chối', 'Đã ẩn'].includes(trangThai(post))
+    || layTrangThai(post) === 'Đã ẩn'
+    // Chờ duyệt chưa được admin công khai — không hiện danh sách chung
+    || ['pending', 'Chờ duyệt'].includes(trangThai(post))
+    || layTrangThai(post) === 'Chờ duyệt';
 
-  const tuForm = [...getPosts()].filter(
-    (post) => (post.status || 'pending') !== 'rejected' && !khongHien(post)
-  );
+  const tuForm = [...getPosts()].filter((post) => !khongHien(post));
 
   // getPosts() đã hợp nhất bài BE vào list cục bộ rồi — nếu thêm
   // layBaiTuBe() nữa thì bài BE bị nhân đôi (đăng 1 hiện 2 sau khi duyệt).
@@ -154,7 +156,12 @@ export function layDanhSachTongHop() {
     (post) => !daCo.has(String(layMaBaiDang(post))) && !khongHien(post)
   );
 
-  return [...POST_DEMO, ...tuForm, ...beThem];
+  // BE đang có bài thật: BỎ các bài mẫu PostDemo — BE đã có bản thật cùng
+  // nội dung; giữ cả hai sẽ hiện 2 bài giống nhau và người dùng bấm vào
+  // bản demo thì góp vốn/quyên góp chỉ lưu trong localStorage (không tới BE).
+  const moDemo = layBaiTuBe().length ? [] : POST_DEMO;
+
+  return [...moDemo, ...tuForm, ...beThem];
 }
 
 // Re-export helper tìm bài mọi nguồn (cache hợp nhất -> BE trực tiếp).

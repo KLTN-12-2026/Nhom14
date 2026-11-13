@@ -30,6 +30,12 @@ function duongDanTheoDoiTuong(thong_bao) {
     return '/admin/quan-ly-bai-dang';
   }
 
+  // Kết quả duyệt (✅ / 🚫): admin bấm vào đi thẳng trang duyệt bài để
+  // tiếp tục xử lý các bài chờ khác, người đăng thường xem chi tiết bài.
+  if (/duyệt|từ chối/i.test(tieu_de) && isAdmin()) {
+    return '/admin/duyet-bai';
+  }
+
   return `/bai-dang/${khop[1]}`;
 }
 

@@ -89,9 +89,16 @@ async def login_user(ten_tk: str, mat_khau: str):
         "sub": str(user["_id"])
     })
 
+    # Vai trò xác định qua chuc_vu + nguoi_dung_cv (tài liệu database) —
+    # trả ngay trong response để FE không phải probe thêm HTTP.
+    from app.utils.auth import la_admin
+
+    la_quan_tri = await la_admin(user)
+
     return {
         "access_token": token,
         "token_type": "bearer",
+        "vai_tro": "Quan_Tri_Vien" if la_quan_tri else "Nguoi_Dung",
         "user": {
             "ho_ten": user["ho_ten"],
             "ten_tk": user["ten_tk"],

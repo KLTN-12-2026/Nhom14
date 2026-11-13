@@ -1,10 +1,48 @@
 
 from datetime import date, datetime, time, timezone
+import base64
+import binascii
+import uuid
+from pathlib import Path
 
 from bson import ObjectId
 from pymongo.errors import InvalidDocument
 
 from app.config.database import database
+
+# Ảnh người dùng upload dạng base64 (data URL) được GIẢI MÃ ra file trong
+# thư mục media và DB chỉ giữ đường dẫn /api/media/... — không lưu chuỗi
+# base64 (1 ảnh có thể >1.5MB, làm response + cache FE vượt quota localStorage).
+MEDIA_DIR = Path(__file__).resolve().parents[2] / "media"
+
+# data:image/<kiểu>;base64,<dữ liệu>
+_TIEN_TO_DATA_URL = "data:image/"
+
+
+def _tinh_duong_dan_luu(gia_tri: str) -> str:
+    """Ảnh data URL -> lưu file, trả về đường dẫn công khai /api/media/....
+    Ảnh đã là URL (http... hoặc /api/media/...) giữ nguyên."""
+    if not gia_tri.startswith(_TIEN_TO_DATA_URL):
+        return gia_tri
+
+    # Tách phần header (xác định đuôi file) và dữ liệu base64
+    dau_phan, _, du_lieu = gia_tri.partition(",")
+    if not du_lieu:
+        return gia_tri
+
+    kieu = dau_phan[len(_TIEN_TO_DATA_URL):].split(";", 1)[0] or "jpeg"
+    duoi = kieu if kieu in ("png", "gif", "webp") else "jpg"
+
+    try:
+        noi_dung = base64.b64decode(du_lieu)
+    except (binascii.Error, ValueError):
+        return gia_tri
+
+    MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+    ten_file = f"{uuid.uuid4().hex}.{duoi}"
+    (MEDIA_DIR / ten_file).write_bytes(noi_dung)
+
+    return f"/api/media/{ten_file}"
 
 
 # Trạng thái bài đăng dùng chuẩn snake_case không dấu (đúng tài liệu database)
@@ -44,6 +82,16 @@ def _utc_aware(thoi_gian: datetime):
     return thoi_gian.replace(tzinfo=timezone.utc)
 
 
+def _tien(gia_tri) -> float:
+    """Số tiền -> float an toàn: chấp nhận float/int/str/Decimal128."""
+    if gia_tri is None:
+        return 0.0
+    try:
+        return float(str(gia_tri))
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _chuan_hoa(
     doc: dict,
     hinh_anh: list | None = None,
@@ -69,11 +117,11 @@ def _chuan_hoa(
         "ten_nguoi_dang": ten_nguoi_dang or None,
         "noi_dung": doc.get("noi_dung", ""),
         "trang_thai": doc.get("trang_thai", "Cho_Duyet"),
-        "muc_tieu": doc.get("muc_tieu", 0),
+        "muc_tieu": _tien(doc.get("muc_tieu")),
         # Tổng đã huy động (khoan_gop_von/khoan_quyen_gop/khoan_dau_tu
         # cộng dồn vào bai_dang sau mỗi lần góp) — FE đọc trực tiếp
         # cho thanh tiến độ, không cần gọi thêm API danh sách người góp.
-        "so_tien_da_gop": float(doc.get("so_tien_da_gop") or 0),
+        "so_tien_da_gop": _tien(doc.get("so_tien_da_gop")),
         "don_vi_tien_te": doc.get("don_vi_tien_te", "VND"),
         "thoi_gian_bat_dau": thoi_gian_bat_dau.isoformat()
         if thoi_gian_bat_dau
@@ -140,7 +188,7 @@ async def _luu_hinh_anh(id_bai_dang: ObjectId, hinh_anh: list[str]):
     tai_lieu = [
         {
             "id_bai_dang": id_bai_dang,
-            "duong_dan_hinh_anh": duong_dan,
+            "duong_dan_hinh_anh": _tinh_duong_dan_luu(duong_dan),
             "thu_tu_hien_thi": ngay_tu + 1,
         }
         for ngay_tu, duong_dan in enumerate(hinh_anh)
@@ -201,10 +249,26 @@ async def doc_bai_dang(id_bai_dang: str) -> dict | None:
     })
 
 
-async def lay_bai_dang_theo_id(id_bai_dang: str) -> dict:
+async def lay_bai_dang_theo_id(
+    id_bai_dang: str,
+    id_nguoi_hien_tai: ObjectId | None = None,
+    la_quan_tri: bool = False,
+) -> dict:
+    """Chi tiết 1 bài — PB10.
+
+    Bài CÔNG KHAI (Da_Duyet) ai cũng xem được; bài Chờ duyệt / Từ chối /
+    Bị ẩn chỉ CHỦ BÀI hoặc QUẢN TRỊ VIÊN xem được (người lạ coi như 404).
+    """
     bai_dang = await doc_bai_dang(id_bai_dang)
 
     if not bai_dang:
+        raise KhongTimThayBaiDangError("Không tìm thấy bài đăng.")
+
+    if (
+        bai_dang.get("trang_thai") != "Da_Duyet"
+        and not la_quan_tri
+        and id_nguoi_hien_tai != bai_dang.get("id_nguoi_dang")
+    ):
         raise KhongTimThayBaiDangError("Không tìm thấy bài đăng.")
 
     return _chuan_hoa(
@@ -428,6 +492,15 @@ async def duyet_bai_dang(id_bai_dang: str, hanh_dong: str,
         "ngay_tao": now,
     })
 
+    # Ghi nhật ký quản trị (nhat_ky_quan_tri)
+    await database["nhat_ky_quan_tri"].insert_one({
+        "id_quan_tri_vien": id_nguoi_duyet,
+        "hanh_dong": f"Duyet_Bai_{hanh_dong}",
+        "loai_doi_tuong": f"bai_dang:{id_bai_dang}",
+        "ly_do": ly_do.strip(),
+        "ngay_tao": now,
+    })
+
     # Thông báo cho người đăng kết quả duyệt (module thong_bao)
     try:
         from app.services.thong_bao import tao_thong_bao
@@ -500,6 +573,15 @@ async def an_hien_bai_dang(
         "id_bai_dang": bai_dang["_id"],
         "id_nguoi_duyet": id_nguoi_duyet,
         "hanh_dong": "An_Bai" if hanh_dong == "An" else "Hien_Bai",
+        "ly_do": ly_do.strip(),
+        "ngay_tao": now,
+    })
+
+    # Ghi nhật ký quản trị (nhat_ky_quan_tri)
+    await database["nhat_ky_quan_tri"].insert_one({
+        "id_quan_tri_vien": id_nguoi_duyet,
+        "hanh_dong": "An_Bai" if hanh_dong == "An" else "Hien_Bai",
+        "loai_doi_tuong": f"bai_dang:{id_bai_dang}",
         "ly_do": ly_do.strip(),
         "ngay_tao": now,
     })

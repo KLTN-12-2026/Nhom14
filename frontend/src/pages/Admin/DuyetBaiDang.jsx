@@ -106,9 +106,17 @@ export default function DuyetBaiDang() {
             ? 'Duyệt bài thành công — bài đã công khai!'
             : 'Đã từ chối bài đăng (lý do hiển thị cho người đăng).'
         );
-        setSelected(null); setRejecting(false); setReason(''); refresh();
+        setSelected(null); setRejecting(false); setReason('');
       })
-      .catch((error) => tb.loi(error.message));
+      .catch((error) => tb.loi(error.message))
+      .finally(() => {
+        // Dù thành công hay lỗi: đồng bộ lại từ BE rồi refresh — danh sách
+        // luôn khớp DB, không còn bài ma đòi F5 (reviewPost BE path đã tự
+        // đồng bộ; đây chốt cho nhánh lỗi BE 404 + nhánh cục bộ).
+        dongBoAdminTuBe()
+          .catch(() => {})
+          .then(() => refresh());
+      });
   }
 
   return (
