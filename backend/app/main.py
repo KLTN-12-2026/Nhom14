@@ -18,6 +18,7 @@ from app.routers.khoan_gop import router as khoan_gop_router
 from app.routers.to_cao import router as to_cao_router
 from app.routers.thong_bao import router as thong_bao_router
 from app.routers.quen_mat_khau import router as quen_mat_khau_router
+from app.routers.chatbot import router as chatbot_router
 
 
 @asynccontextmanager
@@ -57,6 +58,7 @@ app.include_router(khoan_gop_router)
 app.include_router(to_cao_router)
 app.include_router(thong_bao_router)
 app.include_router(quen_mat_khau_router)
+app.include_router(chatbot_router)
 
 
 @app.get("/")

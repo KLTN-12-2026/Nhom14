@@ -12,7 +12,7 @@
 //
 // Dữ liệu tĩnh của trang đặt gọn ở đầu file; JSX bên dưới chỉ mô tả bố cục.
 
-import chatbot from '../assets/chatbot.png';
+import ChatbotAI from '../components/Chatbot/ChatbotAI';
 import heroNen from '../assets/anh-web/hero-nen.jpg';
 import { Link } from 'react-router-dom';
 import { useMemo } from 'react';
@@ -277,19 +277,8 @@ const TrangChu = () => {
       {/* --- 8. Footer (component riêng) --- */}
       <FooterTrangChu />
 
-      {/* Nút trợ lý AI cố định (placeholder thiết kế) */}
-      <button
-        type="button"
-        title="Trợ lý AI (bản demo)"
-        aria-label="Mở trợ lý AI"
-        className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full border-2 border-amber-600 bg-amber-300 shadow-lg transition hover:scale-105 hover:shadow-xl"
-      >
-        <img
-          src={chatbot}
-          alt="Trợ lý AI"
-          className="h-10 w-10 rounded-full object-cover"
-        />
-      </button>
+      {/* Trợ lý AI Rising Bot — widget hội thoại (component riêng) */}
+      <ChatbotAI />
     </div>
   );
 }
