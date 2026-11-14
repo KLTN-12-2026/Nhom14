@@ -108,7 +108,7 @@ npm run dev
    |---|---|---|---|
    | `nhatquang` | `Demo123456` | Người dùng | 2.500.000 ₫ |
    | `demo@gmail.com` | `Demo123456` | Người dùng | 1.000.000 ₫ |
-   | `admin` | `Admin123456` | Quản trị viên | 0 ₫ |
+   | `admin1` | `admin123456@` | Quản trị viên | 0 ₫ |
 
 3. Kịch bản gợi ý:
    - **Đăng ký** tài khoản mới → **Nạp số dư** vào ví → **Tạo bài đăng** (chọn 1 trong 3 loại
