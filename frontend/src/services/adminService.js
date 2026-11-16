@@ -102,6 +102,7 @@ function chuanHoaBaiBe(post) {
     ten_nguoi_dang: post.ten_nguoi_dang || '',
     ngay_tao: post.ngay_tao || '',
     ngay_cap_nhat: post.ngay_cap_nhat || '',
+    thoi_gian_ket_thuc: post.thoi_gian_ket_thuc || '',
     trang_thai: post.trang_thai || 'Cho_Duyet',
     hinh_anh: (post.hinh_anh || []).map(anh =>
       typeof anh === 'string' ? anh : anh.duong_dan_hinh_anh),

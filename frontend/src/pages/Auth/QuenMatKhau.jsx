@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import Navbar from "../../components/Navbar/Navbar";
+import OMatKhau from "../../components/Common/OMatKhau";
 import { goiApi, LOI_KHONG_KET_NOI } from "../../services/apiClient";
 
 // Nhãn + biểu tượng của 3 bước khôi phục mật khẩu
@@ -286,8 +287,7 @@ const QuenMatKhau = () => {
                       Mật khẩu mới
                     </span>
 
-                    <input
-                      type="password"
+                    <OMatKhau
                       value={matKhauMoi}
                       onChange={(e) => setMatKhauMoi(e.target.value)}
                       placeholder="Nhập mật khẩu mới"
@@ -300,8 +300,7 @@ const QuenMatKhau = () => {
                       Nhập lại mật khẩu
                     </span>
 
-                    <input
-                      type="password"
+                    <OMatKhau
                       value={xacNhanMatKhau}
                       onChange={(e) => setXacNhanMatKhau(e.target.value)}
                       placeholder="Nhập lại mật khẩu mới"

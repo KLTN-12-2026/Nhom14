@@ -4,7 +4,7 @@
 // Cách dùng (không cần connect context, gọi từ bất cứ đâu):
 //   import { tb } from '.../services/thongBaoService';
 //   tb.thanhCong('Tạo bài đăng thành công!');
-//   tb.loi('Mật khẩu không đúng.');
+//   tb.loi('Mật khẩu không đúng.');   // modal lỗi giữa màn (tự tắt + nút OK)
 //   ...
 //   if (await tb.xacNhan({ tieuDe: 'Xóa bài đăng?', noiDung: '...', netLoai: 'danger' })) { ... }
 //
@@ -97,10 +97,53 @@ export function traLoiXacNhan(dongY) {
   }
 }
 
+// ---- Modal báo lỗi tự tắt (popup giữa màn, vài giây tự đóng + nút OK) ----
+let danhSachLoiModal = [];
+const dangKyLoiModalList = [];
+let soThuTuLoiModal = 0;
+
+function phatLoiModal() {
+  const ban = [...danhSachLoiModal];
+  dangKyLoiModalList.forEach((fn) => fn(ban));
+}
+
+export function dangKyLoiModal(fn) {
+  dangKyLoiModalList.push(fn);
+  fn([...danhSachLoiModal]);
+  return () => {
+    const viTri = dangKyLoiModalList.indexOf(fn);
+    if (viTri !== -1) dangKyLoiModalList.splice(viTri, 1);
+  };
+}
+
+export function datLoiModal(noiDung, thoiGian = 4000) {
+  soThuTuLoiModal += 1;
+  const modal = { id: soThuTuLoiModal, noiDung, thoiGian };
+  danhSachLoiModal = [...danhSachLoiModal, modal];
+
+  if (thoiGian > 0) {
+    setTimeout(() => huyLoiModal(modal.id), thoiGian);
+  }
+
+  phatLoiModal();
+  return modal.id;
+}
+
+export function huyLoiModal(id) {
+  danhSachLoiModal = danhSachLoiModal.filter((item) => item.id !== id);
+  phatLoiModal();
+}
+
 // ---- API rút gọn cho các trang ----
 export const tb = {
   thanhCong: (noiDung, thoiGian) => datToast('thanhCong', noiDung, thoiGian),
-  loi: (noiDung, thoiGian = 6000) => datToast('loi', noiDung, thoiGian),
+  // LỖI = modal giữa màn: vài giây tự tắt + bấm OK tắt ngay. Dùng chung
+  // cho mọi chức năng báo lỗi (đăng nhập, giải ngân, tố cáo...) thay toast
+  // để người dùng không bỏ sót thông báo.
+  loi: (noiDung, thoiGian = 4000) => datLoiModal(noiDung, thoiGian),
+  // Tên gọi tường minh của tb.loi (cùng modal) — giữ để tương thích các
+  // chỗ đã gọi sẵn.
+  loiModal: (noiDung, thoiGian = 4000) => datLoiModal(noiDung, thoiGian),
   canhBao: (noiDung, thoiGian) => datToast('canhBao', noiDung, thoiGian),
   thongTin: (noiDung, thoiGian) => datToast('thongTin', noiDung, thoiGian),
   xacNhan,

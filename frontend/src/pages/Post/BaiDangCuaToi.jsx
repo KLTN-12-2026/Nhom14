@@ -196,7 +196,7 @@ export default function BaiDangCuaToi() {
                   {stat.nhan}
                 </span>
 
-                <p className="mt-2 font-inknut text-3xl font-extrabold text-gray-900">
+                <p className="mt-2 font-so text-3xl font-extrabold text-gray-900">
                   {countStatus(stat.value)}
                 </p>
               </button>

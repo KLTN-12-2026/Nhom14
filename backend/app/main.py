@@ -19,6 +19,10 @@ from app.routers.to_cao import router as to_cao_router
 from app.routers.thong_bao import router as thong_bao_router
 from app.routers.quen_mat_khau import router as quen_mat_khau_router
 from app.routers.chatbot import router as chatbot_router
+from app.routers.vi_bai_dang import (
+    router_admin as vi_bai_dang_admin_router,
+    router_cong_khai as vi_bai_dang_router,
+)
 
 
 @asynccontextmanager
@@ -59,6 +63,8 @@ app.include_router(to_cao_router)
 app.include_router(thong_bao_router)
 app.include_router(quen_mat_khau_router)
 app.include_router(chatbot_router)
+app.include_router(vi_bai_dang_router)
+app.include_router(vi_bai_dang_admin_router)
 
 # Ảnh bài đăng lưu trên đĩa (backend/media) — phục vụ trực tiếp qua URL,
 # DB không giữ base64 (tránh response lớn làm tràn cache FE).

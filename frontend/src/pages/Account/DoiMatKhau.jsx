@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../../components/Navbar/Navbar";
 import Button from "../../components/Button/Button";
+import OMatKhau from "../../components/Common/OMatKhau";
 import { changePassword } from "../../services/authService";
 import { tb } from "../../services/thongBaoService";
 
@@ -32,40 +33,8 @@ function doManh(matKhau) {
   return { diem: 5, nhan: "Mạnh", mau: "bg-emerald-500" };
 }
 
-// Ô mật khẩu có nút bật/tắt hiển thị (👁) — phải dễ thao tác trên điện thoại.
-function OMatKhau({ id, label, placeholder, value, onChange, autoComplete }) {
-  const [hienThi, setHienThi] = useState(false);
-
-  return (
-    <div>
-      <label className={labelClass} htmlFor={id}>
-        {label}
-      </label>
-
-      <div className="relative">
-        <input
-          id={id}
-          name={id}
-          type={hienThi ? "text" : "password"}
-          placeholder={placeholder}
-          value={value}
-          onChange={onChange}
-          autoComplete={autoComplete}
-          className={`${inputClass} pr-12`}
-        />
-
-        <button
-          type="button"
-          onClick={() => setHienThi((v) => !v)}
-          aria-label={hienThi ? `Ẩn ${label}` : `Hiện ${label}`}
-          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-sm text-gray-400 transition hover:bg-amber-50 hover:text-amber-600"
-        >
-          {hienThi ? "🙈" : "👁"}
-        </button>
-      </div>
-    </div>
-  );
-}
+// Ô mật khẩu: dùng components/Common/OMatKhau (icon mắt mở/nhắm SVG,
+// luôn hiển thị; nhãn hiển thị riêng phía trên mỗi ô).
 
 function DoiMatKhau() {
   const [form, setForm] = useState({
@@ -165,19 +134,31 @@ function DoiMatKhau() {
           </div>
 
           <form className="mt-8" onSubmit={handleSubmit}>
-            <OMatKhau
-              id="matKhauCu"
-              label="Mật khẩu hiện tại"
-              placeholder="Nhập mật khẩu hiện tại"
-              value={form.matKhauCu}
-              onChange={handleChange}
-              autoComplete="current-password"
-            />
+            <div>
+              <label className={labelClass} htmlFor="matKhauCu">
+                Mật khẩu hiện tại
+              </label>
+
+              <OMatKhau
+                id="matKhauCu"
+                className={inputClass}
+                name="matKhauCu"
+                placeholder="Nhập mật khẩu hiện tại"
+                value={form.matKhauCu}
+                onChange={handleChange}
+                autoComplete="current-password"
+              />
+            </div>
 
             <div className="mt-4">
+              <label className={labelClass} htmlFor="matKhauMoi">
+                Mật khẩu mới
+              </label>
+
               <OMatKhau
                 id="matKhauMoi"
-                label="Mật khẩu mới"
+                className={inputClass}
+                name="matKhauMoi"
                 placeholder="Ít nhất 8 ký tự"
                 value={form.matKhauMoi}
                 onChange={handleChange}
@@ -217,9 +198,14 @@ function DoiMatKhau() {
             </div>
 
             <div className="mt-4">
+              <label className={labelClass} htmlFor="xacNhanMatKhau">
+                Xác nhận mật khẩu mới
+              </label>
+
               <OMatKhau
                 id="xacNhanMatKhau"
-                label="Xác nhận mật khẩu mới"
+                className={inputClass}
+                name="xacNhanMatKhau"
                 placeholder="Nhập lại mật khẩu mới"
                 value={form.xacNhanMatKhau}
                 onChange={handleChange}

@@ -193,7 +193,7 @@ function ThongTinCaNhan() {
              💰 Số dư ví
             </span>
 
-            <span className="font-inknut text-lg font-extrabold text-amber-300">
+            <span className="font-so text-lg font-extrabold text-amber-300">
               {VND.format(so_du)}
             </span>
           </div>

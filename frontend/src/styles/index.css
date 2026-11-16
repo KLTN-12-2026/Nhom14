@@ -1,10 +1,23 @@
 @import url('https://fonts.googleapis.com/css2?family=Inknut+Antiqua:wght@300;400;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
+
+/* Ẩn con mắt "reveal mật khẩu" mặc định của trình duyệt (Edge/IE) — trang
+   đã có nút hiện/ẩn riêng (components/Common/OMatKhau) nên tránh hiện
+   2 con mắt cạnh nhau trong ô mật khẩu. */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
 
 @theme {
   /* Định nghĩa font-inknut bằng cú pháp CSS của Tailwind v4 */
   --font-inknut: "Inknut Antiqua", serif;
+
+  /* Font cho SỐ LIỆU (tiền, số đếm): Inknut Antiqua vẽ số 1 giống chữ "I"
+     (không có chân ngang) nên "11" đọc thành "II" — số tiền hiển thị bằng
+     font-so (Be Vietnam Pro) để đọc đúng từng chữ số. */
+  --font-so: "Be Vietnam Pro", ui-sans-serif, sans-serif;
 
   /* Font chính của app: Be Vietnam Pro hỗ trợ ĐẦY ĐỦ dấu tiếng Việt,
      khắc phục lỗi chữ như "Đăng xuất" bị gãy dấu do font hệ thống thiếu glyph.

@@ -7,12 +7,18 @@ import Button from "../../components/Button/Button";
 import HoTroModal from "../../components/Post/HoTroModal";
 import LienHeDauTu from "../../components/Post/LienHeDauTu";
 
-import { isLoggedIn } from "../../services/authService";
+import { isLoggedIn, isAdmin } from "../../services/authService";
 import { getUser } from "../../services/userService";
 import { getPostById } from "../../services/postService";
 import { taoToCao, LY_DO_TO_CAO } from "../../services/toCaoService";
 import { tb } from "../../services/thongBaoService";
 import { themThongBao } from "../../services/chuongService";
+import { ghiNhatKyQuanLy } from "../../services/adminService";
+import {
+  giaiNgan as giaiNganBE,
+  hoanTra as hoanTraBE,
+  layViBaiDang,
+} from "../../services/viBaiDangService";
 import {
   daHetHan,
   dongBoNguoiGopTuBe,
@@ -84,6 +90,13 @@ const ChiTietBaiDang = () => {
   const [formToCao, setFormToCao] = useState({ ly_do: "", mo_ta: "" });
   const [dang_bao_cao, setDangBaoCao] = useState(false);
 
+  // Ví dự án (escrow vi_bai_dang): tổng nhận / đã giải ngân / còn lại
+  const [viDuAn, setViDuAn] = useState(null);
+  const [dangXuLyVi, setDangXuLyVi] = useState(false);
+  // Modal "đã đạt mục tiêu" hiện TRƯỚC khi mở màn ủng hộ khi dự án đã
+  // đủ tiền mà chưa giải ngân (hỏi người dùng có muốn tiếp tục ủng hộ)
+  const [moHoanThanh, setMoHoanThanh] = useState(false);
+
   const baiDangCache = useMemo(
     () => timBaiDang(),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -140,6 +153,25 @@ const ChiTietBaiDang = () => {
       tiep_tuc = false;
     };
     // baiDang trong deps qua postIdHienTai — tránh nạp lại mỗi render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postIdHienTai, lanLamMoi]);
+
+  // Ví dự án: nạp tổng nhận / đã giải ngân / số dư còn lại từ BE
+  // (bài demo chưa có escrow — thẻ tự ẩn nhờ điều kiện render bên dưới)
+  useEffect(() => {
+    if (!postIdHienTai || laBaiDangDemo(baiDang)) return;
+
+    let tiep_tuc = true;
+
+    layViBaiDang(postIdHienTai)
+      .then((vi) => {
+        if (tiep_tuc) setViDuAn(vi);
+      })
+      .catch(() => {});
+
+    return () => {
+      tiep_tuc = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postIdHienTai, lanLamMoi]);
 
@@ -270,6 +302,34 @@ const ChiTietBaiDang = () => {
       return;
     }
 
+    // Dự án đã được admin xử lý tiền -> không nhận ủng hộ nữa (BE cũng
+    // chặn, nhưng báo trước bằng modal để người dùng hiểu ngay)
+    if (viDuAn && !laBaiDangDemo(baiDang)) {
+      if (viDuAn.trang_thai === "Da_giai_ngan") {
+        tb.loiModal(
+          `Dự án "${layTieuDe(baiDang)}" đã được giải ngân cho người gọi ` +
+            "vốn — không thể quyên góp / góp vốn thêm."
+        );
+        return;
+      }
+
+      if (viDuAn.trang_thai === "Da_hoan_tra") {
+        tb.loiModal(
+          `Dự án "${layTieuDe(baiDang)}" đã hết hạn chưa đủ vốn và tiền ` +
+            "đã hoàn lại cho người ủng hộ — không thể ủng hộ thêm."
+        );
+        return;
+      }
+    }
+
+    // Dự án ĐÃ ĐỦ TIỀN mà chưa giải ngân -> hỏi trước người dùng có
+    // muốn tiếp tục ủng hộ (không chờ góp xong mới báo — người góp cuối
+    // không cần thấy thông báo "chúc mừng" sau khi đã chuyển tiền)
+    if (mucTieu > 0 && soTienDaGop >= mucTieu) {
+      setMoHoanThanh(true);
+      return;
+    }
+
     setMoHoTro(true);
   };
 
@@ -285,6 +345,44 @@ const ChiTietBaiDang = () => {
       loai_doi_tuong: `bai_dang:${layMaBaiDang(baiDang)}`,
     });
   };
+
+  // Admin: giải ngân toàn bộ tiền tạm giữ cho người gọi vốn (bài đủ vốn)
+  async function xuLyGiaiNgan() {
+    if (!layMaBaiDang(baiDang) || laBaiDangDemo(baiDang)) return;
+
+    setDangXuLyVi(true);
+    try {
+      await giaiNganBE(layMaBaiDang(baiDang));
+      tb.thanhCong(
+        `Đã giải ngân "${layTieuDe(baiDang)}" — tiền đã chuyển vào ví của người gọi vốn.`
+      );
+      ghiNhatKyQuanLy("Giai_Ngan", `bai_dang:${layMaBaiDang(baiDang)}`);
+      setLanLamMoi((lan) => lan + 1);
+    } catch (error) {
+      tb.loi(error.message);
+    } finally {
+      setDangXuLyVi(false);
+    }
+  }
+
+  // Admin: hoàn trả tiền cho từng người góp (bài hết hạn chưa đủ vốn)
+  async function xuLyHoanTra() {
+    if (!layMaBaiDang(baiDang) || laBaiDangDemo(baiDang)) return;
+
+    setDangXuLyVi(true);
+    try {
+      const ket_qua = await hoanTraBE(layMaBaiDang(baiDang));
+      tb.thanhCong(
+        `Đã hoàn ${dinhDangTien(ket_qua?.so_tien_hoan ?? 0)} ${donViTien} cho ${ket_qua?.so_nguoi_hoan ?? 0} người ủng hộ.`
+      );
+      ghiNhatKyQuanLy("Hoan_Tra", `bai_dang:${layMaBaiDang(baiDang)}`);
+      setLanLamMoi((lan) => lan + 1);
+    } catch (error) {
+      tb.loi(error.message);
+    } finally {
+      setDangXuLyVi(false);
+    }
+  }
 
   // Mở modal báo cáo — cần đăng nhập (to_cao_bai_dang bắt buộc id_nguoi_to_cao)
   const handleMoToCao = () => {
@@ -556,7 +654,7 @@ const ChiTietBaiDang = () => {
                   : "Đã huy động"}
               </p>
 
-              <p className="mt-1 font-inknut text-3xl font-extrabold text-amber-600">
+              <p className="mt-1 font-so text-3xl font-extrabold text-amber-600">
                 {dinhDangTien(soTienDaGop)}{" "}
                 <span className="text-base text-gray-500">{donViTien}</span>
               </p>
@@ -583,6 +681,115 @@ const ChiTietBaiDang = () => {
                   </span>
                 </div>
               </div>
+
+              {/* Ví dự án (escrow vi_bai_dang): ai xem cũng thấy số tiền
+                  đang giữ + phần đã chuyển cho người gọi vốn.
+                  Bài demo chưa có ví -> không hiển thị thẻ này */}
+              {viDuAn && !laBaiDangDemo(baiDang) && (
+                <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
+                  <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">
+                    Ví dự án
+                  </p>
+
+                  <p className="mt-1 font-so text-2xl font-extrabold text-emerald-600">
+                    {dinhDangTien(viDuAn.so_du_con_lai)}{" "}
+                    <span className="text-sm text-gray-500">{donViTien}</span>
+                  </p>
+
+                  <p className="text-[11px] text-gray-500">
+                    Số dư khả dụng trong ví dự án
+                  </p>
+
+                  <dl className="mt-3 space-y-1.5 text-xs">
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-gray-500">Tổng tiền nhận</dt>
+                      <dd className="font-bold text-gray-800">
+                        {dinhDangTien(viDuAn.tong_tien_nhan)} {donViTien}
+                      </dd>
+                    </div>
+
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-gray-500">Đã giải ngân</dt>
+                      <dd className="font-bold text-gray-800">
+                        {dinhDangTien(viDuAn.da_giai_ngan)} {donViTien}
+                      </dd>
+                    </div>
+
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-gray-500">Số dư còn lại</dt>
+                      <dd className="font-bold text-emerald-600">
+                        {dinhDangTien(viDuAn.so_du_con_lai)} {donViTien}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <span
+                    className={`mt-3 inline-block rounded-full px-3 py-1 text-[11px] font-bold ${
+                      viDuAn.trang_thai === "Tam_giu"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-slate-200 text-slate-600"
+                    }`}
+                  >
+                    {viDuAn.mo_ta_trang_thai}
+                  </span>
+
+                  {/* Chỉ quản trị viên thấy: giải ngân khi đủ vốn /
+                      hoàn trả khi hết hạn chưa đủ vốn. Nút bị khóa
+                      (disabled) sẽ có tooltip title giải thích lý do —
+                      chuột báo cấm là hành vi mặc định của trình duyệt
+                      trên nút disabled. */}
+                  {isAdmin() && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={xuLyGiaiNgan}
+                        title={
+                          dangXuLyVi
+                            ? "Đang xử lý..."
+                            : viDuAn.trang_thai !== "Tam_giu"
+                              ? "Ví dự án đã được giải ngân hoặc hoàn trả — không thao tác được nữa"
+                              : soTienDaGop < mucTieu
+                                ? "Dự án chưa đạt mục tiêu — chỉ giải ngân sau khi đủ vốn"
+                                : "Chuyển toàn bộ tiền đang giữ vào ví của người gọi vốn"
+                        }
+                        disabled={
+                          dangXuLyVi ||
+                          viDuAn.trang_thai !== "Tam_giu" ||
+                          soTienDaGop < mucTieu
+                        }
+                        className="flex-1 rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold text-white shadow-md shadow-emerald-500/30 transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        💸 Giải ngân
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={xuLyHoanTra}
+                        title={
+                          dangXuLyVi
+                            ? "Đang xử lý..."
+                            : viDuAn.trang_thai !== "Tam_giu"
+                              ? "Ví dự án đã được giải ngân hoặc hoàn trả — không thao tác được nữa"
+                              : soTienDaGop >= mucTieu
+                                ? "Dự án đã đủ vốn — dùng GIẢI NGÂN thay vì hoàn trả"
+                                : !daHetHan(baiDang)
+                                  ? "Dự án chưa hết hạn — chỉ hoàn trả sau thời gian kết thúc"
+                                  : "Hoàn lại tiền cho từng người ủng hộ"
+                        }
+                        disabled={
+                          dangXuLyVi ||
+                          viDuAn.trang_thai !== "Tam_giu" ||
+                          soTienDaGop >= mucTieu ||
+                          !daHetHan(baiDang)
+                        }
+                        className="flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        ↩ Hoàn trả
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Thời gian bắt đầu / kết thúc */}
               <dl className="mt-5 space-y-2 rounded-2xl bg-slate-50 p-4 text-xs">
@@ -649,6 +856,68 @@ const ChiTietBaiDang = () => {
           post={baiDang}
           onClose={() => setMoLienHeDauTu(false)}
         />
+      )}
+
+      {/* Modal hỏi trước khi ủng hộ: dự án ĐÃ ĐỦ TIỀN mà chưa giải ngân —
+          người dùng bấm Quyên góp/Góp vốn mới hiện, hỏi có tiếp tục không */}
+      {moHoanThanh && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setMoHoanThanh(false);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-md rounded-3xl bg-white p-6 text-center shadow-2xl sm:p-8"
+          >
+            <span
+              className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 text-4xl shadow-lg ring-4 ring-white"
+              aria-hidden="true"
+            >
+              🎉
+            </span>
+
+            <h2 className="mt-4 font-inknut text-xl font-extrabold text-gray-900">
+              Dự án đã hoàn thành mục tiêu!
+            </h2>
+
+            <p className="mt-2 text-sm leading-7 text-gray-600">
+              “<b className="text-gray-900">{layTieuDe(baiDang)}</b>” đã nhận
+              đủ <b className="text-emerald-600">
+                {dinhDangTien(layTienDaGop(baiDang))} {donViTien}
+              </b>{" "}
+              so với mục tiêu {dinhDangTien(mucTieu)} {donViTien}. Quản trị
+              viên sẽ giải ngân số tiền cho người gọi vốn.
+            </p>
+
+            <p className="mt-1 text-sm font-semibold text-gray-700">
+              Bạn có muốn tiếp tục quyên góp / góp vốn thêm không?
+            </p>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setMoHoanThanh(false)}
+                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:border-gray-900 hover:text-gray-900"
+              >
+                Đóng
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setMoHoanThanh(false);
+                  setMoHoTro(true);
+                }}
+                className="flex-[1.3] rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-bold text-gray-900 shadow-md shadow-amber-400/40 transition hover:bg-amber-300"
+              >
+                💛 Tiếp tục ủng hộ
+              </button>
+            </div>
+          </section>
+        </div>
       )}
 
       {/* Modal báo cáo bài đăng (PB11 — collection to_cao_bai_dang) */}

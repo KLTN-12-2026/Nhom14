@@ -213,14 +213,20 @@ async def nap_tien(
     so_tien: float,
     mo_ta: str = "Nạp tiền vào ví",
     id_bai_dang: str | None = None,
+    loai_giao_dich: str = "Nap_Tien",
 ) -> dict:
-    """Nạp tiền vào ví - giao dịch loai_giao_dich = Nap_Tien (US13)."""
+    """Nạp tiền vào ví - giao dịch loai_giao_dich = Nap_Tien (US13).
+
+    Các luồng khác của hệ thống tái dùng hàm này với loại riêng:
+    Giai_Ngan (admin chuyển tiền escrow cho người gọi vốn),
+    Hoan_Tra (admin hoàn tiền người góp khi dự án hết hạn).
+    """
     if not mo_ta.strip():
         mo_ta = "Nạp tiền vào ví"
 
     return await _thuc_hien_giao_dich(
         id_nguoi_dung,
-        loai_giao_dich="Nap_Tien",
+        loai_giao_dich=loai_giao_dich,
         so_tien=so_tien,
         la_tang=True,
         mo_ta=mo_ta.strip(),

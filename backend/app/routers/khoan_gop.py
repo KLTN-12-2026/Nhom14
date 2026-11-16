@@ -4,7 +4,7 @@ from app.schemas.khoan_gop import KhoanGopCreate
 from app.services import khoan_gop as dich_vu
 from app.services.bai_dang import KhongTimThayBaiDangError
 from app.services.so_du import GiaTriKhongHopLeError, SoDuKhongDuError
-from app.services.khoan_gop import BaiDangChuaDuyetError
+from app.services.khoan_gop import BaiDangChuaDuyetError, BaiDangHetHanError
 from app.utils.auth import get_current_user
 
 
@@ -35,6 +35,10 @@ async def tao_khoan_gop(
     except KhongTimThayBaiDangError as error:
         raise HTTPException(status_code=404, detail=str(error))
     except BaiDangChuaDuyetError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+    except BaiDangHetHanError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+    except ViDaXuLyError as error:
         raise HTTPException(status_code=409, detail=str(error))
     except SoDuKhongDuError as error:
         raise HTTPException(status_code=402, detail=str(error))

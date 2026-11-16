@@ -2,8 +2,21 @@
 // (type="register"). Giữ nguyên các `name` của input vì DangKy/DangNhap
 // đọc dữ liệu qua FormData theo name — chỉ nâng hình thức khớp bảng màu
 // thương hiệu Rising Idea (amber là màu nút chính, viền focus amber).
+//
+// Ô mật khẩu dùng components/Common/OMatKhau (icon mắt mở/nhắm, luôn
+// hiển thị). `kiemTraHTML` (mặc định true): dùng validation mặc định của
+// trình duyệt (bắt buộc nhập, khung viền đỏ). Trang Đăng nhập tắt nó để
+// tự kiểm tra bằng JS và báo lỗi bằng modal popup thay khung báo lỗi
+// của trình duyệt.
 
-export default function AuthForm({ type, onSubmit, disabled = false }) {
+import OMatKhau from "../Common/OMatKhau";
+
+export default function AuthForm({
+  type,
+  onSubmit,
+  disabled = false,
+  kiemTraHTML = true,
+}) {
   const isRegister = type === "register";
 
   const inputClass =
@@ -139,7 +152,7 @@ export default function AuthForm({ type, onSubmit, disabled = false }) {
             name="account"
             placeholder="Tên đăng nhập hoặc email"
             autoComplete="username"
-            required
+            required={kiemTraHTML}
           />
         </>
       )}
@@ -147,26 +160,25 @@ export default function AuthForm({ type, onSubmit, disabled = false }) {
       <label htmlFor="password" className={labelClass}>
         Mật khẩu
       </label>
-      <input
+      <OMatKhau
         id="password"
         className={inputClass}
-        type="password"
         name="password"
         placeholder="Mật khẩu"
         autoComplete={isRegister ? "new-password" : "current-password"}
         minLength={isRegister ? 8 : undefined}
-        required
+        required={kiemTraHTML || isRegister}
       />
 
       {isRegister && (
-        <input
+        <OMatKhau
+          id="confirmPassword"
           className={inputClass}
-          type="password"
           name="confirmPassword"
           placeholder="Nhập lại mật khẩu"
           autoComplete="new-password"
           minLength={8}
-          required
+          required={kiemTraHTML}
         />
       )}
 

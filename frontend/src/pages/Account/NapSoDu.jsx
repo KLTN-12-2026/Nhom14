@@ -165,7 +165,7 @@ export default function NapSoDu() {
             <p className="text-xs font-bold uppercase tracking-widest text-slate-300">
               Ví của @{session?.ten_tk || "bạn"}
             </p>
-            <p className="mt-2 font-inknut text-4xl font-extrabold text-amber-300">
+            <p className="mt-2 font-so text-4xl font-extrabold text-amber-300">
               {VND.format(vi.soDu || 0)}
             </p>
             <p className="mt-1 text-sm text-slate-300">
@@ -285,7 +285,7 @@ export default function NapSoDu() {
               nhấn nút xác nhận bên dưới (mô phỏng).
             </p>
 
-            <p className="mt-4 rounded-xl bg-amber-50 py-2.5 font-inknut text-2xl font-extrabold text-amber-700 ring-1 ring-amber-200">
+            <p className="mt-4 rounded-xl bg-amber-50 py-2.5 font-so text-2xl font-extrabold text-amber-700 ring-1 ring-amber-200">
               {VND.format(ho_so_qr.so_tien)}
             </p>
 

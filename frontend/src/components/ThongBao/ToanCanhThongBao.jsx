@@ -9,7 +9,9 @@ import { useEffect, useState } from 'react';
 import {
   dangKyToast,
   dangKyXacNhan,
+  dangKyLoiModal,
   huyToast,
+  huyLoiModal,
   traLoiXacNhan,
 } from '../../services/thongBaoService';
 
@@ -166,17 +168,66 @@ function HopXacNhan({ hoiThoai }) {
   );
 }
 
+// Modal báo lỗi: giữa màn, vài giây tự tắt + nút OK tắt ngay.
+// Dùng cho lỗi form (chưa nhập tài khoản, sai mật khẩu...) thay toast.
+function HopLoi({ modal }) {
+  return (
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm tb-hien-nu">
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        className="tb-vao relative w-full max-w-sm overflow-hidden rounded-3xl border border-rose-200 bg-white p-8 text-center shadow-2xl"
+      >
+        <span
+          className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-tr from-rose-500 to-rose-600 text-4xl font-black text-white shadow-lg ring-4 ring-white"
+          aria-hidden="true"
+        >
+          ✕
+        </span>
+
+        <h2 className="mt-5 font-inknut text-xl font-extrabold text-gray-900">
+          Đã có lỗi xảy ra
+        </h2>
+
+        <p className="mt-2 break-words text-sm leading-6 text-gray-600">
+          {modal.noiDung}
+        </p>
+
+        <button
+          type="button"
+          onClick={() => huyLoiModal(modal.id)}
+          className="mt-7 w-full rounded-xl bg-rose-500 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-rose-500/30 transition hover:bg-rose-600"
+        >
+          OK
+        </button>
+
+        {/* Thanh đếm ngược tự tắt (khớp toast) */}
+        {modal.thoiGian > 0 && (
+          <div
+            className="absolute bottom-0 left-0 h-1 w-full origin-left opacity-70 bg-rose-500"
+            style={{ animation: `tb-dem-nguoc ${modal.thoiGian}ms linear forwards` }}
+            aria-hidden="true"
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Cần gắn 1 lần trong App: <ToanCanhThongBao />
 export default function ToanCanhThongBao() {
   const [toasts, setToasts] = useState([]);
   const [hoiThoai, setHoiThoai] = useState(null);
+  const [loiModals, setLoiModals] = useState([]);
 
   useEffect(() => {
     const baiToast = dangKyToast(setToasts);
     const baiXacNhan = dangKyXacNhan(setHoiThoai);
+    const baiLoiModal = dangKyLoiModal(setLoiModals);
     return () => {
       baiToast();
       baiXacNhan();
+      baiLoiModal();
     };
   }, []);
 
@@ -202,6 +253,11 @@ export default function ToanCanhThongBao() {
       </div>
 
       {hoiThoai && <HopXacNhan hoiThoai={hoiThoai} />}
+
+      {/* Modal lỗi: chỉ hiện 1 cái cùng lúc (cái mới nhất) */}
+      {loiModals.length > 0 && (
+        <HopLoi modal={loiModals[loiModals.length - 1]} />
+      )}
     </>
   );
 }

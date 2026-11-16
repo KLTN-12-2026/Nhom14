@@ -26,7 +26,7 @@ export default function DangKy() {
     const password = formData.get("password");
 
     if (password !== formData.get("confirmPassword")) {
-      tb.loi("Mật khẩu xác nhận không khớp!");
+      tb.loiModal("Mật khẩu xác nhận không khớp!");
       return;
     }
 
@@ -47,7 +47,7 @@ export default function DangKy() {
     setSubmitting(false);
 
     if (!result.thanhCong) {
-      tb.loi(result.loi);
+      tb.loiModal(result.loi);
       return;
     }
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/Button/Button';
 import KhungQuanTri from '../../components/Admin/KhungQuanTri';
@@ -8,9 +8,28 @@ import {
   anBaiDang,
   hienBaiDang,
   docNhatKyQuanLy,
+  ghiNhatKyQuanLy,
   MAP_TRANG_THAI_P18,
 } from '../../services/adminService';
+import {
+  giaiNgan as giaiNganVi,
+  hoanTra as hoanTraVi,
+  layViBaiDang,
+} from '../../services/viBaiDangService';
 import { tb } from '../../services/thongBaoService';
+
+// Nhãn + màu trạng thái ví dự án (escrow vi_bai_dang)
+const VI_STYLE = {
+  Tam_giu: 'bg-amber-100 text-amber-800',
+  Da_giai_ngan: 'bg-emerald-100 text-emerald-800',
+  Da_hoan_tra: 'bg-slate-200 text-slate-600',
+};
+
+const VI_NHAN = {
+  Tam_giu: 'Đang giữ',
+  Da_giai_ngan: 'Đã giải ngân',
+  Da_hoan_tra: 'Đã hoàn trả',
+};
 
 const TRANG_THAI_STYLE = {
   Cho_Duyet: 'bg-amber-100 text-amber-800',
@@ -30,15 +49,86 @@ const ngay = (gia_tri) =>
 
 const tien = (value) => Number(value || 0).toLocaleString('vi-VN') + ' đ';
 
+// Bài đã đạt mục tiêu (đủ điều kiện GIẢI NGÂN)
+const duVon = (p) =>
+  Number(p.muc_tieu || 0) > 0 &&
+  Number(p.so_tien_da_gop || 0) >= Number(p.muc_tieu || 0);
+
+// Bài đã quá thời hạn kết thúc (đủ điều kiện HOÀN TRẢ)
+const hetHan = (p) =>
+  p.thoi_gian_ket_thuc
+    ? new Date(p.thoi_gian_ket_thuc).getTime() < Date.now()
+    : false;
+
 export default function QuanLyBaiDang() {
   const [bai_dang, setBaiDang] = useState(() => layDanhSachQuanLy());
   const [bo_loc, setBoLoc] = useState('all');
   const [tu_khoa, setTuKhoa] = useState('');
   const [dang_xem, setDangXem] = useState(null);
   const [trang, setTrang] = useState(1);
+  // Ví dự án (escrow vi_bai_dang) từng bài: id bài -> thông tin ví từ BE
+  const [vi_theo_bai, setViTheoBai] = useState({});
+  const [id_dang_xu_ly, setIdDangXuLy] = useState(null);
   const nhat_ky = docNhatKyQuanLy();
 
   const lam_moi = () => setBaiDang(layDanhSachQuanLy());
+
+  // Nạp thông tin ví dự án cho các bài thật (từ MongoDB) — bài demo
+  // chưa có escrow nên bỏ qua (lookup theo id nên phần dư không gây lỗi)
+  useEffect(() => {
+    const bai_be = bai_dang.filter(
+      (p) => p.tu_be && /^[0-9a-f]{24}$/i.test(p.id)
+    );
+
+    if (!bai_be.length) return;
+
+    let tiep_tuc = true;
+
+    Promise.all(
+      bai_be.map((p) => layViBaiDang(p.id).then((vi) => [p.id, vi]))
+    )
+      .then((ket_qua) => {
+        if (tiep_tuc) {
+          setViTheoBai(
+            Object.fromEntries(ket_qua.filter(([, vi]) => vi))
+          );
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      tiep_tuc = false;
+    };
+  }, [bai_dang]);
+
+  // Admin: giải ngân / hoàn trả ví dự án của một bài đăng
+  async function xu_ly_vi(id, hanh_dong, tieu_de) {
+    setIdDangXuLy(id);
+
+    try {
+      if (hanh_dong === 'giai_ngan') {
+        await giaiNganVi(id);
+        tb.thanhCong(
+          `Đã giải ngân "${tieu_de}" — tiền đã chuyển vào ví người gọi vốn.`
+        );
+      } else {
+        const ket_qua = await hoanTraVi(id);
+        tb.thanhCong(
+          `Đã hoàn ${tien(ket_qua?.so_tien_hoan)} cho ${ket_qua?.so_nguoi_hoan ?? 0} người ủng hộ của "${tieu_de}".`
+        );
+      }
+
+      ghiNhatKyQuanLy(
+        hanh_dong === 'giai_ngan' ? 'Giai_Ngan' : 'Hoan_Tra',
+        `bai_dang:${id}`
+      );
+      lam_moi();
+    } catch (error) {
+      tb.loi(error.message);
+    } finally {
+      setIdDangXuLy(null);
+    }
+  }
 
   const so_dem = useMemo(() => ({
     all: bai_dang.length,
@@ -151,6 +241,7 @@ export default function QuanLyBaiDang() {
                 <th className="p-4">Loại</th>
                 <th className="p-4">Người đăng</th>
                 <th className="p-4">Mục tiêu</th>
+                <th className="p-4">Tiền</th>
                 <th className="p-4">Ngày tạo</th>
                 <th className="p-4">Trạng thái</th>
                 <th className="p-4">Thao tác</th>
@@ -170,6 +261,33 @@ export default function QuanLyBaiDang() {
                     {p.ten_nguoi_dang || p.id_nguoi_dang || '—'}
                   </td>
                   <td className="p-4">{tien(p.muc_tieu)}</td>
+                  <td className="p-4">
+                    {(() => {
+                      const vi = vi_theo_bai[p.id];
+                      if (!vi) {
+                        return <span className="text-slate-400">—</span>;
+                      }
+
+                      return (
+                        <div className="space-y-1">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                              VI_STYLE[vi.trang_thai] ||
+                              'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {VI_NHAN[vi.trang_thai] ||
+                              vi.mo_ta_trang_thai ||
+                              vi.trang_thai}
+                          </span>
+
+                          <p className="text-xs text-slate-500">
+                            {tien(vi.so_du_con_lai)} đang giữ
+                          </p>
+                        </div>
+                      );
+                    })()}
+                  </td>
                   <td className="p-4">{ngay(p.ngay_tao)}</td>
                   <td className="p-4">
                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${TRANG_THAI_STYLE[p.trang_thai]}`}>
@@ -205,13 +323,46 @@ export default function QuanLyBaiDang() {
                           🙈 Ẩn bài
                         </Button>
                       )}
+
+                      {/* Ví dự án (escrow): giải ngân khi đủ vốn, hoàn trả
+                          khi hết hạn chưa đủ — BE chặn điều kiện, FE chỉ ẩn
+                          nút không phù hợp để admin không bấm nhầm */}
+                      {(() => {
+                        const vi = vi_theo_bai[p.id];
+                        if (!vi || vi.trang_thai !== 'Tam_giu') return null;
+
+                        return (
+                          <>
+                            {duVon(p) && (
+                              <Button
+                                size="sm"
+                                onClick={() => xu_ly_vi(p.id, 'giai_ngan', p.tieu_de)}
+                                disabled={id_dang_xu_ly === p.id}
+                              >
+                                💸 Giải ngân
+                              </Button>
+                            )}
+
+                            {!duVon(p) && hetHan(p) && (
+                              <Button
+                                size="sm"
+                                variant="outline-dark"
+                                onClick={() => xu_ly_vi(p.id, 'hoan_tra', p.tieu_de)}
+                                disabled={id_dang_xu_ly === p.id}
+                              >
+                                ↩ Hoàn trả
+                              </Button>
+                            )}
+                          </>
+                        );
+                      })()}
                     </div>
                   </td>
                 </tr>
               ))}
               {!hien_thi.length && (
                 <tr>
-                  <td colSpan="7" className="px-6 py-14 text-center text-slate-500">
+                  <td colSpan="8" className="px-6 py-14 text-center text-slate-500">
                     Chưa có bài đăng phù hợp. Bài mới chờ duyệt sẽ xuất hiện tại{' '}
                     <Link to="/admin/duyet-bai" className="font-semibold text-amber-700 underline">
                       trang duyệt bài

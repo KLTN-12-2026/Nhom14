@@ -3,7 +3,9 @@ from datetime import datetime, timezone
 
 from app.config.database import database
 from app.services import so_du as dich_vu_so_du
+from app.services import vi_bai_dang as dich_vu_vi
 from app.services.so_du import GiaTriKhongHopLeError, SoDuKhongDuError
+from app.services.vi_bai_dang import ViDaXuLyError
 from app.services.bai_dang import (
     KhongTimThayBaiDangError,
     lay_ban_do_ten_nguoi_dang,
@@ -29,6 +31,11 @@ GIAO_DICH_THEO_LOAI = {
 
 class BaiDangChuaDuyetError(Exception):
     """Bài đăng chưa được duyệt — không nhận góp vốn/quyên góp."""
+    pass
+
+
+class BaiDangHetHanError(Exception):
+    """Bài đăng đã quá thời gian kết thúc — không nhận góp thêm."""
     pass
 
 
@@ -89,6 +96,22 @@ async def _lay_bai_dang_duyet(id_bai_dang: str) -> dict:
         raise BaiDangChuaDuyetError(
             "Bài đăng chưa được duyệt, chưa thể nhận góp vốn/quyên góp."
         )
+
+    # Bài hết hạn (thoi_gian_ket_thuc đã qua) -> dừng nhận ủng hộ;
+    # tiền sẽ do admin hoàn trả qua ví dự án (vi_bai_dang).
+    thoi_gian_ket_thuc = bai_dang.get("thoi_gian_ket_thuc")
+    if thoi_gian_ket_thuc:
+        if thoi_gian_ket_thuc.tzinfo is None:
+            thoi_gian_ket_thuc = thoi_gian_ket_thuc.replace(
+                tzinfo=timezone.utc
+            )
+        if thoi_gian_ket_thuc < datetime.now(timezone.utc):
+            raise BaiDangHetHanError(
+                "Bài đăng đã hết thời gian nhận ủng hộ."
+            )
+
+    # Ví dự án đã chốt (giải ngân/hoàn trả) -> không nhận ủng hộ thêm
+    await dich_vu_vi.kiem_tra_duoc_gop(ObjectId(id_bai_dang))
 
     return bai_dang
 
@@ -171,6 +194,30 @@ async def tao_khoan_gop(
         {"_id": ObjectId(id_bai_dang)},
         {"$inc": {"so_tien_da_gop": so_tien}, "$set": {"ngay_cap_nhat": now}},
     )
+
+    # 4) Cộng tiền vào ví dự án (escrow vi_bai_dang) — tiền người góp
+    #    bị trừ khỏi ví cá nhân được GIỮ tại đây chờ admin giải ngân/
+    #    hoàn trả. Lỗi ghi escrow -> hoàn tiền ví + xoá khoản + trừ lại
+    #    tiến độ để không mất oan tiền người góp.
+    try:
+        await dich_vu_vi.cong_tien(
+            ObjectId(id_bai_dang),
+            so_tien,
+        )
+    except Exception:
+        await dich_vu_so_du.nap_tien(
+            id_nguoi_dang,
+            so_tien,
+            mo_ta=f"Hoàn tiền — lỗi ghi ví dự án \"{tieu_de}\"",
+        )
+        await database[collection_ten].delete_one(
+            {"_id": result.inserted_id}
+        )
+        await database["bai_dang"].update_one(
+            {"_id": ObjectId(id_bai_dang)},
+            {"$inc": {"so_tien_da_gop": -so_tien}, "$set": {"ngay_cap_nhat": now}},
+        )
+        raise
 
     # Bản chuẩn hóa trả FE (kèm tên người góp từ ban đồ người dùng)
     ban_do = await lay_ban_do_ten_nguoi_dang([str(id_nguoi_dang)])

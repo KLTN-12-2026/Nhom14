@@ -35,17 +35,30 @@ export default function DangNhap() {
     if (submitting) return;
 
     const formData = new FormData(event.currentTarget);
+
+    // Kiểm tra thủ trước khi gửi — báo lỗi bằng modal popup (tự tắt sau
+    // vài giây hoặc bấm OK), cụ thể theo từng trường hợp thiếu dữ liệu.
+    const taiKhoan = String(formData.get("account") || "").trim();
+    const matKhau = String(formData.get("password") || "");
+
+    if (!taiKhoan) {
+      tb.loiModal("Bạn chưa nhập tài khoản!");
+      return;
+    }
+
+    if (!matKhau) {
+      tb.loiModal("Bạn chưa nhập mật khẩu!");
+      return;
+    }
+
     setSubmitting(true);
 
-    const result = await login(
-      formData.get("account"),
-      formData.get("password")
-    );
+    const result = await login(taiKhoan, matKhau);
 
     setSubmitting(false);
 
     if (!result.thanhCong) {
-      tb.loi(result.loi);
+      tb.loiModal(result.loi);
       return;
     }
 
@@ -84,7 +97,12 @@ export default function DangNhap() {
               leaving ? "opacity-0 sm:translate-x-full" : "opacity-100 sm:translate-x-0"
             }`}
           >
-            <AuthForm type="login" onSubmit={handleSubmit} disabled={submitting} />
+            <AuthForm
+              type="login"
+              onSubmit={handleSubmit}
+              disabled={submitting}
+              kiemTraHTML={false}
+            />
           </section>
 
           {/* Panel chào mừng (bên phải): nền tối + glow amber, nhấn CTA đăng ký */}

@@ -84,7 +84,7 @@ export default function LichSuSoDu() {
               <p className="text-xs font-bold uppercase tracking-widest text-slate-300">
                 Lịch sử số dư · @{session?.ten_tk || "bạn"}
               </p>
-              <p className="mt-2 font-inknut text-3xl font-extrabold text-amber-300">
+              <p className="mt-2 font-so text-3xl font-extrabold text-amber-300">
                 {VND.format(vi.soDu || 0)}
               </p>
               <p className="mt-1 text-sm text-slate-300">
