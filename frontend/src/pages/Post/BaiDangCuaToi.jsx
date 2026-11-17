@@ -11,7 +11,7 @@ import {
   layBaiDangCuaToi,
   xoaBaiDang,
 } from "../../services/postService";
-import { layLoaiInfo } from "../../services/contributionService";
+import { layLoaiInfo, taoLinkBai } from "../../services/contributionService";
 
 // Nhãn + màu nhãn trạng thái duyệt của từng bài đăng
 const statusList = {
@@ -324,14 +324,14 @@ export default function BaiDangCuaToi() {
                     {/* Hàng nút: Xem (trắng) / Sửa (amber) / Xóa (đỏ) */}
                     <div className="mt-auto flex flex-wrap gap-2 pt-4">
                       <Link
-                        to={`/bai-dang/${post.id}`}
+                        to={taoLinkBai(post)}
                         className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 transition hover:border-gray-900 hover:text-gray-900"
                       >
                         Xem
                       </Link>
 
                       <Link
-                        to={`/bai-dang/${post.id}/chinh-sua`}
+                        to={`${taoLinkBai(post)}/chinh-sua`}
                         className="rounded-lg bg-amber-400 px-4 py-2 text-xs font-bold text-gray-900 shadow-sm transition hover:bg-amber-300"
                       >
                         Sửa

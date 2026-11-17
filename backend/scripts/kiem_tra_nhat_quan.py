@@ -45,28 +45,39 @@ async def main():
     print("\n=== 2) Vi du an vi_bai_dang khop tong khoan gop? ===")
     async for vi in db["vi_bai_dang"].find({}):
         id_bai = vi["id_bai_dang"]
-        tong_gop = 0.0
-        for col in COL_GOP:
-            chuoi = [
-                d async for d in await db[col].aggregate([
-                    {"$match": {
-                        "id_bai_dang": id_bai,
-                        "trang_thai": "Thanh_cong",
-                    }},
-                    {"$group": {"_id": None, "t": {"$sum": "$so_tien"}}},
-                ])
-            ]
-            if chuoi:
-                tong_gop += _so(chuoi[0]["t"])
+
+        async def tong_theo_trang_thai(trang_thai):
+            tong = 0.0
+            for col in COL_GOP:
+                chuoi = [
+                    d async for d in await db[col].aggregate([
+                        {"$match": {
+                            "id_bai_dang": id_bai,
+                            "trang_thai": trang_thai,
+                        }},
+                        {"$group": {"_id": None, "t": {"$sum": "$so_tien"}}},
+                    ])
+                ]
+                if chuoi:
+                    tong += _so(chuoi[0]["t"])
+            return tong
+
+        # Tiền đang/đã vào ví thực chất: khoản còn Thanh_cong (đang giữ
+        # hoặc đã giải ngân) — khoản Da_Hoan_Tra đã rời ví dự án
+        tong_gop = await tong_theo_trang_thai("Thanh_cong")
+        tong_hoan = await tong_theo_trang_thai("Da_Hoan_Tra")
 
         tam_giu = _so(vi.get("so_tien_tam_giu")) or 0.0
         da_gn = _so(vi.get("so_tien_da_giai_ngan")) or 0.0
         da_ht = _so(vi.get("so_tien_da_hoan_tra")) or 0.0
-        tong_vi = round(tam_giu + da_gn + da_ht, 2)
-        khop = abs(tong_vi - tong_gop) < 0.01
+        khop_vao = abs(round(tam_giu + da_gn, 2) - tong_gop) < 0.01
+        khop_hoan = abs(da_ht - tong_hoan) < 0.01
         print(f" - bài {str(id_bai)[:8]}...: {vi.get('trang_thai')} | "
-              f"tong_gop={tong_gop:,.0f} vs vi(tam_giu+da_gn+da_ht)"
-              f"={tong_vi:,.0f} -> {'KHOP' if khop else 'LECH!'}")
+              f"vi(tam_giu+da_gn)={tam_giu + da_gn:,.0f} vs "
+              f"khoan Thanh_cong={tong_gop:,.0f}, "
+              f"vi da_hoan_tra={da_ht:,.0f} vs khoan Da_Hoan_Tra="
+              f"{tong_hoan:,.0f} -> "
+              f"{'KHOP' if khop_vao and khop_hoan else 'LECH!'}")
 
     print("\n=== 3) Bai dang: so_tien_da_gop khop tong khoan? ===")
     async for bai in db["bai_dang"].find({}):

@@ -3,7 +3,6 @@ import {
   daHetHan,
   layDanhSachHinhAnh,
   layLoaiInfo,
-  layMaBaiDang,
   layMucTieu,
   layNoiDung,
   layTienDaGop,
@@ -11,6 +10,7 @@ import {
   layThoiGian,
   layTieuDe,
   layTrangThai,
+  taoLinkBai,
 } from "../../services/contributionService";
 
 const dinhDangTien = (soTien) =>
@@ -35,7 +35,7 @@ const ViewCard = ({ post }) => {
 
   return (
     <Link
-      to={`/bai-dang/${layMaBaiDang(post)}`}
+      to={taoLinkBai(post)}
       className="group flex h-full flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
     >
       {/* Ảnh bìa + nhãn loại + phần trăm tiến độ phủ trên ảnh */}

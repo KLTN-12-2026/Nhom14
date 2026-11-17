@@ -6,6 +6,7 @@ import FooterTrangChu from "../../components/Home/FooterTrangChu";
 import Button from "../../components/Button/Button";
 import HoTroModal from "../../components/Post/HoTroModal";
 import LienHeDauTu from "../../components/Post/LienHeDauTu";
+import ChatbotAI from "../../components/Chatbot/ChatbotAI";
 
 import { isLoggedIn, isAdmin } from "../../services/authService";
 import { getUser } from "../../services/userService";
@@ -37,6 +38,7 @@ import {
   layThoiGian,
   layTieuDe,
   layTrangThai,
+  tachIdBaiTuDuongDan,
 } from "../../services/contributionService";
 
 import { posts as postsDemo } from "../../data/PostDemo/posts";
@@ -72,8 +74,10 @@ const GLOW_HET_HAN = {
 };
 
 const ChiTietBaiDang = () => {
-  // Lấy ID bài đăng từ URL
-  const { id } = useParams();
+  // Lấy mã bài đăng từ URL: link mới là <slug>-<id>, link cũ là <id> —
+  // tách lấy id 24 ký tự ở cuối (bài demo như post001 trả nguyên vẹn)
+  const { id: duongDan } = useParams();
+  const id = tachIdBaiTuDuongDan(duongDan);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -90,8 +94,9 @@ const ChiTietBaiDang = () => {
   const [formToCao, setFormToCao] = useState({ ly_do: "", mo_ta: "" });
   const [dang_bao_cao, setDangBaoCao] = useState(false);
 
-  // Ví dự án (escrow vi_bai_dang): tổng nhận / đã giải ngân / còn lại
-  const [viDuAn, setViDuAn] = useState(null);
+  // Ví dự án theo bài: { id, ví, đã nạp xong }. Đổi bài trong cùng route
+  // (component không remount) thì ví của bài cũ không dùng nhầm cho bài mới
+  const [viTheoId, setViTheoId] = useState({ id: null, vi: null, daTai: false });
   const [dangXuLyVi, setDangXuLyVi] = useState(false);
   // Modal "đã đạt mục tiêu" hiện TRƯỚC khi mở màn ủng hộ khi dự án đã
   // đủ tiền mà chưa giải ngân (hỏi người dùng có muốn tiếp tục ủng hộ)
@@ -165,9 +170,13 @@ const ChiTietBaiDang = () => {
 
     layViBaiDang(postIdHienTai)
       .then((vi) => {
-        if (tiep_tuc) setViDuAn(vi);
+        if (tiep_tuc) setViTheoId({ id: postIdHienTai, vi, daTai: true });
       })
-      .catch(() => {});
+      .catch(() => {
+        if (tiep_tuc) {
+          setViTheoId({ id: postIdHienTai, vi: null, daTai: true });
+        }
+      });
 
     return () => {
       tiep_tuc = false;
@@ -178,8 +187,20 @@ const ChiTietBaiDang = () => {
   // Dữ liệu chuẩn hóa dùng cho cả màn hết hạn lẫn màn chi tiết bình thường
   const loaiInfo = layLoaiInfo(baiDang);
 
-  // ===== Bài đã quá thời hạn → màn thông báo riêng, nổi bật theo màu loại =====
-  if (daHetHan(baiDang)) {
+  // Ví của bài ĐANG xem (id trong state phải khớp bài đang mở)
+  const viHienTai = viTheoId.id === postIdHienTai ? viTheoId.vi : null;
+
+  // ===== Màn "hết thời hạn": CHỈ hiện khi tiền đã được xử lý xong =====
+  // - Bài demo (không có escrow): hết hạn là hiện màn này như cũ.
+  // - Bài BE: chỉ hiện khi admin đã HOÀN TRẢ (Da_hoan_tra) — vì màn này
+  //   chặn toàn trang nên admin sẽ không bấm được nút Hoàn trả. Còn đang
+  //   Tam_giu (chờ hoàn trả) hay đã giải ngân thì vẫn vào trang chi tiết:
+  //   admin thao tác Hoàn trả / người dùng xem trạng thái trong thẻ Ví.
+  const hienManHetHan =
+    daHetHan(baiDang) &&
+    (laBaiDangDemo(baiDang) || viHienTai?.trang_thai === "Da_hoan_tra");
+
+  if (hienManHetHan) {
     const ngayHetHan = dinhDangNgay(layThoiGian(baiDang).ketThuc);
 
     return (
@@ -219,14 +240,16 @@ const ChiTietBaiDang = () => {
               </div>
 
               <h1 className="mt-4 font-inknut text-2xl font-extrabold leading-snug text-gray-900 sm:text-3xl">
-                Bài đăng này đã hết thời hạn yêu cầu
+                Bài đăng này đã kết thúc
               </h1>
 
               <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-gray-600">
                 “<b className="text-gray-900">{layTieuDe(baiDang)}</b>” đã dừng
                 nhận {loaiInfo.actionLabel.toLowerCase()} từ{" "}
-                <b>{ngayHetHan}</b>. Bạn có thể quay về trang, hoặc chọn một
-                bài đăng mới nhất khác nhé!
+                <b>{ngayHetHan}</b>.{" "}
+                {laBaiDangDemo(baiDang)
+                  ? "Bạn có thể quay về trang, hoặc chọn một bài đăng mới nhất khác nhé!"
+                  : "Số tiền mọi người ủng hộ đã được hoàn trả về ví của từng người."}
               </p>
 
               <div className="mt-7 flex flex-wrap justify-center gap-3">
@@ -304,8 +327,8 @@ const ChiTietBaiDang = () => {
 
     // Dự án đã được admin xử lý tiền -> không nhận ủng hộ nữa (BE cũng
     // chặn, nhưng báo trước bằng modal để người dùng hiểu ngay)
-    if (viDuAn && !laBaiDangDemo(baiDang)) {
-      if (viDuAn.trang_thai === "Da_giai_ngan") {
+    if (viHienTai && !laBaiDangDemo(baiDang)) {
+      if (viHienTai.trang_thai === "Da_giai_ngan") {
         tb.loiModal(
           `Dự án "${layTieuDe(baiDang)}" đã được giải ngân cho người gọi ` +
             "vốn — không thể quyên góp / góp vốn thêm."
@@ -313,7 +336,7 @@ const ChiTietBaiDang = () => {
         return;
       }
 
-      if (viDuAn.trang_thai === "Da_hoan_tra") {
+      if (viHienTai.trang_thai === "Da_hoan_tra") {
         tb.loiModal(
           `Dự án "${layTieuDe(baiDang)}" đã hết hạn chưa đủ vốn và tiền ` +
             "đã hoàn lại cho người ủng hộ — không thể ủng hộ thêm."
@@ -331,6 +354,26 @@ const ChiTietBaiDang = () => {
     }
 
     setMoHoTro(true);
+  };
+
+  // Gửi câu "phân tích & đánh giá" dự án cho Rising Bot: widget chatbot
+  // góc phải sẽ tự mở + tự gửi câu hỏi (giao tiếp qua window CustomEvent —
+  // chatbot nằm ở layout riêng, không truy cập state trang chi tiết được)
+  const hoiAIBaiDang = () => {
+    const cauHoi =
+      `Hãy phân tích và đánh giá dự án sau trên nền tảng Rising Idea:\n` +
+      `- Tên: ${layTieuDe(baiDang)}\n` +
+      `- Loại: ${layLoaiMenu(baiDang)}\n` +
+      `- Mục tiêu: ${dinhDangTien(mucTieu)} ${donViTien}, đã góp ` +
+      `${dinhDangTien(soTienDaGop)} ${donViTien} (${tienDo}%)\n` +
+      `- Thời gian: ${dinhDangNgay(thoiDiem.batDau)} → ${dinhDangNgay(thoiDiem.ketThuc)}\n` +
+      `- Mô tả: ${String(layNoiDung(baiDang) || "(không có)").slice(0, 600)}\n` +
+      `Đánh giá giúp mình: độ khả thi, điểm mạnh, điểm yếu, rủi ro với ` +
+      `người ủng hộ, và liệu có nên ủng hộ dự án này không.`;
+
+    window.dispatchEvent(
+      new CustomEvent("rising-bot:hoi-bai", { detail: { cauHoi } })
+    );
   };
 
   // Sau khi góp thành công: nạp lại danh sách người góp + thanh tiến độ
@@ -685,14 +728,14 @@ const ChiTietBaiDang = () => {
               {/* Ví dự án (escrow vi_bai_dang): ai xem cũng thấy số tiền
                   đang giữ + phần đã chuyển cho người gọi vốn.
                   Bài demo chưa có ví -> không hiển thị thẻ này */}
-              {viDuAn && !laBaiDangDemo(baiDang) && (
+              {viHienTai && !laBaiDangDemo(baiDang) && (
                 <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
                   <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">
                     Ví dự án
                   </p>
 
                   <p className="mt-1 font-so text-2xl font-extrabold text-emerald-600">
-                    {dinhDangTien(viDuAn.so_du_con_lai)}{" "}
+                    {dinhDangTien(viHienTai.so_du_con_lai)}{" "}
                     <span className="text-sm text-gray-500">{donViTien}</span>
                   </p>
 
@@ -704,33 +747,33 @@ const ChiTietBaiDang = () => {
                     <div className="flex justify-between gap-2">
                       <dt className="text-gray-500">Tổng tiền nhận</dt>
                       <dd className="font-bold text-gray-800">
-                        {dinhDangTien(viDuAn.tong_tien_nhan)} {donViTien}
+                        {dinhDangTien(viHienTai.tong_tien_nhan)} {donViTien}
                       </dd>
                     </div>
 
                     <div className="flex justify-between gap-2">
                       <dt className="text-gray-500">Đã giải ngân</dt>
                       <dd className="font-bold text-gray-800">
-                        {dinhDangTien(viDuAn.da_giai_ngan)} {donViTien}
+                        {dinhDangTien(viHienTai.da_giai_ngan)} {donViTien}
                       </dd>
                     </div>
 
                     <div className="flex justify-between gap-2">
                       <dt className="text-gray-500">Số dư còn lại</dt>
                       <dd className="font-bold text-emerald-600">
-                        {dinhDangTien(viDuAn.so_du_con_lai)} {donViTien}
+                        {dinhDangTien(viHienTai.so_du_con_lai)} {donViTien}
                       </dd>
                     </div>
                   </dl>
 
                   <span
                     className={`mt-3 inline-block rounded-full px-3 py-1 text-[11px] font-bold ${
-                      viDuAn.trang_thai === "Tam_giu"
+                      viHienTai.trang_thai === "Tam_giu"
                         ? "bg-emerald-100 text-emerald-700"
                         : "bg-slate-200 text-slate-600"
                     }`}
                   >
-                    {viDuAn.mo_ta_trang_thai}
+                    {viHienTai.mo_ta_trang_thai}
                   </span>
 
                   {/* Chỉ quản trị viên thấy: giải ngân khi đủ vốn /
@@ -746,7 +789,7 @@ const ChiTietBaiDang = () => {
                         title={
                           dangXuLyVi
                             ? "Đang xử lý..."
-                            : viDuAn.trang_thai !== "Tam_giu"
+                            : viHienTai.trang_thai !== "Tam_giu"
                               ? "Ví dự án đã được giải ngân hoặc hoàn trả — không thao tác được nữa"
                               : soTienDaGop < mucTieu
                                 ? "Dự án chưa đạt mục tiêu — chỉ giải ngân sau khi đủ vốn"
@@ -754,7 +797,7 @@ const ChiTietBaiDang = () => {
                         }
                         disabled={
                           dangXuLyVi ||
-                          viDuAn.trang_thai !== "Tam_giu" ||
+                          viHienTai.trang_thai !== "Tam_giu" ||
                           soTienDaGop < mucTieu
                         }
                         className="flex-1 rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold text-white shadow-md shadow-emerald-500/30 transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
@@ -768,7 +811,7 @@ const ChiTietBaiDang = () => {
                         title={
                           dangXuLyVi
                             ? "Đang xử lý..."
-                            : viDuAn.trang_thai !== "Tam_giu"
+                            : viHienTai.trang_thai !== "Tam_giu"
                               ? "Ví dự án đã được giải ngân hoặc hoàn trả — không thao tác được nữa"
                               : soTienDaGop >= mucTieu
                                 ? "Dự án đã đủ vốn — dùng GIẢI NGÂN thay vì hoàn trả"
@@ -778,7 +821,7 @@ const ChiTietBaiDang = () => {
                         }
                         disabled={
                           dangXuLyVi ||
-                          viDuAn.trang_thai !== "Tam_giu" ||
+                          viHienTai.trang_thai !== "Tam_giu" ||
                           soTienDaGop >= mucTieu ||
                           !daHetHan(baiDang)
                         }
@@ -808,6 +851,19 @@ const ChiTietBaiDang = () => {
                 </div>
               </dl>
 
+              {/* Dự án đã hết hạn mà vẫn vào trang chi tiết (BE): dải chú ý
+                  trạng thái tiền — đang giữ chờ hoàn trả, hoặc đã xử lý xong */}
+              {daHetHan(baiDang) && !laBaiDangDemo(baiDang) && (
+                <p className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-800">
+                  ⏰ <b>Đã hết hạn từ {dinhDangNgay(thoiDiem.ketThuc)}.</b>{" "}
+                  {viHienTai?.trang_thai === "Da_giai_ngan"
+                    ? "Dự án đủ vốn — quản trị viên đã giải ngân cho người gọi vốn."
+                    : viHienTai?.trang_thai === "Da_hoan_tra"
+                      ? "Tiền đã hoàn trả cho từng người ủng hộ."
+                      : "Tiền đang được giữ trong ví dự án — quản trị viên sẽ hoàn trả cho người ủng hộ."}
+                </p>
+              )}
+
               {/* Nút hành động theo loại bài — khối amber đậm khớp trang chủ */}
               <button
                 type="button"
@@ -822,6 +878,16 @@ const ChiTietBaiDang = () => {
                   ? "Đầu tư được kết nối trực tiếp qua nhóm phát triển."
                   : "Mọi đóng góp được ghi nhận minh bạch trong danh sách."}
               </p>
+
+              {/* Nút hỏi AI: mở Rising Bot + tự gửi yêu cầu đánh giá dự án */}
+              <button
+                type="button"
+                onClick={hoiAIBaiDang}
+                title="Rising Bot phân tích và đánh giá dự án này"
+                className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 transition hover:border-amber-400 hover:bg-amber-50 hover:text-amber-700"
+              >
+                🤖 Hỏi AI đánh giá dự án này
+              </button>
 
               {/* Nút báo cáo bài đăng (PB11) — hàng nút phụ, mảnh để không
                   cạnh tranh với nút hành động chính */}
@@ -1030,6 +1096,10 @@ const ChiTietBaiDang = () => {
           </section>
         </div>
       )}
+
+      {/* Trợ lý AI Rising Bot (nút nổi góc phải) — có nút "Hỏi AI đánh giá
+          dự án" trên trang này gửi câu hỏi phân tích cho bot */}
+      <ChatbotAI />
     </div>
   );
 };

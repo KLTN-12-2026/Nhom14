@@ -9,9 +9,12 @@ import {
   capNhatBaiDang,
 } from '../../services/postService';
 import { tb } from '../../services/thongBaoService';
+import { tachIdBaiTuDuongDan } from '../../services/contributionService';
 
 export default function CapNhatBaiDang() {
-  const { id } = useParams();
+  // Link sửa bài dùng chung dạng link bài đăng: <slug>-<id> hoặc <id> cũ
+  const { id: duongDan } = useParams();
+  const id = tachIdBaiTuDuongDan(duongDan);
   const navigate = useNavigate();
 
   // Nạp bài ngay từ cache; chưa thấy thì hỏi thẳng BE (vừa bật BE, cache trễ)

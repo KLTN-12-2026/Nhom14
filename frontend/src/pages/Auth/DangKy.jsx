@@ -23,9 +23,61 @@ export default function DangKy() {
     if (submitting) return;
 
     const formData = new FormData(event.currentTarget);
-    const password = formData.get("password");
 
-    if (password !== formData.get("confirmPassword")) {
+    // Kiểm tra thủ trước khi gửi — báo lỗi bằng modal popup (tự tắt sau
+    // vài giây hoặc bấm OK), giống trang Đăng nhập, thay khung báo lỗi
+    // mặc định của trình duyệt.
+    const hoTen = String(formData.get("name") || "").trim();
+    const tenTk = String(formData.get("username") || "").trim();
+    const email = String(formData.get("email") || "").trim();
+    const namSinh = String(formData.get("nam_sinh") || "").trim();
+    const dienThoai = String(formData.get("dien_thoai") || "").trim();
+    const password = String(formData.get("password") || "");
+    const xacNhanMatKhau = String(formData.get("confirmPassword") || "");
+
+    if (!hoTen) {
+      tb.loiModal("Bạn chưa nhập họ và tên!");
+      return;
+    }
+
+    if (!tenTk) {
+      tb.loiModal("Bạn chưa nhập tên đăng nhập!");
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_.]{3,30}$/.test(tenTk)) {
+      tb.loiModal(
+        "Tên đăng nhập phải 3-30 ký tự, chỉ gồm chữ, số, dấu _ hoặc dấu chấm!"
+      );
+      return;
+    }
+
+    if (!email) {
+      tb.loiModal("Bạn chưa nhập email!");
+      return;
+    }
+
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      tb.loiModal("Email chưa đúng định dạng (ví dụ: ten@gmail.com)!");
+      return;
+    }
+
+    if (!namSinh) {
+      tb.loiModal("Bạn chưa chọn ngày sinh!");
+      return;
+    }
+
+    if (!/^[0-9]{10,11}$/.test(dienThoai)) {
+      tb.loiModal("Số điện thoại phải gồm 10 hoặc 11 chữ số!");
+      return;
+    }
+
+    if (password.length < 8) {
+      tb.loiModal("Mật khẩu phải có ít nhất 8 ký tự!");
+      return;
+    }
+
+    if (password !== xacNhanMatKhau) {
       tb.loiModal("Mật khẩu xác nhận không khớp!");
       return;
     }
@@ -114,7 +166,12 @@ export default function DangKy() {
               leaving ? "opacity-0 sm:-translate-x-full" : "opacity-100 sm:translate-x-0"
             }`}
           >
-            <AuthForm type="register" onSubmit={handleSubmit} disabled={submitting} />
+            <AuthForm
+              type="register"
+              onSubmit={handleSubmit}
+              disabled={submitting}
+              kiemTraHTML={false}
+            />
           </section>
 
           {/* Nút chuyển đổi trên mobile */}

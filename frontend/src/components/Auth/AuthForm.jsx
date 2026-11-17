@@ -56,7 +56,7 @@ export default function AuthForm({
             name="name"
             placeholder="Họ và tên"
             autoComplete="name"
-            required
+            required={kiemTraHTML}
           />
 
           <label htmlFor="username" className={labelClass}>
@@ -69,11 +69,11 @@ export default function AuthForm({
             name="username"
             placeholder="Tên đăng nhập (chữ, số, _ hoặc .)"
             autoComplete="username"
-            minLength={3}
+            minLength={kiemTraHTML ? 3 : undefined}
             maxLength={30}
-            pattern="[a-zA-Z0-9_.]+"
+            pattern={kiemTraHTML ? "[a-zA-Z0-9_.]+" : undefined}
             title="Chỉ gồm chữ, số, dấu _ hoặc dấu chấm"
-            required
+            required={kiemTraHTML}
           />
 
           <label htmlFor="email" className={labelClass}>
@@ -86,7 +86,7 @@ export default function AuthForm({
             name="email"
             placeholder="Địa chỉ email"
             autoComplete="email"
-            required
+            required={kiemTraHTML}
           />
 
           <label htmlFor="nam_sinh" className={labelClass}>
@@ -101,7 +101,7 @@ export default function AuthForm({
             max={new Date(new Date().setFullYear(new Date().getFullYear() - 10))
               .toISOString()
               .slice(0, 10)}
-            required
+            required={kiemTraHTML}
           />
 
           <div className="grid grid-cols-2 gap-3">
@@ -114,7 +114,7 @@ export default function AuthForm({
                 className={inputClass}
                 name="gioi_tinh"
                 autoComplete="sex"
-                required
+                required={kiemTraHTML}
               >
                 <option value="Nam">Nam</option>
                 <option value="Nữ">Nữ</option>
@@ -132,10 +132,10 @@ export default function AuthForm({
                 name="dien_thoai"
                 placeholder="0123456789"
                 autoComplete="tel"
-                pattern="[0-9]{10,11}"
+                pattern={kiemTraHTML ? "[0-9]{10,11}" : undefined}
                 maxLength={11}
                 title="10 hoặc 11 chữ số"
-                required
+                required={kiemTraHTML}
               />
             </div>
           </div>
@@ -166,8 +166,8 @@ export default function AuthForm({
         name="password"
         placeholder="Mật khẩu"
         autoComplete={isRegister ? "new-password" : "current-password"}
-        minLength={isRegister ? 8 : undefined}
-        required={kiemTraHTML || isRegister}
+        minLength={isRegister && kiemTraHTML ? 8 : undefined}
+        required={kiemTraHTML}
       />
 
       {isRegister && (
@@ -177,7 +177,7 @@ export default function AuthForm({
           name="confirmPassword"
           placeholder="Nhập lại mật khẩu"
           autoComplete="new-password"
-          minLength={8}
+          minLength={kiemTraHTML ? 8 : undefined}
           required={kiemTraHTML}
         />
       )}

@@ -410,6 +410,16 @@ async def hoan_tra(id_bai_dang: str, id_nguoi_duyet: ObjectId) -> dict:
         },
     )
 
+    # Tiến độ huy động của bài về 0 — tiền đã trả lại hết cho người ủng hộ.
+    # Dùng $inc trừ đúng số hoàn (giữ kiểu Decimal128 của so_tien_da_gop)
+    await database["bai_dang"].update_one(
+        {"_id": id_object},
+        {
+            "$inc": {"so_tien_da_gop": -round(so_tien_hoan, 2)},
+            "$set": {"ngay_cap_nhat": now},
+        },
+    )
+
     # Báo người gọi vốn biết dự án đã dừng và hoàn tiền xong
     try:
         id_nguoi_dang = bai_dang.get("id_nguoi_dang")

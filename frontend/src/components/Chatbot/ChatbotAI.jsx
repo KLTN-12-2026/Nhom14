@@ -71,14 +71,13 @@ const ChatbotAI = () => {
 
   const hoi_thoai_moi = () => chon_hoi_thoai(null);
 
-  const gui = async (e) => {
-    e.preventDefault();
-
-    const gui_di = noi_dung.trim();
+  // Gửi tin nhắn vào hội thoại hiện tại (hoặc hội thoại MỚI nếu hoi_moi)
+  const guiTrucTiep = async (gui_di, hoi_moi = false) => {
     if (!gui_di || dang_gui) return;
 
     setDangGui(true);
     setCanhBao('');
+
     // Tin người dùng hiện ngay (chờ BE lưu + AI trả lời)
     const tin_toi_uu = {
       id: `tam-${Date.now()}`,
@@ -86,11 +85,18 @@ const ChatbotAI = () => {
       noi_dung: gui_di,
       ngay_tao: new Date().toISOString(),
     };
-    setTinNhan((truoc) => [...truoc, tin_toi_uu]);
+
+    if (hoi_moi) {
+      // Hội thoại mới: dọn khung trước (khi hỏi AI từ trang bài đăng)
+      setIdHoi(null);
+      setTinNhan([tin_toi_uu]);
+    } else {
+      setTinNhan((truoc) => [...truoc, tin_toi_uu]);
+    }
     setNoiDung('');
 
     try {
-      const ket_qua = await guiTin(gui_di, id_hoi);
+      const ket_qua = await guiTin(gui_di, hoi_moi ? null : id_hoi);
 
       setTinNhan((truoc) => [
         ...truoc.filter((tin) => tin.id !== tin_toi_uu.id),
@@ -110,6 +116,31 @@ const ChatbotAI = () => {
       setDangGui(false);
     }
   };
+
+  // Gửi từ form nhập tin
+  const gui = (e) => {
+    e.preventDefault();
+
+    const gui_di = noi_dung.trim();
+    if (gui_di) guiTrucTiep(gui_di);
+  };
+
+  // Sự kiện từ các trang (nút "🤖 Hỏi AI đánh giá dự án" ở trang chi tiết
+  // bài đăng): mở widget + TỰ gửi câu hỏi vào hội thoại MỚI. Chưa đăng
+  // nhập thì chỉ mở khung — hiện lời mời đăng nhập. Không mảng deps:
+  // đăng ký lại mỗi lần render để luôn dùng giá trị state mới nhất.
+  useEffect(() => {
+    const xuLyHoiBai = (suKien) => {
+      const cauHoi = suKien.detail?.cauHoi;
+      if (!cauHoi) return;
+
+      setMoRong(true);
+      if (Boolean(getSession()) && !dang_gui) guiTrucTiep(cauHoi, true);
+    };
+
+    window.addEventListener('rising-bot:hoi-bai', xuLyHoiBai);
+    return () => window.removeEventListener('rising-bot:hoi-bai', xuLyHoiBai);
+  });
 
   return (
     <>

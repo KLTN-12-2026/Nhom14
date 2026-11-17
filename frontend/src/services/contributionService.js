@@ -81,6 +81,54 @@ export function layTieuDe(post) {
   return post?.tieu_de || post?.title || '';
 }
 
+// ---- Đường link bài đăng dễ đọc (kiểu Kickstarter/Indiegogo) ----
+// Link có dạng: /bai-dang/<tieu-de-khong-dau>-<id>  ví dụ:
+//   /bai-dang/goi-von-san-xuat-phim-ngan-6afc67e09276820b6b5bec7b
+// Mã ObjectId vẫn nằm ở CUỐI link để trang chi tiết tra cứu chính xác;
+// tiêu đề chỉ để người đọc nhận biết nội dung. Link cũ /bai-dang/<id>
+// (không có slug) và bài demo (/bai-dang/post001) vẫn hoạt động bình
+// thường — đổi tiêu đề cũng không làm gãy link cũ (tra theo id).
+
+const MA_BE_24 = /^[0-9a-fA-F]{24}$/;
+
+function taoSlug(chuoi) {
+  return String(chuoi || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // bỏ dấu tiếng Việt (ơ -> o, á -> a...)
+    .replace(/[đĐ]/g, 'd')           // đ không tách được bằng NFD -> thay tay
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+    .replace(/-+$/g, '');
+}
+
+// Link của một bài đăng: có slug tiêu đề nếu là bài BE (id 24 hex),
+// bài demo giữ nguyên /bai-dang/post001 như cũ.
+export function taoLinkBai(post) {
+  const ma = layMaBaiDang(post);
+  if (!ma) return '/xem-bai-dang';
+
+  const maChuoi = String(ma);
+  if (!MA_BE_24.test(maChuoi)) return `/bai-dang/${maChuoi}`;
+
+  const slug = taoSlug(layTieuDe(post));
+  return slug ? `/bai-dang/${slug}-${maChuoi}` : `/bai-dang/${maChuoi}`;
+}
+
+// Lấy mã bài đăng thật từ tham số URL: nhận cả 3 dạng —
+//   <id>            (link cũ, 24 hex)
+//   <slug>-<id>     (link mới)
+//   post001...      (bài demo — trả nguyên)
+export function tachIdBaiTuDuongDan(ma) {
+  const chuoi = String(ma || '');
+
+  if (MA_BE_24.test(chuoi)) return chuoi;
+
+  const khop = chuoi.match(/-([0-9a-fA-F]{24})$/);
+  return khop ? khop[1] : chuoi;
+}
+
 export function layNoiDung(post) {
   return post?.noi_dung || post?.description || '';
 }
