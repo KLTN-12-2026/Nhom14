@@ -148,7 +148,7 @@ export default function XuLyToCao() {
               {nhan}
             </span>
 
-            <p className="mt-2 font-inknut text-3xl font-extrabold text-gray-900">
+            <p className="mt-2 font-so text-3xl font-extrabold text-gray-900">
               {so_dem[key] ?? 0}
             </p>
           </button>

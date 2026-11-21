@@ -17,6 +17,16 @@ function duongDanTheoDoiTuong(thong_bao) {
   const loai_doi_tuong = String(thong_bao?.loai_doi_tuong || '');
   const tieu_de = String(thong_bao?.tieu_de || '');
 
+  // Nạp tiền: admin nhận "Yêu cầu nạp ..." -> trang duyệt nạp tiền;
+  // người dùng nhận kết quả duyệt/từ chối -> lịch sử số dư.
+  if (loai_doi_tuong.startsWith('nap_tien:')) {
+    if (isAdmin() && /yêu cầu nạp/i.test(tieu_de)) {
+      return '/admin/duyet-nap-tien';
+    }
+
+    return '/lich-su-so-du';
+  }
+
   if (loai_doi_tuong.startsWith('to_cao:') || /tố cáo/i.test(tieu_de)) {
     return '/admin/xu-ly-to-cao';
   }

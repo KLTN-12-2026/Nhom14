@@ -1,14 +1,24 @@
 
+import secrets
+import string
+
 from bson import ObjectId
 from bson.decimal128 import Decimal128
 from datetime import datetime, timezone
 
 from app.config.database import database
+from app.services.thong_bao import tao_thong_bao, tao_thong_bao_cho_admin
 
 
 # Tiền lưu theo tài liệu database: Decimal128 (tránh sai hao float).
 # FE nhận float (JSON) sau khi chuẩn hóa ở _so().
 money_max = 500_000_000_000.0
+
+# Nạp tiền tối thiểu (khớp FE + nghiệp vụ)
+money_min_nap = 10_000.0
+
+# Trạng thái hợp lệ của giao dịch nạp tiền chờ duyệt
+TRANG_THAI_NAN_TIEN = ("Cho_Xu_Ly", "Thanh_cong", "That_bai", "Da_Huy")
 
 
 class SoDuKhongDuError(Exception):
@@ -18,6 +28,16 @@ class SoDuKhongDuError(Exception):
 
 class GiaTriKhongHopLeError(Exception):
     """Số tiền giao dịch không hợp lệ (<= 0 hoặc vượt trần)."""
+    pass
+
+
+class KhongTimThayGiaoDichError(Exception):
+    """Không tìm thấy giao dịch / yêu cầu nạp tiền."""
+    pass
+
+
+class GiaoDichDaXuLyError(Exception):
+    """Giao dịch đã được duyệt/từ chối/hủy trước đó."""
     pass
 
 
@@ -61,9 +81,15 @@ def _chuan_hoa_giao_dich(doc: dict) -> dict:
         "so_tien": _so(doc["so_tien"]),
         "don_vi_tien_te": doc.get("don_vi_tien_te", "VND"),
         "trang_thai": doc.get("trang_thai", "Thanh_cong"),
+        "ma_giao_dich": doc.get("ma_giao_dich", ""),
         "mo_ta": doc.get("mo_ta", ""),
+        "ly_do_tu_choi": doc.get("ly_do_tu_choi", ""),
+        "ghi_chu_duyet": doc.get("ghi_chu_duyet", ""),
+        "id_nguoi_duyet": str(doc["id_nguoi_duyet"])
+        if doc.get("id_nguoi_duyet") else None,
         "id_bai_dang": str(doc["id_bai_dang"]) if doc.get("id_bai_dang") else None,
         "ngay_tao": _iso(doc.get("ngay_tao")),
+        "ngay_duyet": _iso(doc.get("ngay_duyet")),
         "thoi_gian_hoan_tat": _iso(doc.get("thoi_gian_hoan_tat")),
     }
 
@@ -257,3 +283,395 @@ async def tru_tien(
         mo_ta=mo_ta.strip(),
         id_bai_dang=id_bai_dang,
     )
+
+
+# ---------------------------------------------------------------------------
+# Nạp tiền qua QR ngân hàng + quản trị viên duyệt
+#
+# Luồng: người dùng tạo yêu cầu (giao_dich Nap_Tien, trạng thái Cho_Xu_Ly)
+# -> quét QR chuyển khoản vào tài khoản admin (nội dung = mã giao dịch)
+# -> admin đối chiếu sao kê rồi bấm Duyệt -> lúc đó mới cộng tiền vào ví.
+# ---------------------------------------------------------------------------
+
+
+def _dinh_dang_tien(so_tien: float) -> str:
+    return f"{so_tien:,.0f}".replace(",", ".") + " ₫"
+
+
+def _object_id(gia_tri):
+    """Chuẩn hóa id (ObjectId hoặc chuỗi 24 hex) -> ObjectId | None."""
+    if isinstance(gia_tri, ObjectId):
+        return gia_tri
+    if isinstance(gia_tri, str) and ObjectId.is_valid(gia_tri):
+        return ObjectId(gia_tri)
+    return None
+
+
+async def _tao_ma_nap_duy_nhat() -> str:
+    """Mã chuyển khoản ngẫu nhiên, không trùng trong collection giao_dich."""
+    bang = string.ascii_uppercase + string.digits
+
+    for _ in range(5):
+        ma = "NAP" + "".join(secrets.choice(bang) for _ in range(8))
+        da_co = await database["giao_dich"].find_one(
+            {"ma_giao_dich": ma}, {"_id": 1}
+        )
+        if not da_co:
+            return ma
+
+    # Xác suất gần như bằng 0 — vẫn phải trả mã thay vì treo
+    return "NAP" + secrets.token_hex(6).upper()
+
+
+async def _ghi_nhat_ky(
+    id_quan_tri_vien: ObjectId,
+    hanh_dong: str,
+    loai_doi_tuong: str,
+    ly_do: str = "",
+):
+    # Collection nhat_ky_quan_tri theo tài liệu database
+    await database["nhat_ky_quan_tri"].insert_one({
+        "id_quan_tri_vien": id_quan_tri_vien,
+        "hanh_dong": hanh_dong,
+        "loai_doi_tuong": loai_doi_tuong,
+        "ly_do": ly_do.strip(),
+        "ngay_tao": datetime.now(timezone.utc),
+    })
+
+
+async def tao_yeu_cau_nap_tien(
+    id_nguoi_dung: ObjectId,
+    so_tien: float,
+    mo_ta: str = "",
+) -> dict:
+    """Tạo yêu cầu nạp tiền CHỜ DUYỆT (chưa cộng ví).
+
+    Trả kèm mã giao dịch — FE hiển thị mã này trong nội dung chuyển khoản
+    để admin đối chiếu sao kê ngân hàng trước khi bấm duyệt.
+    """
+    so_tien = _validate_so_tien(so_tien)
+
+    if so_tien < money_min_nap:
+        raise GiaTriKhongHopLeError(
+            f"Số tiền nạp tối thiểu là {money_min_nap:,.0f} VND."
+        )
+
+    vi = await _dam_bao_so_du(id_nguoi_dung)
+    ma = await _tao_ma_nap_duy_nhat()
+    now = datetime.now(timezone.utc)
+
+    giao_dich = {
+        "id_nguoi_dung": id_nguoi_dung,
+        "id_so_du": vi["_id"],
+        "loai_giao_dich": "Nap_Tien",
+        "so_tien": _tien(so_tien),
+        "don_vi_tien_te": vi.get("don_vi_tien_te", "VND"),
+        "trang_thai": "Cho_Xu_Ly",
+        "ma_giao_dich": ma,
+        "mo_ta": mo_ta.strip() or f"Nạp tiền vào ví (mã {ma})",
+        "id_bai_dang": None,
+        "ngay_tao": now,
+        "thoi_gian_hoan_tat": None,
+    }
+
+    result = await database["giao_dich"].insert_one(giao_dich)
+    giao_dich["_id"] = result.inserted_id
+
+    # Báo cho quản trị viên có yêu cầu mới (lỗi thông báo không chặn nghiệp vụ)
+    try:
+        nguoi_dung = await database["nguoi_dung"].find_one(
+            {"_id": id_nguoi_dung}, {"ten_tk": 1}
+        )
+        ten_tk = (nguoi_dung or {}).get("ten_tk", "người dùng")
+        await tao_thong_bao_cho_admin(
+            loai_thong_bao="Vi",
+            tieu_de=f"💰 Yêu cầu nạp {_dinh_dang_tien(so_tien)} từ @{ten_tk}",
+            noi_dung=(
+                f"Mã {ma} — vào mục Duyệt nạp tiền để đối chiếu sao kê "
+                "và xác nhận."
+            ),
+            loai_doi_tuong=f"nap_tien:{giao_dich['_id']}",
+        )
+    except Exception:
+        pass
+
+    return {
+        "giao_dich": _chuan_hoa_giao_dich(giao_dich),
+        "noi_dung_chuyen_khoan": ma,
+        "vi": {
+            "so_du": _so(vi.get("so_du")),
+            "don_vi_tien_te": vi.get("don_vi_tien_te", "VND"),
+        },
+    }
+
+
+async def huy_yeu_cau_nap_tien(
+    id_giao_dich: str,
+    id_nguoi_dung: ObjectId,
+) -> dict:
+    """Người dùng hủy yêu cầu nạp khi chưa chuyển khoản (chỉ khi chờ duyệt)."""
+    id_gd = _object_id(id_giao_dich)
+
+    if not id_gd:
+        raise KhongTimThayGiaoDichError("Không tìm thấy yêu cầu nạp tiền.")
+
+    now = datetime.now(timezone.utc)
+
+    ket_qua = await database["giao_dich"].find_one_and_update(
+        {
+            "_id": id_gd,
+            "id_nguoi_dung": id_nguoi_dung,
+            "loai_giao_dich": "Nap_Tien",
+            "trang_thai": "Cho_Xu_Ly",
+        },
+        {
+            "$set": {
+                "trang_thai": "Da_Huy",
+                "ly_do_tu_choi": "Người dùng hủy yêu cầu",
+                "thoi_gian_hoan_tat": now,
+            }
+        },
+        return_document=True,
+    )
+
+    if not ket_qua:
+        co = await database["giao_dich"].find_one({
+            "_id": id_gd,
+            "id_nguoi_dung": id_nguoi_dung,
+            "loai_giao_dich": "Nap_Tien",
+        })
+
+        if not co:
+            raise KhongTimThayGiaoDichError("Không tìm thấy yêu cầu nạp tiền.")
+
+        raise GiaoDichDaXuLyError(
+            "Yêu cầu đã được xử lý, không thể hủy."
+        )
+
+    return _chuan_hoa_giao_dich(ket_qua)
+
+
+async def lay_yeu_cau_nap_tien(trang_thai: str | None = None) -> list:
+    """Danh sách giao dịch nạp tiền cho trang quản trị (mới nhất trước)."""
+    if trang_thai and trang_thai not in TRANG_THAI_NAN_TIEN:
+        raise ValueError(
+            "Trạng thái không hợp lệ. Nhận một trong: "
+            + ", ".join(TRANG_THAI_NAN_TIEN)
+        )
+
+    dieu_kien = {"loai_giao_dich": "Nap_Tien"}
+    if trang_thai:
+        dieu_kien["trang_thai"] = trang_thai
+
+    cursor = database["giao_dich"].find(dieu_kien).sort("ngay_tao", -1).limit(300)
+    danh_sach = await cursor.to_list(length=300)
+
+    # Ghép tên người nộp để admin đối chiếu nhanh
+    id_nguoi_dung = {
+        _object_id(dong.get("id_nguoi_dung"))
+        for dong in danh_sach
+        if dong.get("id_nguoi_dung")
+    }
+    id_nguoi_dung.discard(None)
+
+    nguoi_dung = {}
+    if id_nguoi_dung:
+        async for nd in database["nguoi_dung"].find(
+            {"_id": {"$in": list(id_nguoi_dung)}},
+            {"ten_tk": 1, "ho_ten": 1, "email": 1},
+        ):
+            nguoi_dung[str(nd["_id"])] = nd
+
+    ket_qua = []
+    for dong in danh_sach:
+        chuan_hoa = _chuan_hoa_giao_dich(dong)
+        nd = nguoi_dung.get(str(dong.get("id_nguoi_dung", "")))
+        if nd:
+            chuan_hoa["ten_tk"] = nd.get("ten_tk", "")
+            chuan_hoa["ho_ten"] = nd.get("ho_ten", "")
+            chuan_hoa["email"] = nd.get("email", "")
+        ket_qua.append(chuan_hoa)
+
+    return ket_qua
+
+
+async def duyet_yeu_cau_nap_tien(
+    id_giao_dich: str,
+    id_quan_tri_vien: ObjectId,
+    ghi_chu: str = "",
+) -> dict:
+    """Admin xác nhận ĐÃ NHẬN TIỀN -> cộng tiền vào ví người dùng.
+
+    Chuyển trạng thái bằng find_one_and_update có điều kiện Cho_Xu_Ly để
+    chống cộng tiền 2 lần khi bấm duyệt liên tục.
+    """
+    id_gd = _object_id(id_giao_dich)
+
+    if not id_gd:
+        raise KhongTimThayGiaoDichError("Không tìm thấy yêu cầu nạp tiền.")
+
+    now = datetime.now(timezone.utc)
+
+    giao_dich = await database["giao_dich"].find_one_and_update(
+        {
+            "_id": id_gd,
+            "loai_giao_dich": "Nap_Tien",
+            "trang_thai": "Cho_Xu_Ly",
+        },
+        {
+            "$set": {
+                "trang_thai": "Thanh_cong",
+                "id_nguoi_duyet": id_quan_tri_vien,
+                "ghi_chu_duyet": ghi_chu.strip(),
+                "ngay_duyet": now,
+                "thoi_gian_hoan_tat": now,
+            }
+        },
+        return_document=True,
+    )
+
+    if not giao_dich:
+        co = await database["giao_dich"].find_one({
+            "_id": id_gd,
+            "loai_giao_dich": "Nap_Tien",
+        })
+
+        if not co:
+            raise KhongTimThayGiaoDichError("Không tìm thấy yêu cầu nạp tiền.")
+
+        raise GiaoDichDaXuLyError(
+            "Yêu cầu này đã được xử lý trước đó."
+        )
+
+    id_nguoi_dung = _object_id(giao_dich.get("id_nguoi_dung"))
+    if not id_nguoi_dung:
+        raise KhongTimThayGiaoDichError(
+            "Giao dịch không gắn với người dùng hợp lệ."
+        )
+
+    so_tien = _so(giao_dich["so_tien"])
+    vi = await _dam_bao_so_du(id_nguoi_dung)
+    so_du_sau = _so(vi.get("so_du")) + so_tien
+
+    await database["so_du"].update_one(
+        {"_id": vi["_id"]},
+        {"$set": {"so_du": _tien(so_du_sau), "ngay_cap_nhat": now}},
+    )
+
+    await database["bien_dong_so_du"].insert_one({
+        "id_giao_dich": giao_dich["_id"],
+        "id_so_du": vi["_id"],
+        "loai_bien_dong": "Tang",
+        "so_tien": _tien(so_tien),
+        "so_du": _tien(so_du_sau),
+        "ngay_tao": now,
+    })
+
+    ma = giao_dich.get("ma_giao_dich", "")
+
+    try:
+        await tao_thong_bao(
+            id_nguoi_dung,
+            loai_thong_bao="Vi",
+            tieu_de=f"Nạp {_dinh_dang_tien(so_tien)} đã được duyệt ✅",
+            noi_dung=(
+                f"Mã {ma} đã được cộng vào ví. "
+                f"Số dư mới: {_dinh_dang_tien(so_du_sau)}."
+            ),
+            loai_doi_tuong=f"nap_tien:{giao_dich['_id']}",
+        )
+    except Exception:
+        pass
+
+    try:
+        await _ghi_nhat_ky(
+            id_quan_tri_vien,
+            "Duyet_Nap_Tien",
+            f"giao_dich:{ma or giao_dich['_id']}",
+            ghi_chu,
+        )
+    except Exception:
+        pass
+
+    return {
+        "giao_dich": _chuan_hoa_giao_dich(giao_dich),
+        "vi": {"so_du": so_du_sau, "don_vi_tien_te": "VND"},
+    }
+
+
+async def tu_choi_yeu_cau_nap_tien(
+    id_giao_dich: str,
+    id_quan_tri_vien: ObjectId,
+    ly_do: str,
+) -> dict:
+    """Admin từ chối yêu cầu (chưa nhận được tiền / sai nội dung...)."""
+    id_gd = _object_id(id_giao_dich)
+
+    if not id_gd:
+        raise KhongTimThayGiaoDichError("Không tìm thấy yêu cầu nạp tiền.")
+
+    if not ly_do.strip():
+        raise GiaTriKhongHopLeError("Vui lòng nhập lý do từ chối.")
+
+    now = datetime.now(timezone.utc)
+
+    giao_dich = await database["giao_dich"].find_one_and_update(
+        {
+            "_id": id_gd,
+            "loai_giao_dich": "Nap_Tien",
+            "trang_thai": "Cho_Xu_Ly",
+        },
+        {
+            "$set": {
+                "trang_thai": "That_bai",
+                "id_nguoi_duyet": id_quan_tri_vien,
+                "ly_do_tu_choi": ly_do.strip(),
+                "ngay_duyet": now,
+                "thoi_gian_hoan_tat": now,
+            }
+        },
+        return_document=True,
+    )
+
+    if not giao_dich:
+        co = await database["giao_dich"].find_one({
+            "_id": id_gd,
+            "loai_giao_dich": "Nap_Tien",
+        })
+
+        if not co:
+            raise KhongTimThayGiaoDichError("Không tìm thấy yêu cầu nạp tiền.")
+
+        raise GiaoDichDaXuLyError(
+            "Yêu cầu này đã được xử lý trước đó."
+        )
+
+    id_nguoi_dung = _object_id(giao_dich.get("id_nguoi_dung"))
+    so_tien = _so(giao_dich["so_tien"])
+    ma = giao_dich.get("ma_giao_dich", "")
+
+    if id_nguoi_dung:
+        try:
+            await tao_thong_bao(
+                id_nguoi_dung,
+                loai_thong_bao="Vi",
+                tieu_de=f"Yêu cầu nạp {_dinh_dang_tien(so_tien)} bị từ chối 🚫",
+                noi_dung=(
+                    f"Mã {ma}: {ly_do.strip()} — tiền chưa được cộng vào ví."
+                ),
+                loai_doi_tuong=f"nap_tien:{giao_dich['_id']}",
+            )
+        except Exception:
+            pass
+
+    try:
+        await _ghi_nhat_ky(
+            id_quan_tri_vien,
+            "Tu_Choi_Nap_Tien",
+            f"giao_dich:{ma or giao_dich['_id']}",
+            ly_do,
+        )
+    except Exception:
+        pass
+
+    return {"giao_dich": _chuan_hoa_giao_dich(giao_dich)}

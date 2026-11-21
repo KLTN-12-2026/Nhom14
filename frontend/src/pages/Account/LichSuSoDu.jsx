@@ -9,6 +9,7 @@ import {
   dongBoViTuBe,
 } from "../../services/walletService";
 import { getSession } from "../../services/authService";
+import { tb } from "../../services/thongBaoService";
 
 const VND = new Intl.NumberFormat("vi-VN", {
   style: "currency",
@@ -28,6 +29,14 @@ const TRANG_THAI_NHAN = {
   Thanh_cong: "Thành công",
   That_bai: "Thất bại",
   Cho_Xu_Ly: "Chờ xử lý",
+  Da_Huy: "Đã hủy",
+};
+
+const TRANG_THAI_STYLE = {
+  Thanh_cong: "bg-emerald-100 text-emerald-800",
+  That_bai: "bg-rose-100 text-rose-800",
+  Cho_Xu_Ly: "bg-amber-100 text-amber-800",
+  Da_Huy: "bg-slate-200 text-slate-600",
 };
 
 const SO_MOI_TRANG = 10;
@@ -39,12 +48,30 @@ export default function LichSuSoDu() {
 
   const [vi, setVi] = useState(() => getWallet());
   const [trang, setTrang] = useState(1);
+  const [dang_lam_moi, setDangLamMoi] = useState(false);
 
   useEffect(() => {
     dongBoViTuBe()
       .then(() => setVi(getWallet()))
       .catch(() => {});
   }, []);
+
+  // Làm mới: kiểm tra trạng thái yêu cầu nạp (admin vừa duyệt...)
+  async function lamMoi() {
+    if (dang_lam_moi) return;
+
+    setDangLamMoi(true);
+
+    try {
+      await dongBoViTuBe();
+      setVi(getWallet());
+      tb.thanhCong("Đã cập nhật trạng thái mới nhất.");
+    } catch {
+      tb.loi("Không kết nối được hệ thống. Vui lòng thử lại.");
+    } finally {
+      setDangLamMoi(false);
+    }
+  }
 
   const giaoDich = vi.giaoDich;
 
@@ -93,12 +120,23 @@ export default function LichSuSoDu() {
               </p>
             </div>
 
-            <Link
-              to="/nap-so-du"
-              className="rounded-xl bg-amber-400 px-5 py-2.5 text-sm font-extrabold text-gray-900 shadow-md transition hover:bg-amber-300"
-            >
-              💳 Nạp thêm tiền
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={lamMoi}
+                disabled={dang_lam_moi}
+                className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {dang_lam_moi ? "Đang kiểm tra..." : "🔄 Làm mới"}
+              </button>
+
+              <Link
+                to="/nap-so-du"
+                className="rounded-xl bg-amber-400 px-5 py-2.5 text-sm font-extrabold text-gray-900 shadow-md transition hover:bg-amber-300"
+              >
+                💳 Nạp thêm tiền
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -120,6 +158,18 @@ export default function LichSuSoDu() {
                   LOAI_GIAO_DICH[g.loai_giao_dich] ||
                   { nhan: g.loai_giao_dich, tang: false };
 
+                // Chỉ giao dịch thành công mới đổi số dư; dòng chờ duyệt/bị
+                // từ chối/hủy hiển thị mờ để không gây hiểu nhầm.
+                const da_xu_ly = g.trang_thai === "Thanh_cong";
+                const mau_tien = da_xu_ly
+                  ? loai.tang
+                    ? "text-emerald-600"
+                    : "text-rose-600"
+                  : g.trang_thai === "Cho_Xu_Ly"
+                    ? "text-amber-600"
+                    : "text-slate-400 line-through";
+                const dau_tien = da_xu_ly ? (loai.tang ? "+" : "−") : "";
+
                 return (
                   <tr
                     key={g.id_giao_dich}
@@ -139,21 +189,27 @@ export default function LichSuSoDu() {
                         {loai.nhan}
                       </span>
                     </td>
-                    <td
-                      className={`p-4 font-bold ${
-                        loai.tang ? "text-emerald-600" : "text-rose-600"
-                      }`}
-                    >
-                      {loai.tang ? "+" : "−"}
+                    <td className={`p-4 font-bold ${mau_tien}`}>
+                      {dau_tien}
                       {VND.format(g.so_tien)}
                     </td>
                     <td className="p-4">
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          TRANG_THAI_STYLE[g.trang_thai] ||
+                          "bg-slate-100 text-slate-700"
+                        }`}
+                      >
                         {TRANG_THAI_NHAN[g.trang_thai] || g.trang_thai}
                       </span>
                     </td>
                     <td className="max-w-[280px] p-4 text-slate-600">
                       {g.mo_ta || "—"}
+                      {g.ly_do_tu_choi ? (
+                        <span className="mt-1 block text-xs text-rose-600">
+                          Lý do: {g.ly_do_tu_choi}
+                        </span>
+                      ) : null}
                     </td>
                   </tr>
                 );

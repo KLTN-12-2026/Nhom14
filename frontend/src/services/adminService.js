@@ -336,11 +336,16 @@ export function layDanhSachQuanLy() {
   // BE đang chạy -> cộng thêm bài thật từ cache quản trị (source: Atlas)
   const baiBe = docCache(KEY_BE_ADMIN).map(chuanHoaBaiBe);
 
-  const danh_sach = [
-    ...baiBe,
-    ...POST_DEMO.map(chuanHoaBaiDemo),
-    ...getAllPostsForReview().map(chuanHoaBaiForm),
-  ];
+  // BE đã có bài thật: bỏ bài mẫu POST_DEMO (trùng nội dung với bài thật
+  // trong Atlas) + bỏ bản cục bộ trùng id — trang quản lý không hiện 2 dòng
+  // cùng một bài như trước.
+  const idBe = new Set(baiBe.map((p) => String(p.id)));
+  const baiDemo = baiBe.length ? [] : POST_DEMO.map(chuanHoaBaiDemo);
+  const baiCucBo = getAllPostsForReview()
+    .filter((p) => !idBe.has(String(p.id)))
+    .map(chuanHoaBaiForm);
+
+  const danh_sach = [...baiBe, ...baiDemo, ...baiCucBo];
 
   // Trạng thái ẩn/hiện (PB18: thao tác quản lý được phép như ẩn/hiện)
   return danh_sach.map(post => ({

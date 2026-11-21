@@ -31,3 +31,21 @@ class DoiGiaoDichRequest(BaseModel):
     loai_giao_dich: str = Field(max_length=30)
     id_bai_dang: str | None = None
     mo_ta: str = Field(default="", max_length=500)
+
+
+class DuyetNapTienRequest(BaseModel):
+    """Admin xác nhận đã nhận tiền chuyển khoản -> cộng vào ví."""
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    ghi_chu: str = Field(default="", max_length=500)
+
+
+class TuChoiNapTienRequest(BaseModel):
+    """Admin từ chối yêu cầu nạp tiền, bắt buộc ghi lý do."""
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    ly_do: str = Field(
+        min_length=1,
+        max_length=500,
+        description="Lý do từ chối (hiển thị cho người dùng)",
+    )

@@ -34,6 +34,7 @@ backend/
 │   │   ├── database.py       # Kết nối MongoDB Atlas qua biến .env (MONGODB_URI)
 │   │   ├── security.py       # Tạo JWT (SECRET_KEY, thời hạn token)
 │   │   ├── email.py          # Gmail SMTP — gửi email HTML (mã khôi phục mật khẩu)
+│   │   ├── thanh_toan.py     # Tài khoản ngân hàng nhận tiền nạp (BANK_* trong .env)
 │   │   └── ai.py             # Client Gemini REST + nhân vật trợ lý "Rising Bot"
 │   ├── routers/              # Lớp điều hướng HTTP (định nghĩa endpoint)
 │   │   ├── nguoi_dung.py     # /api/users          — đăng ký, đăng nhập, hồ sơ, đổi mật khẩu
@@ -45,6 +46,7 @@ backend/
 │   │   ├── thong_bao.py      # /api/thong-bao      — chuông thông báo
 │   │   ├── admin.py          # /api/admin/bai-dang — duyệt bài, ẩn/hiện bài
 │   │   ├── admin_nguoi_dung.py # /api/admin/nguoi-dung — quản lý người dùng, nhật ký
+│   │   ├── admin_nap_tien.py # /api/admin/nap-tien — duyệt / từ chối nạp tiền
 │   │   └── chatbot.py        # /api/chatbot        — hội thoại + tin nhắn trợ lý AI
 │   ├── services/             # Lớp nghiệp vụ (truy vấn MongoDB, kiểm tra dữ liệu)
 │   │   ├── nguoi_dung.py, nguoi_dung_admin.py, bai_dang.py, so_du.py,
@@ -115,8 +117,24 @@ Database mặc định `crowdfunding_db` (đổi được bằng biến `DATABAS
 | Phương thức + đường dẫn | Chức năng |
 |---|---|
 | `GET /api/so-du/cua-toi` | Xem số dư ví của tôi |
-| `POST /api/so-du/nap-tien` | Nạp tiền vào ví |
+| `GET /api/so-du/cau-hinh-nap` | Tài khoản ngân hàng nhận tiền (FE dựng QR VietQR) |
+| `POST /api/so-du/nap-tien` | Tạo **yêu cầu nạp tiền chờ duyệt** + mã chuyển khoản `NAP...` |
+| `DELETE /api/so-du/nap-tien/{id}` | Hủy yêu cầu nạp khi chưa chuyển khoản |
 | `GET /api/so-du/giao-dich` | Lịch sử giao dịch ví |
+
+> **Luồng nạp tiền qua QR ngân hàng:** người dùng nhập số tiền → BE tạo
+> `giao_dich` trạng thái `Cho_Xu_Ly` kèm mã `NAP...` → FE hiện QR VietQR
+> (số tiền + nội dung chuyển khoản = mã) → người dùng chuyển khoản vào tài
+> khoản trong `backend/.env` → admin vào **Duyệt nạp tiền**, đối chiếu sao kê
+> rồi bấm Duyệt thì tiền mới được cộng vào ví.
+>
+> Cấu hình nhận tiền trong `backend/.env`:
+> ```
+> BANK_ID=MB
+> BANK_ACCOUNT_NO=0123456789
+> BANK_ACCOUNT_NAME=NGUYEN VAN A
+> ```
+> Chưa cấu hình → hệ thống vẫn tạo được yêu cầu nhưng QR chỉ là bản demo.
 
 ### Bài đăng — `/api/bai-dang`
 | Phương thức + đường dẫn | Chức năng |
@@ -161,6 +179,9 @@ Database mặc định `crowdfunding_db` (đổi được bằng biến `DATABAS
 | `PUT /api/admin/nguoi-dung/{ten_tk}/khoa` | Khóa tài khoản |
 | `PUT /api/admin/nguoi-dung/{ten_tk}/mo-khoa` | Mở khóa tài khoản |
 | `GET /api/admin/nguoi-dung/nhat-ky` | Xem nhật ký quản trị |
+| `GET /api/admin/nap-tien` | Danh sách yêu cầu nạp tiền (lọc `trang_thai`) |
+| `PUT /api/admin/nap-tien/{id}/duyet` | Xác nhận đã nhận tiền → cộng vào ví |
+| `PUT /api/admin/nap-tien/{id}/tu-choi` | Từ chối yêu cầu nạp (kèm lý do) |
 
 ### Trợ lý AI — `/api/chatbot`
 | Phương thức + đường dẫn | Chức năng |

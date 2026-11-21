@@ -51,6 +51,11 @@ input[type="password"]::-ms-clear {
   }
 }
 
+/* Số liệu luôn dùng chữ số thẳng hàng, không bị font hiển thị kiểu số cổ */
+.font-so {
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
 html {
   scroll-behavior: smooth;
 }

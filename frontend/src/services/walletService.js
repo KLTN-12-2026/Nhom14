@@ -53,7 +53,10 @@ function chuanHoaGiaoDich(g) {
     loai_giao_dich: g.loai_giao_dich,
     so_tien: Number(g.so_tien),
     trang_thai: g.trang_thai || 'Thanh_cong',
+    ma_giao_dich: g.ma_giao_dich || '',
     mo_ta: g.mo_ta || '',
+    ly_do_tu_choi: g.ly_do_tu_choi || '',
+    ghi_chu_duyet: g.ghi_chu_duyet || '',
     id_bai_dang: g.id_bai_dang || null,
     ngay_tao: g.ngay_tao || '',
     thoi_gian_hoan_tat: g.thoi_gian_hoan_tat || g.ngay_tao || '',
@@ -98,14 +101,19 @@ export function getWallet() {
   };
 }
 
-// Nạp tiền vào ví. BE-first: POST /api/so-du/nap-tien; BE tắt thì
-// ghi giao dịch cục bộ (demo) để giao diện vẫn hoạt động.
+// Nạp tiền: BE-first, tạo YÊU CẦU chờ duyệt kèm mã chuyển khoản.
+// Tiền CHỈ được cộng vào ví sau khi quản trị viên đối chiếu sao kê ngân
+// hàng và bấm Duyệt. BE tắt -> giữ bản demo cộng ngay để giao diện chạy.
 export async function napTien({ soTien, moTa = '' }) {
   const amount = Number(soTien);
   const soDuHienTai = getWallet().soDu;
 
   if (!Number.isFinite(amount) || amount <= 0) {
     return { thanhCong: false, loi: 'Số tiền phải là số dương.' };
+  }
+
+  if (!Number.isInteger(amount)) {
+    return { thanhCong: false, loi: 'Số tiền phải là số nguyên (VND).' };
   }
 
   if (amount < 10000) {
@@ -130,19 +138,23 @@ export async function napTien({ soTien, moTa = '' }) {
       },
     });
 
+    const giao_dich = chuanHoaGiaoDich(ket_qua.giao_dich);
     const vi = docCacheBe() || {};
+
+    // Thêm vào lịch sử nhưng KHÔNG đổi số dư (đang chờ duyệt)
     luuCacheBe({
       ...vi,
-      so_du: ket_qua.vi.so_du,
       giao_dich: [ket_qua.giao_dich, ...(vi.giao_dich || [])],
     });
-    updateUser({ so_du: ket_qua.vi.so_du });
 
     return {
       thanhCong: true,
       tu_be: true,
-      soDuMoi: ket_qua.vi.so_du,
-      giaoDich: chuanHoaGiaoDich(ket_qua.giao_dich),
+      choDuyet: true,
+      giaoDich: giao_dich,
+      maGiaoDich: giao_dich.ma_giao_dich || '',
+      noiDungChuyenKhoan:
+        ket_qua.noi_dung_chuyen_khoan || giao_dich.ma_giao_dich || '',
     };
   } catch (error) {
     if (error.message !== LOI_KHONG_KET_NOI) {
@@ -184,9 +196,61 @@ export async function napTien({ soTien, moTa = '' }) {
   return {
     thanhCong: true,
     tu_be: false,
+    choDuyet: false,
     soDuMoi: soDuSau,
     giaoDich,
   };
+}
+
+// Cấu hình tài khoản ngân hàng nhận tiền (BE trả từ backend/.env).
+// BE tắt -> trả "chưa cấu hình" để trang hiện QR demo, không treo UI.
+let cacheCauHinhNap = null;
+
+export async function layCauHinhNap() {
+  if (cacheCauHinhNap) return cacheCauHinhNap;
+
+  try {
+    cacheCauHinhNap = await goiApi('/api/so-du/cau-hinh-nap');
+    return cacheCauHinhNap;
+  } catch {
+    return {
+      da_cau_hinh: false,
+      ngan_hang: '',
+      so_tai_khoan: '',
+      chu_tai_khoan: '',
+      mau_qr: '',
+    };
+  }
+}
+
+// Hủy yêu cầu nạp khi chưa chuyển khoản (chỉ trạng thái Chờ xử lý).
+export async function huyYeuCauNapTien(id) {
+  try {
+    await goiApi(`/api/so-du/nap-tien/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    if (error.message !== LOI_KHONG_KET_NOI) throw error;
+  }
+
+  // Cập nhật cache ví: dòng giao dịch chuyển sang Đã hủy
+  const cache = docCacheBe();
+  if (cache && Array.isArray(cache.giao_dich)) {
+    luuCacheBe({
+      ...cache,
+      giao_dich: cache.giao_dich.map((g) =>
+        String(g.id) === String(id) || String(g.id_giao_dich) === String(id)
+          ? {
+              ...g,
+              trang_thai: 'Da_Huy',
+              ly_do_tu_choi: 'Người dùng hủy yêu cầu',
+            }
+          : g
+      ),
+    });
+  }
+
+  return { thanhCong: true };
 }
 
 // Ghi giao dịch Trừ tiền từ BE (khoản góp/quyên góp qua module khoan_gop)

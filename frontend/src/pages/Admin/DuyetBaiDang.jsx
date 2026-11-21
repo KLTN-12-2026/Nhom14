@@ -144,7 +144,7 @@ export default function DuyetBaiDang() {
               {nhan}
             </span>
 
-            <p className="mt-2 font-inknut text-3xl font-extrabold text-gray-900">
+            <p className="mt-2 font-so text-3xl font-extrabold text-gray-900">
               {counts[key]}
             </p>
           </button>
