@@ -2,8 +2,9 @@
 
 > Phần backend của nền tảng gọi vốn cộng đồng tích hợp trợ lý AI — **Nhóm 14**.
 > ✅ **Đã hoàn thành các module của Sprint**: tài khoản (kèm khôi phục mật khẩu qua Gmail thật),
-> ví số dư, bài đăng, góp vốn, tố cáo, thông báo, kiểm duyệt/ẩn–hiện bài và **trợ lý AI
-> Rising Bot (Google Gemini)** — dữ liệu thật lưu trong **MongoDB Atlas**.
+> ví số dư, **nạp tiền qua QR ngân hàng + quản trị viên duyệt**, bài đăng, góp vốn, tố cáo,
+> thông báo, kiểm duyệt/ẩn–hiện bài và **trợ lý AI Rising Bot (Google Gemini)** — dữ liệu
+> thật lưu trong **MongoDB Atlas**.
 
 ## 1. Mục tiêu
 
@@ -21,6 +22,7 @@ module chưa có.
 | Cơ sở dữ liệu | **MongoDB Atlas** (cloud, qua `pymongo` async — `AsyncMongoClient`) |
 | Xác thực | JWT (`PyJWT`, HMAC HS256) + băm mật khẩu **argon2** (`pwdlib[argon2]`) |
 | Email | **Gmail SMTP** (`smtplib`, gửi mã khôi phục mật khẩu) |
+| Thanh toán | **VietQR** (QR động theo số tiền + mã chuyển khoản) — admin đối chiếu sao kê |
 | Trợ lý AI | **Google Gemini REST API** (`urllib` chuẩn Python — không cần thư viện ngoài) |
 | Máy chủ chạy thử | `uvicorn` |
 
@@ -83,7 +85,7 @@ Database mặc định `crowdfunding_db` (đổi được bằng biến `DATABAS
 | `khoan_gop_von` | Các khoản góp vốn / đầu tư vào bài loại Gọi Vốn & Đầu Tư |
 | `khoan_quyen_gop` | Các khoản quyên góp vào bài loại Quyên Góp |
 | `so_du` | Ví của người dùng — trường `so_du` (Decimal128) |
-| `giao_dich` | Lịch sử giao dịch (nạp tiền, góp vốn) của ví |
+| `giao_dich` | Lịch sử giao dịch ví (nạp tiền QR, góp vốn); nạp tiền có trạng thái `Cho_Xu_Ly` / `Thanh_cong` / `That_bai` / `Da_Huy` |
 | `bien_dong_so_du` | Lịch sử biến động số dư |
 | `cuoc_hoi_thoai` | Hội thoại của trợ lý AI (mỗi người dùng nhiều hội thoại) |
 | `tin_nhan_chatbot` | Tin nhắn trong hội thoại (loai_nguoi_gui: Nguoi_Dung / Chatbot) |
@@ -122,19 +124,29 @@ Database mặc định `crowdfunding_db` (đổi được bằng biến `DATABAS
 | `DELETE /api/so-du/nap-tien/{id}` | Hủy yêu cầu nạp khi chưa chuyển khoản |
 | `GET /api/so-du/giao-dich` | Lịch sử giao dịch ví |
 
-> **Luồng nạp tiền qua QR ngân hàng:** người dùng nhập số tiền → BE tạo
-> `giao_dich` trạng thái `Cho_Xu_Ly` kèm mã `NAP...` → FE hiện QR VietQR
-> (số tiền + nội dung chuyển khoản = mã) → người dùng chuyển khoản vào tài
-> khoản trong `backend/.env` → admin vào **Duyệt nạp tiền**, đối chiếu sao kê
-> rồi bấm Duyệt thì tiền mới được cộng vào ví.
+> **Luồng nạp tiền qua QR ngân hàng:**
+> 1. Người dùng nhập số tiền → BE tạo `giao_dich` trạng thái `Cho_Xu_Ly`
+>    kèm mã chuyển khoản `NAP...`.
+> 2. FE hiện **QR VietQR động**: đúng số tiền + nội dung chuyển khoản là mã
+>    `NAP...` (không dùng ảnh QR tĩnh).
+> 3. Người dùng chuyển khoản vào tài khoản ngân hàng trong `backend/.env`.
+> 4. Admin vào **Duyệt nạp tiền** (`/admin/duyet-nap-tien`), đối chiếu sao kê:
+>    - Đúng mã + đúng số tiền → **Duyệt** → cộng tiền vào ví, ghi
+>      `bien_dong_so_du`, gửi thông báo và ghi `nhat_ky_quan_tri`.
+>    - Chưa nhận được tiền / sai nội dung → **Từ chối** kèm lý do → giao dịch
+>      chuyển `That_bai`, số dư không đổi.
+> 5. Người dùng có thể hủy yêu cầu khi còn `Cho_Xu_Ly` → giao dịch chuyển
+>    `Da_Huy`.
 >
 > Cấu hình nhận tiền trong `backend/.env`:
-> ```
-> BANK_ID=MB
-> BANK_ACCOUNT_NO=0123456789
-> BANK_ACCOUNT_NAME=NGUYEN VAN A
+> ```env
+> BANK_ID=BAB                 # mã ngân hàng VietQR (MB, VCB, BAB, TCB...)
+> BANK_ACCOUNT_NO=<SO_TAI_KHOAN_NHAN_TIEN>
+> BANK_ACCOUNT_NAME=<CHU_TAI_KHOAN_VIET_HOA_KHONG_DAU>
 > ```
 > Chưa cấu hình → hệ thống vẫn tạo được yêu cầu nhưng QR chỉ là bản demo.
+> **STK thật không commit lên Git** — mỗi máy điền `.env` riêng hoặc nhận
+> thông tin từ nhóm qua kênh riêng.
 
 ### Bài đăng — `/api/bai-dang`
 | Phương thức + đường dẫn | Chức năng |
@@ -223,6 +235,11 @@ Database mặc định `crowdfunding_db` (đổi được bằng biến `DATABAS
 
    GEMINI_API_KEY=<KEY_TU_AI_STUDIO>
    GEMINI_MODEL=gemini-3.5-flash-lite
+
+   # Ngân hàng nhận tiền nạp (VietQR)
+   BANK_ID=BAB
+   BANK_ACCOUNT_NO=<SO_TAI_KHOAN_NHAN_TIEN>
+   BANK_ACCOUNT_NAME=<CHU_TAI_KHOAN_VIET_HOA_KHONG_DAU>
    ```
 
    - **MongoDB Atlas**: `MONGODB_URI` lấy từ cluster của nhóm (Atlas → Connect → Drivers).
@@ -236,6 +253,17 @@ Database mặc định `crowdfunding_db` (đổi được bằng biến `DATABAS
      **`gemini-3.5-flash-lite`** — chạy ổn trên hạn mức miễn phí (~1–3 giây/câu trả lời).
      ⚠️ Đừng dùng `gemini-2.0/2.5-flash` (bị Google khai tử với tài khoản mới) và
      `gemini-3.8-flash` (bản "thinking", free tier hay trả 503/treo).
+   - **Ngân hàng nhận tiền nạp (VietQR)**: `BANK_ID` là mã ngân hàng trên VietQR
+     (ví dụ `MB`, `VCB`, `ACB`, `BAB` — Bac A Bank, `TCB`...). `BANK_ACCOUNT_NO` là
+     số tài khoản nhận tiền; `BANK_ACCOUNT_NAME` viết HOA, không dấu. Đổi xong phải
+     khởi động lại BE. FE dựng QR động từ `GET /api/so-du/cau-hinh-nap` nên không
+     cần lưu ảnh QR trong repo.
+   - **Máy mới pull repo**: `.env` không nằm trong Git nên mỗi máy cần
+     `copy .env.example .env` rồi điền lại MongoDB, JWT, SMTP, Gemini và `BANK_*`.
+     STK thật nên gửi riêng cho thành viên, không đưa lên repo công khai.
+   - **Kiểm tra nhanh luồng nạp tiền**: đăng nhập → **Nạp số dư** → tạo yêu cầu →
+     quét QR và chuyển khoản đúng nội dung `NAP...`; sau đó đăng nhập admin →
+     **Duyệt nạp tiền** → đối chiếu sao kê → bấm Duyệt. Tiền chỉ vào ví sau khi duyệt.
    - ⚠️ `.env` đã liệt kê trong `.gitignore` — **không commit mật khẩu thật** lên git.
 
 3. Chạy máy chủ (cổng 8000):
