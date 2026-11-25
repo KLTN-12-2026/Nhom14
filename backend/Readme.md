@@ -165,12 +165,14 @@ Database mặc định `crowdfunding_db` (đổi được bằng biến `DATABAS
 | `GET /api/bai-dang/{id}/nguoi-gop` | Danh sách người đã góp của 1 bài |
 | `GET /api/gop/cua-toi` | Các khoản tôi đã góp |
 
-> **Giới hạn mỗi giao dịch góp vốn / quyên góp / đầu tư:**
+> **Giới hạn mỗi giao dịch góp vốn / quyên góp:**
 > - Tối thiểu **10.000 VND**, tối đa **500.000.000 VND** mỗi lần.
 > - Vẫn phải **≤ số dư ví hiện tại** — BE kiểm tra ở service nên mọi luồng
 >   (kể cả script nội bộ) đều không vượt được giới hạn.
 > - Số tiền ngoài khoảng bị chặn với thông báo tiếng Việt rõ ràng; FE
 >   (`HoTroModal`) cũng validate cùng giới hạn trước khi gọi API.
+> - **Bài Đầu Tư** trên giao diện không dùng luồng góp qua ví/giải ngân/hoàn
+>   trả; người dùng liên hệ trực tiếp với nhóm dự án để bàn chi tiết.
 
 ### Ví dự án (escrow) & quy tắc tài chính — `/api/bai-dang/{id}/vi`
 | Phương thức + đường dẫn | Chức năng |
@@ -179,7 +181,7 @@ Database mặc định `crowdfunding_db` (đổi được bằng biến `DATABAS
 | `POST /api/admin/bai-dang/{id}/vi/giai-ngan` | Quản trị — giải ngân khi bài **đã đủ vốn** |
 | `POST /api/admin/bai-dang/{id}/vi/hoan-tra` | Quản trị — hoàn trả khi bài **hết hạn chưa đủ vốn** |
 
-> **Quy tắc tài chính (áp dụng cho cả Gọi Vốn, Quyên Góp, Đầu Tư):**
+> **Quy tắc tài chính (áp dụng cho luồng Gọi Vốn, Quyên Góp qua ví dự án):**
 > 1. **Phí nền tảng 3%** — trừ trên **tổng tiền huy động** khi quản trị viên
 >    giải ngân. Chủ dự án nhận **97%**, nền tảng giữ **3%**.
 >    Ví/response trả `phi_nen_tang`, `so_tien_thuc_nhan`,
@@ -194,6 +196,9 @@ Database mặc định `crowdfunding_db` (đổi được bằng biến `DATABAS
 > 4. Tiền góp được **giữ trong ví dự án** (`vi_bai_dang`), không chuyển
 >    thẳng cho chủ dự án; quản trị viên là người bấm giải ngân/hoàn trả.
 >    Bấm 2 lần không chuyển tiền 2 lần (khóa trạng thái atomic).
+> 5. **Bài Đầu Tư**: giao diện chỉ hiển thị **số tiền cần đầu tư** và hướng
+>    dẫn liên hệ trực tiếp; không hiển thị thanh tiến độ quyên góp, không
+>    dùng nút giải ngân/hoàn trả escrow.
 >
 > Quy tắc nằm trong `app/config/tai_chinh.py`; kiểm thử tự động (tự tạo dữ
 > liệu + dọn sạch trong `finally`) tại
@@ -228,6 +233,10 @@ Database mặc định `crowdfunding_db` (đổi được bằng biến `DATABAS
 | `GET /api/admin/nap-tien` | Danh sách yêu cầu nạp tiền (lọc `trang_thai`) |
 | `PUT /api/admin/nap-tien/{id}/duyet` | Xác nhận đã nhận tiền → cộng vào ví |
 | `PUT /api/admin/nap-tien/{id}/tu-choi` | Từ chối yêu cầu nạp (kèm lý do) |
+
+> **Lưu ý duyệt bài:** `PUT /api/admin/bai-dang/{id}/duyet` là idempotent khi
+> bài đã ở đúng trạng thái đích (tránh ghi trùng lịch sử/thông báo khi bấm
+> lặp). Nếu bài không còn `Cho_Duyet`, API trả lỗi 400 có thông báo rõ ràng.
 
 ### Trợ lý AI — `/api/chatbot`
 | Phương thức + đường dẫn | Chức năng |

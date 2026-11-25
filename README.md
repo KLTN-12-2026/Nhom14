@@ -29,22 +29,28 @@ người dùng và trợ lý AI Rising Bot — chi tiết xem [`backend/Readme.m
   Rising Bot** (nút nổi góc phải, hội thoại nhiều lượt có nhớ ngữ cảnh)
 - **Tài khoản**: đăng ký, đăng nhập (JWT), quên mật khẩu **3 bước qua Gmail thật**
   (mã 6 số, hiệu lực 10 phút), đổi mật khẩu, thông tin cá nhân (xem/sửa hồ sơ, xem số dư)
+- **Hướng dẫn sau đăng nhập**: popup hướng dẫn nhanh xuất hiện sau khi đăng nhập; có
+  tùy chọn "Không hiển thị lại trong 1 ngày" (lưu theo tài khoản).
 - **Bài đăng**: tạo bài mới (kèm chọn **loại bài đăng**), cập nhật/xóa bài, quản lý
-  **Bài đăng của tôi**, xem danh sách bài công khai và chi tiết (ảnh, mô tả, tiến độ huy động,
-  hạn gây quỹ, số ngày còn lại)
-- **Ví Rising Idea**: nạp số dư, xem lịch sử giao dịch
-- **Góp vốn / Quyên góp / Đầu tư**: góp bằng số dư ví (quy trình 3 bước: nhập tiền → xác nhận
-  → hoàn tất), trừ ví, cập nhật tiến độ, ghi lịch sử; xem danh sách người góp của từng bài
+  **Bài đăng của tôi**, xem danh sách bài công khai và chi tiết (ảnh, mô tả, tiến độ/hạn gây quỹ).
+  Bài **Đầu Tư** chỉ hiển thị số tiền cần đầu tư và hướng dẫn liên hệ trực tiếp.
+- **Ví Rising Idea**: nạp số dư qua **QR ngân hàng** (chờ admin xác nhận), xem lịch sử giao dịch
+- **Góp vốn / Quyên góp**: góp bằng số dư ví (quy trình 3 bước: nhập tiền → xác nhận → hoàn tất),
+  trừ ví, cập nhật tiến độ, ghi lịch sử; danh sách người ủng hộ gộp theo tài khoản (nhiều lần góp
+  chỉ hiện 1 người, cộng tổng số tiền). Bài **Đầu Tư** liên hệ trực tiếp, không qua luồng góp ví.
 - **Tố cáo**: báo cáo bài vi phạm ngay trên trang chi tiết bài (chặn tố cáo trùng)
 - **Chuông thông báo**: nhận thông báo khi bài được duyệt/từ chối/bị ẩn, khi có người góp…
   (đánh dấu đã đọc từng thông báo hoặc tất cả)
 
 ### Quản trị viên
-- **Duyệt bài đăng**: danh sách chờ duyệt, xem chi tiết, phê duyệt hoặc từ chối kèm lý do
-- **Quản lý bài đăng**: ẩn/hiện bài đã duyệt, xem lịch sử duyệt
+- **Duyệt bài đăng**: danh sách chờ duyệt, xem chi tiết, phê duyệt hoặc từ chối kèm lý do;
+  xử lý idempotent để tránh lỗi bấm lặp/đồng bộ chậm.
+- **Duyệt nạp tiền**: đối chiếu mã `NAP...` và sao kê, duyệt để cộng ví hoặc từ chối kèm lý do.
+- **Quản lý bài đăng**: ẩn/hiện bài đã duyệt, xem lịch sử duyệt, giải ngân/hoàn trả cho bài
+  Gọi vốn/Quyên góp (bài Đầu tư không dùng luồng này).
 - **Xử lý tố cáo**: nhận tố cáo mới (chuông thông báo), xử lý hợp lệ/vô lý — hợp lệ có thể
-  ẩn bài, người tố cáo và chủ bài đều nhận thông báo
-- **Quản lý người dùng**: gán vai trò, khóa/mở khóa tài khoản, xem nhật ký quản trị
+  ẩn bài, người tố cáo và chủ bài đều nhận thông báo.
+- **Quản lý người dùng**: gán vai trò, khóa/mở khóa tài khoản, xem nhật ký quản trị.
 
 > 📝 Khi backend **tắt**, frontend tự rơi về chế độ demo: dữ liệu mô phỏng trong localStorage,
 > đăng nhập/phân quyền giả lập trong trình duyệt — dùng cho mục đích trình diễn giao diện.
@@ -139,7 +145,8 @@ npm run dev
 | `http://localhost:5173/bai-dang/:id` | Chi tiết bài đăng (góp vốn / quyên góp / đầu tư) |
 | `http://localhost:5173/bai-dang/:id/chinh-sua` | Cập nhật bài đăng |
 | `http://localhost:5173/admin/duyet-bai` | Quản trị — duyệt bài đăng |
-| `http://localhost:5173/admin/quan-ly-bai-dang` | Quản trị — quản lý bài (ẩn/hiện) |
+| `http://localhost:5173/admin/duyet-nap-tien` | Quản trị — duyệt nạp tiền QR |
+| `http://localhost:5173/admin/quan-ly-bai-dang` | Quản trị — quản lý bài (ẩn/hiện, giải ngân/hoàn trả) |
 | `http://localhost:5173/admin/xu-ly-to-cao` | Quản trị — xử lý tố cáo |
 | `http://localhost:5173/admin/quan-ly-nguoi-dung` | Quản trị — quản lý người dùng |
 | `http://localhost:8000` | Backend — thông báo API đang chạy |
