@@ -165,6 +165,40 @@ Database mặc định `crowdfunding_db` (đổi được bằng biến `DATABAS
 | `GET /api/bai-dang/{id}/nguoi-gop` | Danh sách người đã góp của 1 bài |
 | `GET /api/gop/cua-toi` | Các khoản tôi đã góp |
 
+> **Giới hạn mỗi giao dịch góp vốn / quyên góp / đầu tư:**
+> - Tối thiểu **10.000 VND**, tối đa **500.000.000 VND** mỗi lần.
+> - Vẫn phải **≤ số dư ví hiện tại** — BE kiểm tra ở service nên mọi luồng
+>   (kể cả script nội bộ) đều không vượt được giới hạn.
+> - Số tiền ngoài khoảng bị chặn với thông báo tiếng Việt rõ ràng; FE
+>   (`HoTroModal`) cũng validate cùng giới hạn trước khi gọi API.
+
+### Ví dự án (escrow) & quy tắc tài chính — `/api/bai-dang/{id}/vi`
+| Phương thức + đường dẫn | Chức năng |
+|---|---|
+| `GET /api/bai-dang/{id}/vi` | Xem ví dự án — công khai (tạm giữ, đã giải ngân, đã hoàn trả, phí) |
+| `POST /api/admin/bai-dang/{id}/vi/giai-ngan` | Quản trị — giải ngân khi bài **đã đủ vốn** |
+| `POST /api/admin/bai-dang/{id}/vi/hoan-tra` | Quản trị — hoàn trả khi bài **hết hạn chưa đủ vốn** |
+
+> **Quy tắc tài chính (áp dụng cho cả Gọi Vốn, Quyên Góp, Đầu Tư):**
+> 1. **Phí nền tảng 3%** — trừ trên **tổng tiền huy động** khi quản trị viên
+>    giải ngân. Chủ dự án nhận **97%**, nền tảng giữ **3%**.
+>    Ví/response trả `phi_nen_tang`, `so_tien_thuc_nhan`,
+>    `ty_le_phi_nen_tang`; `da_giai_ngan` vẫn là số **gộp** để tiến độ khớp.
+> 2. **Phí hoàn trả 5%** — khi dự án hết hạn mà chưa đủ vốn, mỗi người góp
+>    nhận lại **95%** khoản đã góp, nền tảng giữ **5%** phí xử lý.
+>    Mỗi khoản góp lưu `phi_hoan_tra`, `so_tien_hoan`; ví/response trả
+>    `phi_hoan_tra`, `so_tien_hoan_nguoi_gop`, `ty_le_phi_hoan_tra`.
+> 3. **Khóa góp sau khi chốt tiền** — ví ở trạng thái `Da_giai_ngan` hoặc
+>    `Da_hoan_tra` thì BE chặn mọi khoản góp mới; FE disable nút ủng hộ và
+>    đổi nhãn "Đã giải ngân / Đã hoàn trả — không nhận ủng hộ".
+> 4. Tiền góp được **giữ trong ví dự án** (`vi_bai_dang`), không chuyển
+>    thẳng cho chủ dự án; quản trị viên là người bấm giải ngân/hoàn trả.
+>    Bấm 2 lần không chuyển tiền 2 lần (khóa trạng thái atomic).
+>
+> Quy tắc nằm trong `app/config/tai_chinh.py`; kiểm thử tự động (tự tạo dữ
+> liệu + dọn sạch trong `finally`) tại
+> `scripts/e2e_quy_tac_tai_chinh.py`.
+
 ### Tố cáo — `/api/to-cao` & `/api/admin/to-cao`
 | Phương thức + đường dẫn | Chức năng |
 |---|---|
@@ -205,6 +239,14 @@ Database mặc định `crowdfunding_db` (đổi được bằng biến `DATABAS
 
 > - Chatbot là **AI thật** (Google Gemini), có ngữ cảnh 12 tin nhắn gần nhất, nhân vật
 >   "Rising Bot" được hướng dẫn riêng về hệ thống Rising Idea.
+> - **Gửi ảnh:** body nhận thêm `hinh_anh` (data URL JPEG/PNG/WEBP, tối đa 3 MB)
+>   và `id_bai_dang` (dự án đang xem). BE nạp bối cảnh dự án (tên, mục tiêu,
+>   tiến độ, trạng thái ví) rồi gửi ảnh cho Gemini vision — AI nhận xét ảnh
+>   theo đúng tình hình dự án: mức liên quan, dấu hiệu bất thường, độ tin cậy
+>   và khuyến nghị cho người ủng hộ. Ảnh được lưu trong `tin_nhan_chatbot`
+>   (`hinh_anh`) để mở lại hội thoại vẫn xem được.
+> - Ảnh sai định dạng/quá lớn → `400` kèm thông báo tiếng Việt; tin nhắn
+>   không có cả chữ lẫn ảnh cũng bị chặn `400`.
 > - AI gặp sự cố cũng trả `200` với `tin_chatbot` mang lời xin lỗi + trường `canh_bao`
 >   mô tả lỗi — tin nhắn của người dùng **không bao giờ bị mất**.
 > - Hội thoại chỉ chủ sở hữu đọc được (kiểm tra owner ở tầng service).

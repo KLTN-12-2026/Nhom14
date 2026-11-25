@@ -14,6 +14,7 @@ const VND = new Intl.NumberFormat("vi-VN", {
 });
 
 const SO_TIEN_TOI_THIEU = 10000;
+const SO_TIEN_TOI_DA = 500000000;
 
 const SO_TIEN_NHANH = [50000, 100000, 200000, 500000];
 
@@ -74,6 +75,11 @@ function HoTroModal({ post, soDu, onClose, onSuccess }) {
 
     if (soTienNumber < SO_TIEN_TOI_THIEU) {
       setLoi(`Số tiền tối thiểu là ${VND.format(SO_TIEN_TOI_THIEU)}.`);
+      return;
+    }
+
+    if (soTienNumber > SO_TIEN_TOI_DA) {
+      setLoi(`Số tiền tối đa mỗi lần là ${VND.format(SO_TIEN_TOI_DA)}.`);
       return;
     }
 
@@ -196,6 +202,11 @@ function HoTroModal({ post, soDu, onClose, onSuccess }) {
               }}
               className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200"
             />
+
+            <p className="mt-1.5 text-xs text-gray-400">
+              Mỗi lần từ {VND.format(SO_TIEN_TOI_THIEU)} đến{" "}
+              {VND.format(SO_TIEN_TOI_DA)}.
+            </p>
 
             <div className="mt-3 grid grid-cols-4 gap-2">
               {SO_TIEN_NHANH.map((giaTri) => (
@@ -406,6 +417,13 @@ function HoTroModal({ post, soDu, onClose, onSuccess }) {
                 </dd>
               </div>
             </dl>
+
+            {/* Quy tắc tài chính minh bạch trước khi xác nhận */}
+            <p className="mt-3 rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-xs leading-5 text-sky-800">
+              Khoản góp được giữ trong ví dự án. Dự án đủ vốn: chủ dự án nhận
+              97% khi giải ngân (phí nền tảng 3%). Dự án hết hạn chưa đủ vốn:
+              bạn được hoàn lại 95% (phí xử lý hoàn trả 5%).
+            </p>
 
             {loi && (
               <p className="mt-3 text-sm font-semibold text-red-600" role="status">

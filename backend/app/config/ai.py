@@ -32,31 +32,96 @@ HUONG_DAN_HE_THONG = (
     "giao diện. Không trả lời các chủ đề ngoài phạm vi nền tảng."
 )
 
+# Bổ sung khi tin nhắn có ảnh: AI đánh giá ảnh theo đúng bối cảnh dự án
+HUONG_DAN_ANH = (
+    "Khi người dùng gửi ảnh, hãy đánh giá ảnh đó trong bối cảnh dự án được "
+    "cung cấp (nếu có): mô tả ngắn gọn những gì nhìn thấy trong ảnh; mức độ "
+    "liên quan với nội dung, mục tiêu và tiến độ dự án; dấu hiệu bất thường "
+    "(ảnh lấy từ mạng, ảnh stock, chỉnh sửa quá mức, thông tin bị che, ảnh "
+    "nhạy cảm); kết luận mức độ tin cậy cao/trung bình/thấp và khuyến nghị "
+    "cho người ủng hộ. Nêu rõ đây là đánh giá tự động từ ảnh, không thay thế "
+    "xác minh thực tế; không khẳng định ảnh thật/giả tuyệt đối khi thiếu "
+    "căn cứ."
+)
+
+
+def _tach_anh(data_url: str) -> tuple[str, str]:
+    """Tách data URL thành (mime_type, base64) để gửi Gemini."""
+    if not data_url or not data_url.startswith("data:") or "," not in data_url:
+        raise AILoi("Dữ liệu ảnh không hợp lệ.")
+
+    header, du_lieu = data_url.split(",", 1)
+    mime = header[5:].split(";", 1)[0].strip().lower()
+
+    if mime not in ("image/jpeg", "image/png", "image/webp"):
+        raise AILoi("Chỉ hỗ trợ ảnh JPEG, PNG hoặc WEBP.")
+
+    return mime, du_lieu
+
 
 def da_cau_hinh() -> bool:
     return bool(GEMINI_API_KEY.strip())
 
 
-def hoi_gemini(lich_su: list) -> str:
+def hoi_gemini(lich_su: list, boi_canh: str = "") -> str:
     """Gọi Gemini REST API — hàm đồng bộ, gọi trong thread riêng.
 
-    lich_su: [{vai: 'Nguoi_Dung'|'Chatbot', noi_dung: str}, ...]
+    lich_su: [{vai: 'Nguoi_Dung'|'Chatbot', noi_dung: str,
+              hinh_anh: str|None}, ...]
+    boi_canh: khối thông tin dự án (chỉ đưa cho AI, không lưu vào DB).
     Trả về chuỗi trả lời của AI.
     """
+    he_thong = HUONG_DAN_HE_THONG
+    if boi_canh.strip():
+        he_thong += "\n\n" + boi_canh.strip()
+
+    if any(tin.get("hinh_anh") for tin in lich_su):
+        he_thong += "\n\n" + HUONG_DAN_ANH
+
+    noi_dung_gui = []
+    for vi_tri, tin in enumerate(lich_su):
+        la_tin_cuoi = vi_tri == len(lich_su) - 1
+        cac_phan = []
+        van_ban = (tin.get("noi_dung") or "").strip()
+
+        if tin.get("hinh_anh"):
+            if la_tin_cuoi:
+                mime, du_lieu = _tach_anh(tin["hinh_anh"])
+                cac_phan.append({
+                    "inline_data": {
+                        "mime_type": mime,
+                        "data": du_lieu,
+                    }
+                })
+                van_ban = (
+                    (van_ban + "\n\n" if van_ban else "")
+                    + "Hãy đánh giá hình ảnh này theo tình hình dự án."
+                )
+            else:
+                van_ban = (
+                    (van_ban + "\n" if van_ban else "")
+                    + "[Hình ảnh đã gửi trước đó]"
+                )
+
+        if van_ban:
+            cac_phan.append({"text": van_ban})
+
+        if not cac_phan:
+            cac_phan.append({"text": "(không có nội dung)"})
+
+        noi_dung_gui.append({
+            "role": "user" if tin["vai"] == "Nguoi_Dung" else "model",
+            "parts": cac_phan,
+        })
+
     noi_dung_yeu_cau = json.dumps({
         "system_instruction": {
-            "parts": [{"text": HUONG_DAN_HE_THONG}],
+            "parts": [{"text": he_thong}],
         },
-        "contents": [
-            {
-                "role": "user" if tin["vai"] == "Nguoi_Dung" else "model",
-                "parts": [{"text": tin["noi_dung"]}],
-            }
-            for tin in lich_su
-        ],
+        "contents": noi_dung_gui,
         "generationConfig": {
             "temperature": 0.7,
-            "maxOutputTokens": 500,
+            "maxOutputTokens": 800,
         },
     }).encode("utf-8")
 

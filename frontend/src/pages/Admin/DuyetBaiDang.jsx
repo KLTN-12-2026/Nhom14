@@ -40,6 +40,9 @@ export default function DuyetBaiDang() {
   const [lich_su, setLichSu] = useState(null); // { tu_be, list } timeline duyệt
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
+  // Khóa nút trong lúc gọi API — tránh bấm 2 lần sinh request thứ 2 báo lỗi
+  // "bài không còn chờ duyệt" dù lần đầu đã thành công.
+  const [dang_xu_ly, setDangXuLy] = useState(false);
   const [trang, setTrang] = useState(1);
   const refresh = () => setPosts(layDanhSachDuyet());
 
@@ -98,25 +101,36 @@ export default function DuyetBaiDang() {
   );
 
   function decide(decision) {
-    if (!selected) return;
-    reviewPost(selected.id, decision, reason)
+    if (!selected || dang_xu_ly) return;
+
+    const bai = selected;
+    const laTuChoi = decision === 'rejected';
+    const nhanBai = bai.title ? `bài "${bai.title}"` : 'bài đăng';
+    setDangXuLy(true);
+
+    reviewPost(bai.id, decision, reason, { tuBe: bai.tu_be === true })
       .then(() => {
+        // Báo thành công NGAY khi BE/cục bộ xác nhận — không chờ đồng bộ
+        // danh sách (service đã cập nhật cache + đồng bộ nền).
         tb.thanhCong(
-          decision === 'approved'
-            ? 'Duyệt bài thành công — bài đã công khai!'
-            : 'Đã từ chối bài đăng (lý do hiển thị cho người đăng).'
+          laTuChoi
+            ? `Đã từ chối ${nhanBai} thành công — lý do đã gửi cho người đăng.`
+            : `Đã duyệt ${nhanBai} thành công — bài đã công khai!`
         );
-        setSelected(null); setRejecting(false); setReason('');
+        setSelected(null);
+        setRejecting(false);
+        setReason('');
+        refresh();
       })
-      .catch((error) => tb.loi(error.message))
-      .finally(() => {
-        // Dù thành công hay lỗi: đồng bộ lại từ BE rồi refresh — danh sách
-        // luôn khớp DB, không còn bài ma đòi F5 (reviewPost BE path đã tự
-        // đồng bộ; đây chốt cho nhánh lỗi BE 404 + nhánh cục bộ).
+      .catch((error) => {
+        tb.loi(error.message);
+        // Bài có thể đã bị xóa/duyệt ở tab khác -> đồng bộ nền rồi làm mới
+        // để danh sách không còn dòng "ma".
         dongBoAdminTuBe()
           .catch(() => {})
           .then(() => refresh());
-      });
+      })
+      .finally(() => setDangXuLy(false));
   }
 
   return (
@@ -235,7 +249,9 @@ export default function DuyetBaiDang() {
       {selected && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onMouseDown={e => { if (e.target === e.currentTarget) setSelected(null); }}
+          onMouseDown={e => {
+            if (e.target === e.currentTarget && !dang_xu_ly) setSelected(null);
+          }}
         >
           <section
             role="dialog"
@@ -262,7 +278,15 @@ export default function DuyetBaiDang() {
                 </h2>
               </div>
 
-              <button type="button" onClick={() => setSelected(null)} aria-label="Đóng chi tiết" className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800">✕</button>
+              <button
+                type="button"
+                onClick={() => setSelected(null)}
+                disabled={dang_xu_ly}
+                aria-label="Đóng chi tiết"
+                className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                ✕
+              </button>
             </div>
 
             <div className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm sm:grid-cols-2">
@@ -368,12 +392,26 @@ export default function DuyetBaiDang() {
                 )}
 
                 <div className="flex flex-wrap justify-end gap-3">
-                  <Button variant="danger" onClick={() => { setRejecting(v => !v); setReason(''); }}>
+                  <Button
+                    variant="danger"
+                    onClick={() => {
+                      setRejecting(v => !v);
+                      setReason('');
+                    }}
+                    disabled={dang_xu_ly}
+                  >
                     {rejecting ? 'Hủy từ chối' : '🚫 Từ chối'}
                   </Button>
 
-                  <Button onClick={() => decide(rejecting ? 'rejected' : 'approved')} disabled={rejecting && !reason.trim()}>
-                    {rejecting ? 'Xác nhận từ chối' : '✓ Phê duyệt'}
+                  <Button
+                    onClick={() => decide(rejecting ? 'rejected' : 'approved')}
+                    disabled={dang_xu_ly || (rejecting && !reason.trim())}
+                  >
+                    {dang_xu_ly
+                      ? '⏳ Đang xử lý...'
+                      : rejecting
+                        ? 'Xác nhận từ chối'
+                        : '✓ Phê duyệt'}
                   </Button>
                 </div>
               </div>

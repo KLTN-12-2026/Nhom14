@@ -134,7 +134,18 @@ function capNhatCacheSauDuyet(id, trangThaiMoI) {
 
 // Duyệt bài: BE-first (PUT /api/admin/bai-dang/{id}/duyet). BE không chạy
 // hay bài là bản demo cục bộ -> xử lý cục bộ như cũ.
-export async function reviewPost(id, decision, reason = '') {
+//
+// tuBe: true = bài thật trên MongoDB, false = bài demo/local.
+// - Bài local KHÔNG gọi BE (id UUID sẽ khiến BE trả 404 "Không tìm thấy
+//   bài đăng" dù thao tác hoàn toàn hợp lệ).
+// - Sau khi PUT thành công, cache được cập nhật ngay và đồng bộ nền —
+//   không chờ GET danh sách nên toast thành công hiện tức thì.
+export async function reviewPost(
+  id,
+  decision,
+  reason = '',
+  { tuBe } = {}
+) {
   if (!['approved', 'rejected'].includes(decision)) throw new Error('Trạng thái không hợp lệ');
 
   const hamDong = decision === 'approved' ? 'Duyet' : 'Tu_Choi';
@@ -144,8 +155,18 @@ export async function reviewPost(id, decision, reason = '') {
     throw new Error('Vui lòng nhập lý do từ chối');
   }
 
+  // Xác định nguồn bài: cờ từ trang duyệt, cache BE, hoặc id ObjectId 24 ký tự.
+  const idChuoi = String(id);
+  const laObjectId = /^[0-9a-f]{24}$/i.test(idChuoi);
+  const coTrongCacheBe = docCache(KEY_BE_ADMIN).some(
+    (post) => String(post.id) === idChuoi
+  );
+  const laBaiBe =
+    tuBe === true ||
+    (tuBe === undefined && (laObjectId || coTrongCacheBe));
+
   // ---- ƯU TIÊN: duyệt qua BE (đã đăng nhập trên BE) ----
-  if (coToken()) {
+  if (coToken() && laBaiBe) {
     try {
       await goiApi(`/api/admin/bai-dang/${id}/duyet`, {
         method: 'PUT',
@@ -155,33 +176,41 @@ export async function reviewPost(id, decision, reason = '') {
       capNhatCacheSauDuyet(id, hamDong === 'Duyet' ? 'Da_Duyet' : 'Tu_Choi');
       ghiNhatKyQuanLy(hamDong, `bai_dang:${id}`, lyDo);
 
-      // Đồng bộ lại cache quản trị từ BE ngay: danh sách admin khớp DB
-      // 100% (bài bị xóa/đã duyệt trước đó cũng biến mất khỏi cache ma).
-      await dongBoAdminTuBe().catch(() => {});
+      // Đồng bộ NỀN: cache đã cập nhật trạng thái ngay ở trên, không cần
+      // chờ thêm 1 vòng GET mới báo thành công cho người dùng.
+      dongBoAdminTuBe().catch(() => {});
 
       return { tu_be: true };
     } catch (error) {
-      // Bài không tồn tại trên BE (demo/bài cục bộ) hoặc BE tắt -> cục bộ
-      if (
-        error.message !== LOI_KHONG_KET_NOI &&
-        error.statusCode !== 404
-      ) {
-        throw error;
+      if (error.message === LOI_KHONG_KET_NOI) {
+        throw new Error(
+          'Không kết nối được máy chủ — bài đăng thật cần backend để duyệt.',
+          { cause: error }
+        );
       }
 
-      // BE trả 404 (bài đã bị xóa / id không có) -> đồng bộ lại cache
-      // để bài ma biến mất khỏi trang, rồi vẫn ném lỗi BE lên UI.
+      // BE trả 404 (bài đã bị xóa / id không có) -> đồng bộ nền để bài ma
+      // biến mất khỏi trang, rồi báo lỗi rõ ràng cho quản trị viên.
       if (error.statusCode === 404) {
-        await dongBoAdminTuBe().catch(() => {});
-        throw error;
+        dongBoAdminTuBe().catch(() => {});
+        throw new Error(
+          'Bài đăng không còn tồn tại trên hệ thống (có thể đã bị xóa).',
+          { cause: error }
+        );
       }
+
+      throw error;
     }
   }
 
   // ---- DỰ PHÒNG: chế độ demo cục bộ (BE không chạy / bài demo) ----
   const posts = getAllPostsForReview();
   const index = posts.findIndex(p => String(p.id) === String(id));
-  if (index < 0) throw new Error('Không tìm thấy bài đăng');
+  if (index < 0) throw new Error('Không tìm thấy bài đăng trong dữ liệu cục bộ');
+
+  // Idempotent: bấm lặp đúng quyết định đã áp dụng -> coi như thành công
+  if (posts[index].status === decision) return posts[index];
+
   if (posts[index].status !== 'pending') throw new Error('Chỉ được duyệt bài đang chờ');
 
   const baiDangDaSua = {
@@ -200,7 +229,7 @@ export async function reviewPost(id, decision, reason = '') {
       id: `LS-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
       id_bai_dang: id,
       id_nguoi_duyet: getSession()?.ten_tk || '',
-      hanh_dong: decision === 'approved' ? 'Duyet' : 'Tu_choi',
+      hanh_dong: decision === 'approved' ? 'Duyet' : 'Tu_Choi',
       ly_do: decision === 'approved' ? '' : reason.trim(),
       ngay_tao: new Date().toISOString(),
     },

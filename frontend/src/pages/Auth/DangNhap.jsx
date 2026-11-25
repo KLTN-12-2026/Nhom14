@@ -64,6 +64,8 @@ export default function DangNhap() {
 
     // Quay lại trang đang định vào; admin mặc định vào trang duyệt bài.
     const macDinh = result.role === "admin" ? "/admin/duyet-bai" : "/";
+    sessionStorage.setItem("rising-idea-guide-pending", "1");
+    window.dispatchEvent(new Event("rising-idea-guide"));
     navigate(troVe || macDinh, { replace: true });
   }
 

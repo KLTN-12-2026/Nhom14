@@ -34,14 +34,6 @@ const Navbar = () => {
 
         {/* Menu bên phải — cho phép tràn ngang trên màn hình nhỏ thay vì vỡ layout */}
         <div className="ml-auto flex items-stretch overflow-x-auto">
-          <Link to="/" className={itemClass}>
-            Sự kiện
-          </Link>
-
-          <Link to="/" className={itemClass}>
-            Tài nguyên
-          </Link>
-
           <a href="/#ve-chung-toi" className={itemClass}>
             Về chúng tôi
           </a>

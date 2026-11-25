@@ -161,6 +161,28 @@ const ChiTietBaiDang = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postIdHienTai, lanLamMoi]);
 
+  // Gắn ngữ cảnh dự án ĐANG XEM cho Rising Bot: mở chatbot ngay trên trang
+  // này rồi gửi ảnh thì AI vẫn đánh giá ảnh theo đúng dự án (không cần bấm
+  // nút "Hỏi AI"). Rời trang -> xóa ngữ cảnh để không dính dự án cũ.
+  useEffect(() => {
+    const idBai = layMaBaiDang(baiDang);
+    if (!idBai || laBaiDangDemo(baiDang)) return undefined;
+
+    window.dispatchEvent(
+      new CustomEvent("rising-bot:ngu-canh", {
+        detail: { idBaiDang: idBai, tenBaiDang: layTieuDe(baiDang) },
+      })
+    );
+
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent("rising-bot:ngu-canh", {
+          detail: { idBaiDang: null, tenBaiDang: "" },
+        })
+      );
+    };
+  }, [baiDang]);
+
   // Ví dự án: nạp tổng nhận / đã giải ngân / số dư còn lại từ BE
   // (bài demo chưa có escrow — thẻ tự ẩn nhờ điều kiện render bên dưới)
   useEffect(() => {
@@ -189,6 +211,15 @@ const ChiTietBaiDang = () => {
 
   // Ví của bài ĐANG xem (id trong state phải khớp bài đang mở)
   const viHienTai = viTheoId.id === postIdHienTai ? viTheoId.vi : null;
+
+  // Ví dự án đã chốt tiền -> khóa hẳn nút ủng hộ (BE cũng chặn ở service).
+  // Đầu Tư không đi qua ví nên giữ nguyên nút liên hệ.
+  const viDaGiaiNgan =
+    !laBaiDangDemo(baiDang) && viHienTai?.trang_thai === "Da_giai_ngan";
+  const viDaHoanTra =
+    !laBaiDangDemo(baiDang) && viHienTai?.trang_thai === "Da_hoan_tra";
+  const khoaUngHo =
+    loaiInfo.value !== "invest" && (viDaGiaiNgan || viDaHoanTra);
 
   // ===== Màn "hết thời hạn": CHỈ hiện khi tiền đã được xử lý xong =====
   // - Bài demo (không có escrow): hết hạn là hiện màn này như cũ.
@@ -303,6 +334,49 @@ const ChiTietBaiDang = () => {
   const thoiDiem = layThoiGian(baiDang);
   const danhSachHinhAnh = layDanhSachHinhAnh(baiDang);
   const danhSachGop = layDanhSachGop(layMaBaiDang(baiDang));
+  const danhSachGopHienThi = (() => {
+    const nhom = new Map();
+
+    danhSachGop.forEach((gop, index) => {
+      const maNguoi = gop.id_nguoi_gop ? String(gop.id_nguoi_gop) : "";
+      const khoa = maNguoi
+        ? `id:${maNguoi}`
+        : gop.an_danh
+          ? `an_danh:${gop.id || index}`
+          : `ten:${gop.ten || "?"}`;
+
+      const cu = nhom.get(khoa);
+      if (!cu) {
+        nhom.set(khoa, { ...gop, so_lan_gop: 1 });
+        return;
+      }
+
+      const ngayCu = new Date(cu.ngay_tao || 0).getTime();
+      const ngayMoi = new Date(gop.ngay_tao || 0).getTime();
+      const layMoi = ngayMoi >= ngayCu;
+      const goc = layMoi ? gop : cu;
+      const tongTien = (Number(cu.so_tien) || 0) + (Number(gop.so_tien) || 0);
+      const soLanGop = (cu.so_lan_gop || 1) + 1;
+
+      nhom.set(khoa, {
+        ...goc,
+        so_tien: tongTien,
+        so_lan_gop: soLanGop,
+        loi_nhac:
+          (layMoi ? gop.loi_nhac : cu.loi_nhac) ||
+          cu.loi_nhac ||
+          gop.loi_nhac ||
+          "",
+        ngay_tao: layMoi ? gop.ngay_tao : cu.ngay_tao,
+        so_huu_phan_tram:
+          mucTieu > 0
+            ? Number(((tongTien / mucTieu) * 100).toFixed(2))
+            : goc.so_huu_phan_tram,
+      });
+    });
+
+    return Array.from(nhom.values());
+  })();
   const donViTien = baiDang.don_vi_tien_te || "VND";
 
   // Tính phần trăm tiến độ (chặn 100% cho hiển thị)
@@ -372,7 +446,15 @@ const ChiTietBaiDang = () => {
       `người ủng hộ, và liệu có nên ủng hộ dự án này không.`;
 
     window.dispatchEvent(
-      new CustomEvent("rising-bot:hoi-bai", { detail: { cauHoi } })
+      new CustomEvent("rising-bot:hoi-bai", {
+        detail: {
+          cauHoi,
+          // Chatbot dùng id này để nạp bối cảnh dự án khi người dùng
+          // gửi kèm ảnh — AI đánh giá ảnh theo đúng tình hình dự án.
+          idBaiDang: layMaBaiDang(baiDang),
+          tenBaiDang: layTieuDe(baiDang),
+        },
+      })
     );
   };
 
@@ -395,9 +477,11 @@ const ChiTietBaiDang = () => {
 
     setDangXuLyVi(true);
     try {
-      await giaiNganBE(layMaBaiDang(baiDang));
+      const ket_qua = await giaiNganBE(layMaBaiDang(baiDang));
       tb.thanhCong(
-        `Đã giải ngân "${layTieuDe(baiDang)}" — tiền đã chuyển vào ví của người gọi vốn.`
+        `Đã giải ngân "${layTieuDe(baiDang)}" — chủ dự án nhận ` +
+          `${dinhDangTien(ket_qua?.so_tien_thuc_nhan ?? 0)} ${donViTien} ` +
+          `(phí nền tảng ${dinhDangTien(ket_qua?.phi_nen_tang ?? 0)} ${donViTien}).`
       );
       ghiNhatKyQuanLy("Giai_Ngan", `bai_dang:${layMaBaiDang(baiDang)}`);
       setLanLamMoi((lan) => lan + 1);
@@ -416,7 +500,8 @@ const ChiTietBaiDang = () => {
     try {
       const ket_qua = await hoanTraBE(layMaBaiDang(baiDang));
       tb.thanhCong(
-        `Đã hoàn ${dinhDangTien(ket_qua?.so_tien_hoan ?? 0)} ${donViTien} cho ${ket_qua?.so_nguoi_hoan ?? 0} người ủng hộ.`
+        `Đã hoàn ${dinhDangTien(ket_qua?.so_tien_hoan ?? 0)} ${donViTien} cho ${ket_qua?.so_nguoi_hoan ?? 0} người ủng hộ ` +
+          `(nền tảng giữ phí hoàn trả ${dinhDangTien(ket_qua?.phi_hoan_tra ?? 0)} ${donViTien}).`
       );
       ghiNhatKyQuanLy("Hoan_Tra", `bai_dang:${layMaBaiDang(baiDang)}`);
       setLanLamMoi((lan) => lan + 1);
@@ -607,16 +692,16 @@ const ChiTietBaiDang = () => {
                   <h2 className="font-bold text-gray-900">
                     {TIEU_DE_DANH_SACH[loaiInfo.value] || "Danh sách ủng hộ"}{" "}
                     <span className="text-sm font-semibold text-gray-500">
-                      ({danhSachGop.length})
+                      ({danhSachGopHienThi.length})
                     </span>
                   </h2>
 
-                  {danhSachGop.length > 0 && (
+                  {danhSachGopHienThi.length > 0 && (
                     <p className="text-xs text-gray-500">
                       Tổng đã ghi nhận:{" "}
                       <span className="font-bold text-gray-800">
                         {dinhDangTien(
-                          danhSachGop.reduce(
+                          danhSachGopHienThi.reduce(
                             (tong, gop) => tong + (Number(gop.so_tien) || 0),
                             0
                           )
@@ -627,7 +712,7 @@ const ChiTietBaiDang = () => {
                   )}
                 </div>
 
-                {danhSachGop.length === 0 ? (
+                {danhSachGopHienThi.length === 0 ? (
                   <p className="py-8 text-center text-sm text-gray-500">
                     Chưa có ai {loaiInfo.actionLabel.toLowerCase()} — hãy là{" "}
                     <span className="font-bold text-amber-600">
@@ -637,9 +722,13 @@ const ChiTietBaiDang = () => {
                   </p>
                 ) : (
                   <ul className="mt-4 space-y-3">
-                    {danhSachGop.map((gop) => (
+                    {danhSachGopHienThi.map((gop) => (
                       <li
-                        key={gop.id}
+                        key={
+                          gop.id_nguoi_gop
+                            ? `nguoi-${gop.id_nguoi_gop}`
+                            : gop.id
+                        }
                         className="rounded-2xl border border-gray-100 bg-slate-50 px-4 py-3 transition hover:border-amber-200 hover:bg-amber-50/50"
                       >
                         <div className="flex items-start justify-between gap-3">
@@ -659,6 +748,9 @@ const ChiTietBaiDang = () => {
                               <p className="text-[11px] text-gray-500">
                                 {gop.loai || "Góp vốn"} ·{" "}
                                 {dinhDangThoiDiem(gop.ngay_tao)}
+                                {(gop.so_lan_gop || 1) > 1 && (
+                                  <> · {gop.so_lan_gop} lần ủng hộ</>
+                                )}
                               </p>
 
                               {gop.so_huu_phan_tram && (
@@ -690,45 +782,65 @@ const ChiTietBaiDang = () => {
           {/* ===== Cột phải: card ủng hộ (sticky trên PC) ===== */}
           <aside>
             <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-lg lg:sticky lg:top-24">
-              {/* Số tiền đã huy động nổi bật + mục tiêu */}
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
-                {loaiInfo.label === "Đầu Tư"
-                  ? "Vốn mong muốn"
-                  : "Đã huy động"}
-              </p>
+              {loaiInfo.value === "invest" ? (
+                <>
+                  <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
+                    Số tiền cần đầu tư
+                  </p>
 
-              <p className="mt-1 font-so text-3xl font-extrabold text-amber-600">
-                {dinhDangTien(soTienDaGop)}{" "}
-                <span className="text-base text-gray-500">{donViTien}</span>
-              </p>
+                  <p className="mt-1 font-so text-3xl font-extrabold text-amber-600">
+                    {dinhDangTien(mucTieu)}{" "}
+                    <span className="text-base text-gray-500">{donViTien}</span>
+                  </p>
 
-              <p className="mt-0.5 text-xs text-gray-500">
-                mục tiêu {dinhDangTien(mucTieu)} {donViTien}
-              </p>
+                  <p className="mt-2 text-xs leading-6 text-gray-500">
+                    Các bài đăng đầu tư cần liên hệ trực tiếp để bàn rõ chi tiết.
+                  </p>
+                </>
+              ) : (
+                <>
+                  {/* Số tiền đã huy động nổi bật + mục tiêu */}
+                  <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
+                    Đã huy động
+                  </p>
 
-              {/* Thanh tiến độ gradient thương hiệu */}
-              <div className="mt-4">
-                <div className="h-3 overflow-hidden rounded-full bg-gray-100">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-amber-400 to-violet-500 transition-all duration-500"
-                    style={{ width: `${tienDo}%` }}
-                  />
-                </div>
+                  <p className="mt-1 font-so text-3xl font-extrabold text-amber-600">
+                    {dinhDangTien(soTienDaGop)}{" "}
+                    <span className="text-base text-gray-500">{donViTien}</span>
+                  </p>
 
-                <div className="mt-2 flex items-center justify-between text-xs font-semibold">
-                  <span className="text-violet-600">{Math.round(tienDo)}%</span>
-                  <span className="text-gray-500">
-                    {danhSachGop.length > 0
-                      ? `${danhSachGop.length} lượt ủng hộ`
-                      : "Chưa có lượt ủng hộ"}
-                  </span>
-                </div>
-              </div>
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    mục tiêu {dinhDangTien(mucTieu)} {donViTien}
+                  </p>
+
+                  {/* Thanh tiến độ gradient thương hiệu */}
+                  <div className="mt-4">
+                    <div className="h-3 overflow-hidden rounded-full bg-gray-100">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-amber-400 to-violet-500 transition-all duration-500"
+                        style={{ width: `${tienDo}%` }}
+                      />
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between text-xs font-semibold">
+                      <span className="text-violet-600">{Math.round(tienDo)}%</span>
+                      <span className="text-gray-500">
+                        {danhSachGopHienThi.length > 0
+                          ? `${danhSachGopHienThi.length} người ủng hộ`
+                          : "Chưa có lượt ủng hộ"}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Ví dự án (escrow vi_bai_dang): ai xem cũng thấy số tiền
                   đang giữ + phần đã chuyển cho người gọi vốn.
-                  Bài demo chưa có ví -> không hiển thị thẻ này */}
-              {viHienTai && !laBaiDangDemo(baiDang) && (
+                  Bài demo chưa có ví -> không hiển thị thẻ này.
+                  Bài Đầu Tư liên hệ trực tiếp nên không dùng luồng ví/giải ngân. */}
+              {viHienTai &&
+                !laBaiDangDemo(baiDang) &&
+                loaiInfo.value !== "invest" && (
                 <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
                   <p className="text-xs font-bold uppercase tracking-widest text-emerald-700">
                     Ví dự án
@@ -757,6 +869,66 @@ const ChiTietBaiDang = () => {
                         {dinhDangTien(viHienTai.da_giai_ngan)} {donViTien}
                       </dd>
                     </div>
+
+                    {/* Quy tắc tài chính: phí nền tảng 3% khi giải ngân */}
+                    {Number(viHienTai.phi_nen_tang) > 0 && (
+                      <>
+                        <div className="flex justify-between gap-2">
+                          <dt className="text-gray-500">
+                            Phí nền tảng (
+                            {Math.round(
+                              (viHienTai.ty_le_phi_nen_tang || 0.03) * 100
+                            )}
+                            %)
+                          </dt>
+                          <dd className="font-bold text-rose-600">
+                            -{dinhDangTien(viHienTai.phi_nen_tang)}{" "}
+                            {donViTien}
+                          </dd>
+                        </div>
+
+                        <div className="flex justify-between gap-2">
+                          <dt className="text-gray-500">
+                            Chủ dự án thực nhận
+                          </dt>
+                          <dd className="font-bold text-emerald-700">
+                            {dinhDangTien(viHienTai.so_tien_thuc_nhan)}{" "}
+                            {donViTien}
+                          </dd>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Quy tắc tài chính: phí hoàn trả 5% khi dự án thất bại */}
+                    {Number(viHienTai.phi_hoan_tra) > 0 && (
+                      <>
+                        <div className="flex justify-between gap-2">
+                          <dt className="text-gray-500">
+                            Phí hoàn trả (
+                            {Math.round(
+                              (viHienTai.ty_le_phi_hoan_tra || 0.05) * 100
+                            )}
+                            %)
+                          </dt>
+                          <dd className="font-bold text-rose-600">
+                            -{dinhDangTien(viHienTai.phi_hoan_tra)}{" "}
+                            {donViTien}
+                          </dd>
+                        </div>
+
+                        <div className="flex justify-between gap-2">
+                          <dt className="text-gray-500">
+                            Người góp thực nhận
+                          </dt>
+                          <dd className="font-bold text-emerald-700">
+                            {dinhDangTien(
+                              viHienTai.so_tien_hoan_nguoi_gop
+                            )}{" "}
+                            {donViTien}
+                          </dd>
+                        </div>
+                      </>
+                    )}
 
                     <div className="flex justify-between gap-2">
                       <dt className="text-gray-500">Số dư còn lại</dt>
@@ -853,7 +1025,9 @@ const ChiTietBaiDang = () => {
 
               {/* Dự án đã hết hạn mà vẫn vào trang chi tiết (BE): dải chú ý
                   trạng thái tiền — đang giữ chờ hoàn trả, hoặc đã xử lý xong */}
-              {daHetHan(baiDang) && !laBaiDangDemo(baiDang) && (
+              {daHetHan(baiDang) &&
+                !laBaiDangDemo(baiDang) &&
+                loaiInfo.value !== "invest" && (
                 <p className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-800">
                   ⏰ <b>Đã hết hạn từ {dinhDangNgay(thoiDiem.ketThuc)}.</b>{" "}
                   {viHienTai?.trang_thai === "Da_giai_ngan"
@@ -868,15 +1042,35 @@ const ChiTietBaiDang = () => {
               <button
                 type="button"
                 onClick={handleHoTro}
-                className="mt-5 w-full rounded-2xl bg-amber-400 px-6 py-3.5 text-sm font-extrabold text-gray-900 shadow-md ring-2 ring-amber-500/30 transition hover:scale-[1.02] hover:bg-amber-300 hover:shadow-lg active:scale-100"
+                disabled={khoaUngHo}
+                title={
+                  viDaGiaiNgan
+                    ? "Dự án đã được giải ngân — không nhận ủng hộ thêm"
+                    : viDaHoanTra
+                      ? "Dự án đã hoàn trả tiền cho người ủng hộ — không nhận ủng hộ thêm"
+                      : undefined
+                }
+                className={`mt-5 w-full rounded-2xl px-6 py-3.5 text-sm font-extrabold shadow-md ring-2 transition ${
+                  khoaUngHo
+                    ? "cursor-not-allowed bg-slate-300 text-slate-500 ring-slate-300/40"
+                    : "bg-amber-400 text-gray-900 ring-amber-500/30 hover:scale-[1.02] hover:bg-amber-300 hover:shadow-lg active:scale-100"
+                }`}
               >
-                {loaiInfo.actionLabel}
+                {viDaGiaiNgan
+                  ? "✅ Đã giải ngân — không nhận ủng hộ"
+                  : viDaHoanTra
+                    ? "↩ Đã hoàn trả — không nhận ủng hộ"
+                    : loaiInfo.actionLabel}
               </button>
 
               <p className="mt-3 text-center text-[11px] leading-5 text-gray-400">
                 {loaiInfo.value === "invest"
                   ? "Đầu tư được kết nối trực tiếp qua nhóm phát triển."
-                  : "Mọi đóng góp được ghi nhận minh bạch trong danh sách."}
+                  : khoaUngHo
+                    ? viDaGiaiNgan
+                      ? "Dự án đã được giải ngân — nút ủng hộ đã khóa."
+                      : "Dự án đã hoàn trả tiền — nút ủng hộ đã khóa."
+                    : "Mọi đóng góp được ghi nhận minh bạch trong danh sách."}
               </p>
 
               {/* Nút hỏi AI: mở Rising Bot + tự gửi yêu cầu đánh giá dự án */}

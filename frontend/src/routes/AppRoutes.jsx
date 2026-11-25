@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
+import HuongDanPopup from '../components/Common/HuongDanPopup';
 import TrangChu from '../pages/TrangChu';
 import DangKy from '../pages/Auth/DangKy';
 import DangNhap from '../pages/Auth/DangNhap';
@@ -24,6 +25,7 @@ import BaiDangCuaToi from "../pages/Post/BaiDangCuaToi";
 export default function AppRoutes() {
   return (
     <BrowserRouter>
+      <HuongDanPopup />
       <Routes>
         {/* Trang công khai */}
         <Route path="/" element={<TrangChu />} />

@@ -171,6 +171,7 @@ async def _thuc_hien_giao_dich(
     la_tang: bool,
     mo_ta: str = "",
     id_bai_dang: str | None = None,
+    id_khoan_gop: str | None = None,
 ) -> dict:
     """Core chuyển tiền của ví: ghi giao_dich + cập nhật so_du + ghi bien_dong.
 
@@ -208,6 +209,11 @@ async def _thuc_hien_giao_dich(
         "thoi_gian_hoan_tat": now,
     }
 
+    # Truy vết giao dịch hoàn trả về đúng khoản góp — giúp retry sau khi
+    # crash không hoàn tiền 2 lần cho cùng một khoản.
+    if id_khoan_gop and ObjectId.is_valid(id_khoan_gop):
+        giao_dich["id_khoan_gop"] = ObjectId(id_khoan_gop)
+
     result = await database["giao_dich"].insert_one(giao_dich)
     id_giao_dich_moi = result.inserted_id
 
@@ -240,12 +246,14 @@ async def nap_tien(
     mo_ta: str = "Nạp tiền vào ví",
     id_bai_dang: str | None = None,
     loai_giao_dich: str = "Nap_Tien",
+    id_khoan_gop: str | None = None,
 ) -> dict:
     """Nạp tiền vào ví - giao dịch loai_giao_dich = Nap_Tien (US13).
 
     Các luồng khác của hệ thống tái dùng hàm này với loại riêng:
     Giai_Ngan (admin chuyển tiền escrow cho người gọi vốn),
     Hoan_Tra (admin hoàn tiền người góp khi dự án hết hạn).
+    id_khoan_gop: gắn giao dịch Hoan_Tra với đúng khoản góp để retry an toàn.
     """
     if not mo_ta.strip():
         mo_ta = "Nạp tiền vào ví"
@@ -257,6 +265,7 @@ async def nap_tien(
         la_tang=True,
         mo_ta=mo_ta.strip(),
         id_bai_dang=id_bai_dang,
+        id_khoan_gop=id_khoan_gop,
     )
 
 

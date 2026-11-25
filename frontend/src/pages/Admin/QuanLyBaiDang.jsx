@@ -107,14 +107,16 @@ export default function QuanLyBaiDang() {
 
     try {
       if (hanh_dong === 'giai_ngan') {
-        await giaiNganVi(id);
+        const ket_qua = await giaiNganVi(id);
         tb.thanhCong(
-          `Đã giải ngân "${tieu_de}" — tiền đã chuyển vào ví người gọi vốn.`
+          `Đã giải ngân "${tieu_de}" — chủ dự án nhận ${tien(ket_qua?.so_tien_thuc_nhan)} ` +
+            `(phí nền tảng ${tien(ket_qua?.phi_nen_tang)}).`
         );
       } else {
         const ket_qua = await hoanTraVi(id);
         tb.thanhCong(
-          `Đã hoàn ${tien(ket_qua?.so_tien_hoan)} cho ${ket_qua?.so_nguoi_hoan ?? 0} người ủng hộ của "${tieu_de}".`
+          `Đã hoàn ${tien(ket_qua?.so_tien_hoan)} cho ${ket_qua?.so_nguoi_hoan ?? 0} người ủng hộ của "${tieu_de}" ` +
+            `(phí hoàn trả ${tien(ket_qua?.phi_hoan_tra)}).`
         );
       }
 
@@ -326,10 +328,17 @@ export default function QuanLyBaiDang() {
 
                       {/* Ví dự án (escrow): giải ngân khi đủ vốn, hoàn trả
                           khi hết hạn chưa đủ — BE chặn điều kiện, FE chỉ ẩn
-                          nút không phù hợp để admin không bấm nhầm */}
+                          nút không phù hợp để admin không bấm nhầm.
+                          Bài Đầu Tư liên hệ trực tiếp nên không giải ngân/hoàn trả. */}
                       {(() => {
                         const vi = vi_theo_bai[p.id];
-                        if (!vi || vi.trang_thai !== 'Tam_giu') return null;
+                        if (
+                          !vi ||
+                          vi.trang_thai !== 'Tam_giu' ||
+                          p.loai_bai_dang === 'Đầu Tư'
+                        ) {
+                          return null;
+                        }
 
                         return (
                           <>

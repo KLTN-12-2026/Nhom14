@@ -359,7 +359,9 @@ async def cap_nhat_bai_dang(id_bai_dang: str, du_lieu: dict,
     }
 
     if not du_lieu_moi:
-        return await lay_bai_dang_theo_id(id_bai_dang)
+        return await lay_bai_dang_theo_id(
+            id_bai_dang, id_nguoi_hien_tai=id_nguoi_dang
+        )
 
     if "thoi_gian_bat_dau" in du_lieu_moi:
         du_lieu_moi["thoi_gian_bat_dau"] = _date_to_datetime(
@@ -407,7 +409,9 @@ async def cap_nhat_bai_dang(id_bai_dang: str, du_lieu: dict,
             du_lieu["hinh_anh"] or []
         )
 
-    return await lay_bai_dang_theo_id(id_bai_dang)
+    return await lay_bai_dang_theo_id(
+        id_bai_dang, id_nguoi_hien_tai=id_nguoi_dang
+    )
 
 
 async def xoa_bai_dang(id_bai_dang: str, id_nguoi_dang: ObjectId) -> None:
@@ -463,13 +467,23 @@ async def duyet_bai_dang(id_bai_dang: str, hanh_dong: str,
     if not bai_dang:
         raise KhongTimThayBaiDangError("Không tìm thấy bài đăng.")
 
-    if bai_dang["trang_thai"] != "Cho_Duyet":
-        raise ValueError("Chỉ được duyệt bài đăng đang chờ duyệt.")
-
     if hanh_dong == "Tu_Choi" and not ly_do.strip():
         raise ValueError("Vui lòng nhập lý do từ chối.")
 
     trang_thai_moi = "Da_Duyet" if hanh_dong == "Duyet" else "Tu_Choi"
+
+    # Idempotent: request lặp (bấm 2 lần / timeout rồi retry / 2 tab) mà
+    # bài đã ở đúng trạng thái đích -> trả thành công, KHÔNG ghi trùng
+    # lịch sử, nhật ký hay gửi thông báo lần 2.
+    if bai_dang["trang_thai"] == trang_thai_moi:
+        return await lay_bai_dang_theo_id(id_bai_dang, la_quan_tri=True)
+
+    if bai_dang["trang_thai"] != "Cho_Duyet":
+        raise ValueError(
+            "Bài đăng không còn ở trạng thái chờ duyệt — có thể đã được "
+            "xử lý ở tab khác. Vui lòng làm mới danh sách."
+        )
+
     now = datetime.now(timezone.utc)
 
     await database["bai_dang"].update_one(
@@ -531,7 +545,9 @@ async def duyet_bai_dang(id_bai_dang: str, hanh_dong: str,
         # Thông báo là phụ trợ — lỗi không được làm sập duyệt bài
         pass
 
-    return await lay_bai_dang_theo_id(id_bai_dang)
+    # la_quan_tri=True: bài vừa bị từ chối là Tu_Choi, không công khai —
+    # thiếu cờ này sẽ làm lay_bai_dang_theo_id ném 404 dù DB đã cập nhật.
+    return await lay_bai_dang_theo_id(id_bai_dang, la_quan_tri=True)
 
 
 async def an_hien_bai_dang(
@@ -604,7 +620,7 @@ async def an_hien_bai_dang(
         except Exception:
             pass
 
-    return await lay_bai_dang_theo_id(id_bai_dang)
+    return await lay_bai_dang_theo_id(id_bai_dang, la_quan_tri=True)
 
 
 async def doc_lich_su_duyet(id_bai_dang: str) -> list:

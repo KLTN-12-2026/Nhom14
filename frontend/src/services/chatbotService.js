@@ -3,7 +3,7 @@
 // Schema đúng tài liệu DB:
 //   cuoc_hoi_thoai: _id, id_nguoi_dung, tieu_de, ngay_tao, ngay_cap_nhat
 //   tin_nhan_chatbot: _id, id_cuoc_hoi_thoai, loai_nguoi_gui,
-//                     noi_dung, ngay_tao
+//                     noi_dung, ngay_tao (+ hinh_anh: data URL khi có ảnh)
 
 import { goiApi, LOI_KHONG_KET_NOI } from './apiClient';
 
@@ -26,25 +26,40 @@ export async function layTinNhan(id_hoi_thoai) {
 
 // Gửi tin + nhận trả lời AI. BE luôn trả 200 (AI sự cố -> tin_chatbot
 // mang lời xin lỗi + canh_bao). BE tắt -> fallback demo cục bộ.
-export async function guiTin(noi_dung, id_hoi_thoai) {
+// hinh_anh: data URL JPEG/PNG/WEBP (FE đã nén) — AI đánh giá ảnh theo
+// bối cảnh dự án id_bai_dang đang xem.
+export async function guiTin(
+  noi_dung,
+  id_hoi_thoai,
+  hinh_anh = null,
+  id_bai_dang = null
+) {
   try {
     return await goiApi('/api/chatbot/tin-nhan', {
       method: 'POST',
-      body: { id_hoi_thoai: id_hoi_thoai || null, noi_dung },
+      body: {
+        id_hoi_thoai: id_hoi_thoai || null,
+        noi_dung: noi_dung || '',
+        hinh_anh: hinh_anh || null,
+        id_bai_dang: id_bai_dang || null,
+      },
     });
   } catch (error) {
     if (error.message !== LOI_KHONG_KET_NOI) throw error;
-    return tra_loi_demo(noi_dung, id_hoi_thoai);
+    return tra_loi_demo(noi_dung, id_hoi_thoai, hinh_anh);
   }
 }
 
 // ---- Fallback demo khi BE tắt: trả lời cục bộ theo từ khóa ----
 
-function tra_loi_demo(noi_dung, id_hoi_thoai) {
-  const tin = noi_dung.trim().toLowerCase();
+function tra_loi_demo(noi_dung, id_hoi_thoai, hinh_anh = null) {
+  const tin = (noi_dung || '').trim().toLowerCase();
 
   let tra_loi;
-  if (/chào|hello|hi\b/.test(tin)) {
+  if (hinh_anh) {
+    tra_loi =
+      'Mình đã nhận được ảnh 📷 Nhưng backend AI đang tắt nên chưa phân tích được. Khi backend bật (có GEMINI_API_KEY), gửi lại ảnh để mình đánh giá theo tình hình dự án nhé!';
+  } else if (/chào|hello|hi\b/.test(tin)) {
     tra_loi =
       'Xin chào! Mình là Rising Bot 🤖 — có thể giúp gì cho bạn về nền tảng Rising Idea?';
   } else if (/đăng|tạo.*bài|dự án/.test(tin)) {
@@ -71,11 +86,12 @@ function tra_loi_demo(noi_dung, id_hoi_thoai) {
 
   return {
     id_hoi_thoai: id_hoi_thoai || null,
-    tieu_de: (noi_dung || 'Hội thoại mới').trim().slice(0, 60),
+    tieu_de: (noi_dung || 'Đánh giá ảnh dự án').trim().slice(0, 60),
     tin_nguoi_dung: {
       id: `CN-${Date.now()}`,
       loai_nguoi_gui: 'Nguoi_Dung',
-      noi_dung: noi_dung.trim(),
+      noi_dung: (noi_dung || '').trim(),
+      hinh_anh: hinh_anh || null,
       ngay_tao: now,
     },
     tin_chatbot: {

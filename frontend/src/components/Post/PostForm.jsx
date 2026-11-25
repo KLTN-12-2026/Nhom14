@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Button from '../Button/Button';
 import { TYPE_OPTIONS } from '../../data/mockPosts';
+import { nenAnh, ANH_TOI_DA_BYTES } from '../../utils/anh';
 
 const emptyForm = {
   title: '',
@@ -62,15 +63,12 @@ export default function PostForm({
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > ANH_TOI_DA_BYTES) {
       setError('Ảnh phải có dung lượng không quá 5 MB.');
       event.target.value = '';
       return;
     }
 
-    // Nén ảnh trước khi lưu: BE từng lưu base64 thô (1 ảnh ~2MB) làm tràn
-    // cache localStorage của FE. Canvas thu nhỏ về tối đa 1280px + JPEG
-    // 0.8 -> ~100KB. Lỗi nén thì dùng data URL nguyên bản như cũ.
     nenAnh(file)
       .then((dataUrl) => {
         setForm((current) => ({ ...current, image: dataUrl }));
@@ -79,44 +77,6 @@ export default function PostForm({
       .catch(() => {
         setError('Không thể đọc ảnh. Vui lòng thử lại.');
       });
-  }
-
-  // Trả Promise<dataURL> — ảnh đã thu nhỏ + nén JPEG.
-  function nenAnh(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-
-      reader.onerror = () => reject(new Error('doc anh loi'));
-
-      reader.onload = () => {
-        try {
-          const img = new Image();
-
-          img.onerror = () => reject(new Error('tai anh loi'));
-          img.onload = () => {
-            try {
-              const TOI_DA = 1280;
-              const tiLe = Math.min(1, TOI_DA / Math.max(img.width, img.height));
-              const canvas = document.createElement('canvas');
-              canvas.width = Math.round(img.width * tiLe);
-              canvas.height = Math.round(img.height * tiLe);
-              canvas
-                .getContext('2d')
-                .drawImage(img, 0, 0, canvas.width, canvas.height);
-              resolve(canvas.toDataURL('image/jpeg', 0.8));
-            } catch {
-              resolve(String(reader.result));
-            }
-          };
-
-          img.src = String(reader.result);
-        } catch {
-          reject(new Error('nen anh loi'));
-        }
-      };
-
-      reader.readAsDataURL(file);
-    });
   }
 
   function handleSubmit(event) {

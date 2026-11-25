@@ -25,7 +25,9 @@ export async function layViBaiDang(postId) {
   }
 }
 
-// Admin giải ngân: chuyển toàn bộ tiền tạm giữ vào ví người gọi vốn.
+// Admin giải ngân: chuyển tiền tạm giữ cho người gọi vốn, trừ phí nền
+// tảng 3% trên tổng huy động (chủ dự án nhận 97%). Response có
+// phi_nen_tang / so_tien_thuc_nhan / ty_le_phi_nen_tang.
 // Yêu cầu bài đã đạt mục tiêu — BE chặn (409) nếu chưa đủ / đã xử lý.
 export async function giaiNgan(postId) {
   return goiApi(
@@ -35,6 +37,8 @@ export async function giaiNgan(postId) {
 }
 
 // Admin hoàn trả tiền cho từng người góp (bài hết hạn chưa đủ vốn).
+// Mỗi khoản hoàn 95%, nền tảng giữ 5% phí xử lý. Response có
+// so_tien_hoan (tổng NET), phi_hoan_tra, so_tien_gop_da_hoan (GROSS).
 export async function hoanTra(postId) {
   return goiApi(
     `/api/admin/bai-dang/${encodeURIComponent(postId)}/vi/hoan-tra`,

@@ -3,7 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.services import chatbot as dich_vu
-from app.services.chatbot import KhongTimThayHoiThoaiError
+from app.services.chatbot import (
+    KhongTimThayHoiThoaiError,
+    TinNhanKhongHopLeError,
+)
 from app.utils.auth import get_current_user
 
 
@@ -16,7 +19,12 @@ router = APIRouter(
 class GuiTinRequest(BaseModel):
     # null = tạo hội thoại mới; hội thoại đã có -> tiếp tục
     id_hoi_thoai: str | None = None
-    noi_dung: str = Field(min_length=1, max_length=2000)
+    # Cho phép gửi chỉ ảnh (noi_dung rỗng) — service kiểm tra ít nhất 1 nội dung
+    noi_dung: str = Field(default="", max_length=2000)
+    # Ảnh đính kèm dạng data URL (JPEG/PNG/WEBP, tối đa 3 MB)
+    hinh_anh: str | None = Field(default=None, max_length=6_000_000)
+    # Dự án đang xem — AI đánh giá ảnh theo đúng tình hình dự án
+    id_bai_dang: str | None = None
 
 
 @router.get("/hoi-thoai")
@@ -57,8 +65,15 @@ async def gui_tin(
     Luôn trả 200 — AI gặp sự cố thì tin_chatbot mang lời xin lỗi và
     canh_bao mô tả lỗi, tin người dùng vẫn được lưu.
     """
-    return await dich_vu.gui_tin_nhan(
-        current_user["_id"],
-        yeu_cau.id_hoi_thoai,
-        yeu_cau.noi_dung,
-    )
+    try:
+        return await dich_vu.gui_tin_nhan(
+            current_user["_id"],
+            yeu_cau.id_hoi_thoai,
+            yeu_cau.noi_dung,
+            hinh_anh=yeu_cau.hinh_anh,
+            id_bai_dang=yeu_cau.id_bai_dang,
+        )
+    except TinNhanKhongHopLeError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except KhongTimThayHoiThoaiError as error:
+        raise HTTPException(status_code=404, detail=str(error))

@@ -22,6 +22,8 @@ const LOAI_GIAO_DICH = {
   Nap_Tien: { nhan: "Nạp tiền", tang: true },
   Gop_Von: { nhan: "Góp vốn", tang: false },
   Quyen_Gop: { nhan: "Quyên góp", tang: false },
+  Dau_Tu: { nhan: "Đầu tư", tang: false },
+  Giai_Ngan: { nhan: "Giải ngân", tang: true },
   Hoan_Tra: { nhan: "Hoàn trả", tang: true },
 };
 

@@ -291,8 +291,21 @@ export default function BaiDangCuaToi() {
                       {post.description}
                     </p>
 
-                    {/* Thanh tiến độ + số tiền mục tiêu / đã huy động */}
-                    {post.goal ? (
+                    {/* Đầu tư: chỉ hiện số tiền cần đầu tư, không hiện tiến độ */}
+                    {loaiInfo.value === "invest" ? (
+                      post.goal ? (
+                        <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3">
+                          <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">
+                            Số tiền cần đầu tư
+                          </p>
+                          <p className="mt-1 text-lg font-extrabold text-gray-900">
+                            {formatMoney(post.goal)}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="mt-auto" />
+                      )
+                    ) : post.goal ? (
                       <div className="mt-4">
                         <div className="h-2 overflow-hidden rounded-full bg-gray-100">
                           <div

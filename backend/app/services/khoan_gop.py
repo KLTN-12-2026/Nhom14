@@ -2,6 +2,7 @@ from bson import ObjectId
 from datetime import datetime, timezone
 
 from app.config.database import database
+from app.config.tai_chinh import MONEY_MAX_GOP, MONEY_MIN_GOP
 from app.services import so_du as dich_vu_so_du
 from app.services import vi_bai_dang as dich_vu_vi
 from app.services.so_du import GiaTriKhongHopLeError, SoDuKhongDuError
@@ -53,6 +54,33 @@ def _iso(thoi_gian):
     return thoi_gian.isoformat() if thoi_gian else None
 
 
+def _validate_so_tien_gop(so_tien: float) -> float:
+    """Chặn số tiền ngoài khoảng 10.000 – 500.000.000 VND mỗi lần góp.
+
+    Kiểm tra ở service (không chỉ Pydantic) để mọi luồng gọi — kể cả
+    script nội bộ — đều nhận đúng quy tắc tài chính.
+    """
+    try:
+        so_tien = round(float(so_tien), 2)
+    except (TypeError, ValueError):
+        raise GiaTriKhongHopLeError("Số tiền không hợp lệ.")
+
+    if so_tien <= 0:
+        raise GiaTriKhongHopLeError("Số tiền phải lớn hơn 0.")
+
+    if so_tien < MONEY_MIN_GOP:
+        raise GiaTriKhongHopLeError(
+            f"Số tiền tối thiểu mỗi lần ủng hộ là {MONEY_MIN_GOP:,.0f} VND."
+        )
+
+    if so_tien > MONEY_MAX_GOP:
+        raise GiaTriKhongHopLeError(
+            f"Số tiền tối đa mỗi lần ủng hộ là {MONEY_MAX_GOP:,.0f} VND."
+        )
+
+    return so_tien
+
+
 def _chuan_hoa_gop(doc: dict, ten_nguoi_gop: str | None = None) -> dict:
     return {
         "id": str(doc["_id"]),
@@ -72,6 +100,13 @@ def _chuan_hoa_gop(doc: dict, ten_nguoi_gop: str | None = None) -> dict:
         "loi_nhac": doc.get("loi_nhac") or "",
         "so_huu_phan_tram": _so(doc.get("so_huu_phan_tram"), 0)
         if doc.get("so_huu_phan_tram") is not None
+        else None,
+        # Chỉ có sau khi khoản góp được hoàn trả (dự án thất bại)
+        "phi_hoan_tra": _so(doc.get("phi_hoan_tra"))
+        if doc.get("phi_hoan_tra") is not None
+        else None,
+        "so_tien_hoan": _so(doc.get("so_tien_hoan"))
+        if doc.get("so_tien_hoan") is not None
         else None,
     }
 
@@ -131,6 +166,7 @@ async def tao_khoan_gop(
     -> cộng so_tien_da_gop vào bài. Nếu trừ ví xong ghi khoản lỗi thì
     hoàn tiền lại (bù giao dịch Tang) để ví không bị mất oan.
     """
+    so_tien = _validate_so_tien_gop(so_tien)
     bai_dang = await _lay_bai_dang_duyet(id_bai_dang)
 
     loai_bai = bai_dang.get("loai_bai_dang", "")

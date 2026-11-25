@@ -54,9 +54,11 @@ const ViewCard = ({ post }) => {
           {loaiInfo.label}
         </span>
 
-        <span className="absolute right-3 bottom-3 rounded-full bg-gray-950/70 px-2.5 py-1 text-xs font-bold text-white backdrop-blur">
-          {tienDo}%
-        </span>
+        {loaiInfo.value !== "invest" && (
+          <span className="absolute right-3 bottom-3 rounded-full bg-gray-950/70 px-2.5 py-1 text-xs font-bold text-white backdrop-blur">
+            {tienDo}%
+          </span>
+        )}
 
         {/* Nhãn riêng cho bài đã quá thời hạn — báo trước khi người xem nhấn vào */}
         {hetHan && (
@@ -82,24 +84,35 @@ const ViewCard = ({ post }) => {
           {layNoiDung(post)}
         </p>
 
-        {/* Thanh tiến độ: màu gradient thương hiệu, số tiền góp / mục tiêu */}
-        <div className="mt-4">
-          <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-amber-400 to-violet-500 transition-all duration-500"
-              style={{ width: `${tienDo}%` }}
-            />
+        {/* Đầu tư: chỉ hiện số tiền cần đầu tư, không hiện tiến độ */}
+        {loaiInfo.value === "invest" ? (
+          <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">
+              Số tiền cần đầu tư
+            </p>
+            <p className="mt-1 text-lg font-extrabold text-gray-900">
+              {dinhDangTien(layMucTieu(post))} đ
+            </p>
           </div>
+        ) : (
+          <div className="mt-4">
+            <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-amber-400 to-violet-500 transition-all duration-500"
+                style={{ width: `${tienDo}%` }}
+              />
+            </div>
 
-          <div className="mt-2 flex flex-wrap items-baseline justify-between gap-1 text-sm">
-            <span className="font-extrabold text-gray-900">
-              {dinhDangTien(layTienDaGop(post))} đ
-            </span>
-            <span className="text-xs text-gray-500">
-              mục tiêu {dinhDangTien(layMucTieu(post))} đ
-            </span>
+            <div className="mt-2 flex flex-wrap items-baseline justify-between gap-1 text-sm">
+              <span className="font-extrabold text-gray-900">
+                {dinhDangTien(layTienDaGop(post))} đ
+              </span>
+              <span className="text-xs text-gray-500">
+                mục tiêu {dinhDangTien(layMucTieu(post))} đ
+              </span>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Dòng dưới cùng: trạng thái / hạn góp vốn + dẫn "Xem chi tiết" */}
         <div className="mt-auto flex items-center justify-between gap-2 border-t border-gray-100 pt-3 mt-3">

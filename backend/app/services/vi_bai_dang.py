@@ -4,6 +4,11 @@ from bson.decimal128 import Decimal128
 from datetime import datetime, timezone
 
 from app.config.database import database
+from app.config.tai_chinh import (
+    TY_LE_PHI_HOAN_TRA,
+    TY_LE_PHI_NEN_TANG,
+    tinh_phi,
+)
 from app.services.bai_dang import KhongTimThayBaiDangError, lay_ban_do_ten_nguoi_dang
 from app.services import so_du as dich_vu_so_du
 from app.services.thong_bao import tao_thong_bao
@@ -164,6 +169,10 @@ async def xem_vi(id_bai_dang: str) -> dict:
     tam_giu = _so(vi.get("so_tien_tam_giu"))
     da_giai_ngan = _so(vi.get("so_tien_da_giai_ngan"))
     da_hoan_tra = _so(vi.get("so_tien_da_hoan_tra"))
+    phi_nen_tang = _so(vi.get("phi_nen_tang"))
+    so_tien_thuc_nhan = _so(vi.get("so_tien_thuc_nhan"))
+    phi_hoan_tra = _so(vi.get("phi_hoan_tra"))
+    so_tien_hoan_nguoi_gop = _so(vi.get("so_tien_hoan_nguoi_gop"))
 
     # Tên người gọi vốn (ghép theo id như trang chi tiết)
     ban_do = await lay_ban_do_ten_nguoi_dang(
@@ -182,6 +191,15 @@ async def xem_vi(id_bai_dang: str) -> dict:
         "ten_nguoi_nhan": ban_do.get(str(bai_dang.get("id_nguoi_dang"))),
         "ngay_giai_ngan": _iso(vi.get("ngay_giai_ngan")),
         "ngay_hoan_tra": _iso(vi.get("ngay_hoan_tra")),
+        # Quy tắc tài chính: phí nền tảng 3% khi giải ngân, phí hoàn trả
+        # 5% khi dự án thất bại. da_giai_ngan / da_hoan_tra vẫn là số GỘP
+        # để "Tổng tiền nhận" luôn khớp tiến độ huy động.
+        "phi_nen_tang": round(phi_nen_tang, 2),
+        "so_tien_thuc_nhan": round(so_tien_thuc_nhan, 2),
+        "ty_le_phi_nen_tang": TY_LE_PHI_NEN_TANG,
+        "phi_hoan_tra": round(phi_hoan_tra, 2),
+        "so_tien_hoan_nguoi_gop": round(so_tien_hoan_nguoi_gop, 2),
+        "ty_le_phi_hoan_tra": TY_LE_PHI_HOAN_TRA,
     }
 
 
@@ -216,6 +234,15 @@ async def giai_ngan(id_bai_dang: str, id_nguoi_duyet: ObjectId) -> dict:
             "Ví dự án không còn tiền tạm giữ để giải ngân."
         )
 
+    # Phí nền tảng 3% trên tổng tiền huy động; chủ dự án nhận phần còn lại.
+    phi_nen_tang = tinh_phi(so_tien, TY_LE_PHI_NEN_TANG)
+    so_tien_thuc_nhan = round(so_tien - phi_nen_tang, 2)
+
+    if so_tien_thuc_nhan <= 0:
+        raise ViBaiDangError(
+            "Số tiền giải ngân sau khi trừ phí nền tảng không hợp lệ."
+        )
+
     # Khóa ví TRƯỚC (chuyển trạng thái, trừ tạm giữ) — tiền chuyển sau.
     now = datetime.now(timezone.utc)
     da_khoa = await database[COLLECTION].find_one_and_update(
@@ -230,7 +257,13 @@ async def giai_ngan(id_bai_dang: str, id_nguoi_duyet: ObjectId) -> dict:
                 "ngay_giai_ngan": now,
                 "ngay_cap_nhat": now,
             },
-            "$inc": {"so_tien_da_giai_ngan": round(so_tien, 2)},
+            "$inc": {
+                # da_giai_ngan giữ số GỘP để tổng tiền nhận khớp tiến độ;
+                # phí nền tảng + thực nhận là hai trường theo dõi riêng.
+                "so_tien_da_giai_ngan": round(so_tien, 2),
+                "phi_nen_tang": phi_nen_tang,
+                "so_tien_thuc_nhan": so_tien_thuc_nhan,
+            },
         },
     )
 
@@ -242,9 +275,13 @@ async def giai_ngan(id_bai_dang: str, id_nguoi_duyet: ObjectId) -> dict:
     try:
         ket_qua_nap = await dich_vu_so_du.nap_tien(
             id_nguoi_nhan,
-            so_tien,
+            so_tien_thuc_nhan,
             loai_giao_dich="Giai_Ngan",
-            mo_ta=f"Giải ngân cho dự án \"{tieu_de}\"",
+            mo_ta=(
+                f"Giải ngân cho dự án \"{tieu_de}\" "
+                f"(tổng {so_tien:,.0f} VND, phí nền tảng "
+                f"{TY_LE_PHI_NEN_TANG:.0%}: {phi_nen_tang:,.0f} VND)"
+            ),
             id_bai_dang=str(id_object),
         )
     except Exception:
@@ -257,7 +294,11 @@ async def giai_ngan(id_bai_dang: str, id_nguoi_duyet: ObjectId) -> dict:
                     "trang_thai": "Tam_giu",
                     "ngay_cap_nhat": datetime.now(timezone.utc),
                 },
-                "$inc": {"so_tien_da_giai_ngan": -round(so_tien, 2)},
+                "$inc": {
+                    "so_tien_da_giai_ngan": -round(so_tien, 2),
+                    "phi_nen_tang": -phi_nen_tang,
+                    "so_tien_thuc_nhan": -so_tien_thuc_nhan,
+                },
                 "$unset": {"ngay_giai_ngan": ""},
             },
         )
@@ -271,10 +312,28 @@ async def giai_ngan(id_bai_dang: str, id_nguoi_duyet: ObjectId) -> dict:
             tieu_de="Giải ngân thành công",
             noi_dung=(
                 f"Dự án \"{tieu_de}\" đã đạt mục tiêu. "
-                f"{so_tien:,.0f} VND đã chuyển vào ví của bạn."
+                f"{so_tien_thuc_nhan:,.0f} VND đã chuyển vào ví của bạn "
+                f"(tổng giải ngân {so_tien:,.0f} VND, phí nền tảng "
+                f"{TY_LE_PHI_NEN_TANG:.0%}: {phi_nen_tang:,.0f} VND)."
             ),
             loai_doi_tuong=f"bai_dang:{id_bai_dang}",
         )
+    except Exception:
+        pass
+
+    # Nhật ký quản trị: lưu rõ tổng giải ngân / phí / thực nhận để đối soát
+    try:
+        await database["nhat_ky_quan_tri"].insert_one({
+            "id_quan_tri_vien": id_nguoi_duyet,
+            "hanh_dong": "Giai_Ngan",
+            "loai_doi_tuong": f"bai_dang:{id_bai_dang}",
+            "ly_do": (
+                f"Giải ngân {so_tien:,.0f} VND; phí nền tảng "
+                f"{TY_LE_PHI_NEN_TANG:.0%} {phi_nen_tang:,.0f} VND; "
+                f"thực nhận {so_tien_thuc_nhan:,.0f} VND"
+            ),
+            "ngay_tao": now,
+        })
     except Exception:
         pass
 
@@ -282,6 +341,10 @@ async def giai_ngan(id_bai_dang: str, id_nguoi_duyet: ObjectId) -> dict:
         "vi": await xem_vi(id_bai_dang),
         "giao_dich": ket_qua_nap["giao_dich"],
         "vi_nguoi_nhan": ket_qua_nap["vi"],
+        "so_tien_gop": round(so_tien, 2),
+        "phi_nen_tang": phi_nen_tang,
+        "so_tien_thuc_nhan": so_tien_thuc_nhan,
+        "ty_le_phi_nen_tang": TY_LE_PHI_NEN_TANG,
     }
 
 
@@ -328,49 +391,124 @@ async def hoan_tra(id_bai_dang: str, id_nguoi_duyet: ObjectId) -> dict:
             "Ví dự án không còn tiền tạm giữ để hoàn trả."
         )
 
-    # Quét 3 collection khoản góp của bài, hoàn từng người
+    # Quét 3 collection khoản góp của bài, hoàn từng người.
+    # Mỗi khoản: người góp nhận 95%, nền tảng giữ 5% phí xử lý hoàn trả.
     collection_gop = ["khoan_gop_von", "khoan_quyen_gop", "khoan_dau_tu"]
-    so_nguoi_hoan = 0
-    so_tien_hoan = 0.0
     loi_hoan: list = []
+    so_khoan_hoan_thanh_cong = 0
+    now = datetime.now(timezone.utc)
 
     for ten_collection in collection_gop:
         cursor = database[ten_collection].find({
             "id_bai_dang": id_object,
-            "trang_thai": "Thanh_cong",
+            "trang_thai": {"$in": ["Thanh_cong", "Dang_Hoan_Tra"]},
         })
 
         async for khoan in cursor:
             id_nguoi_gop = khoan.get("id_nguoi_gop")
-            so_tien = _so(khoan.get("so_tien"))
+            so_tien_gop = _so(khoan.get("so_tien"))
 
-            if not id_nguoi_gop or so_tien <= 0:
+            if not id_nguoi_gop or so_tien_gop <= 0:
+                continue
+
+            phi_hoan_tra = tinh_phi(so_tien_gop, TY_LE_PHI_HOAN_TRA)
+            so_tien_hoan = round(so_tien_gop - phi_hoan_tra, 2)
+
+            # Khoản đang Dang_Hoan_Tra = lần chạy trước có thể đã chuyển
+            # tiền nhưng crash trước khi cập nhật khoản góp. Kiểm tra
+            # giao dịch gắn đúng id_khoan_gop:
+            #   - có  -> chỉ chốt trạng thái, KHÔNG chuyển tiền lần 2.
+            #   - không -> mở lại Thanh_cong rồi xử lý bình thường.
+            if khoan.get("trang_thai") == "Dang_Hoan_Tra":
+                giao_dich_cu = await database["giao_dich"].find_one({
+                    "id_khoan_gop": khoan["_id"],
+                    "loai_giao_dich": "Hoan_Tra",
+                })
+
+                if giao_dich_cu:
+                    await database[ten_collection].update_one(
+                        {"_id": khoan["_id"], "trang_thai": "Dang_Hoan_Tra"},
+                        {
+                            "$set": {
+                                "trang_thai": "Da_Hoan_Tra",
+                                "phi_hoan_tra": dich_vu_so_du._tien(
+                                    phi_hoan_tra
+                                ),
+                                "so_tien_hoan": dich_vu_so_du._tien(
+                                    so_tien_hoan
+                                ),
+                                "id_giao_dich_hoan_tra": giao_dich_cu["_id"],
+                                "ngay_cap_nhat": now,
+                            }
+                        },
+                    )
+                    so_khoan_hoan_thanh_cong += 1
+                    continue
+
+                await database[ten_collection].update_one(
+                    {"_id": khoan["_id"], "trang_thai": "Dang_Hoan_Tra"},
+                    {
+                        "$set": {
+                            "trang_thai": "Thanh_cong",
+                            "ngay_cap_nhat": now,
+                        }
+                    },
+                )
+
+            # Claim khoản góp trước khi chuyển tiền: bấm hoàn trả 2 lần
+            # hoặc 2 admin cùng thao tác sẽ không cộng tiền 2 lần.
+            da_claim = await database[ten_collection].find_one_and_update(
+                {"_id": khoan["_id"], "trang_thai": "Thanh_cong"},
+                {
+                    "$set": {
+                        "trang_thai": "Dang_Hoan_Tra",
+                        "ngay_cap_nhat": now,
+                    }
+                },
+            )
+            if not da_claim:
                 continue
 
             try:
-                await dich_vu_so_du.nap_tien(
+                ket_qua_nap = await dich_vu_so_du.nap_tien(
                     id_nguoi_gop,
-                    so_tien,
+                    so_tien_hoan,
                     loai_giao_dich="Hoan_Tra",
                     mo_ta=(
                         f"Hoàn tiền — dự án \"{tieu_de}\" hết hạn "
-                        "chưa đủ vốn"
+                        f"chưa đủ vốn (phí hoàn trả "
+                        f"{TY_LE_PHI_HOAN_TRA:.0%}: {phi_hoan_tra:,.0f} VND)"
                     ),
                     id_bai_dang=str(id_object),
+                    id_khoan_gop=str(khoan["_id"]),
                 )
-            except Exception as error:
+            except Exception:
+                # Chuyển tiền lỗi -> trả khoản về Thanh_cong để lần sau thử lại
+                await database[ten_collection].update_one(
+                    {"_id": khoan["_id"], "trang_thai": "Dang_Hoan_Tra"},
+                    {
+                        "$set": {
+                            "trang_thai": "Thanh_cong",
+                            "ngay_cap_nhat": now,
+                        }
+                    },
+                )
                 loi_hoan.append(str(id_nguoi_gop))
                 continue
 
-            so_nguoi_hoan += 1
-            so_tien_hoan += so_tien
+            so_khoan_hoan_thanh_cong += 1
 
             await database[ten_collection].update_one(
                 {"_id": khoan["_id"]},
                 {
                     "$set": {
                         "trang_thai": "Da_Hoan_Tra",
-                        "ngay_cap_nhat": datetime.now(timezone.utc),
+                        "phi_hoan_tra": dich_vu_so_du._tien(phi_hoan_tra),
+                        "so_tien_hoan": dich_vu_so_du._tien(so_tien_hoan),
+                        "id_giao_dich_hoan_tra": ObjectId(
+                            ket_qua_nap["giao_dich"]["id"]
+                        ),
+                        "ngay_cap_nhat": now,
                     }
                 },
             )
@@ -383,7 +521,9 @@ async def hoan_tra(id_bai_dang: str, id_nguoi_duyet: ObjectId) -> dict:
                     tieu_de="Hoàn tiền ủng hộ",
                     noi_dung=(
                         f"Dự án \"{tieu_de}\" đã hết hạn chưa đủ vốn. "
-                        f"{so_tien:,.0f} VND đã hoàn lại vào ví của bạn."
+                        f"{so_tien_hoan:,.0f} VND đã hoàn lại vào ví của bạn "
+                        f"(phí xử lý hoàn trả {TY_LE_PHI_HOAN_TRA:.0%}: "
+                        f"{phi_hoan_tra:,.0f} VND)."
                     ),
                     loai_doi_tuong=f"bai_dang:{id_bai_dang}",
                 )
@@ -392,11 +532,39 @@ async def hoan_tra(id_bai_dang: str, id_nguoi_duyet: ObjectId) -> dict:
 
     if loi_hoan:
         raise ViBaiDangError(
-            f"Hoàn trả được {so_nguoi_hoan} khoản, còn "
+            f"Hoàn trả được {so_khoan_hoan_thanh_cong} khoản, còn "
             f"{len(loi_hoan)} khoản lỗi. Vui lòng thử lại."
         )
 
-    now = datetime.now(timezone.utc)
+    # Tổng hợp lại TOÀN BỘ khoản đã hoàn (kể cả lần chạy trước nếu retry)
+    # để ví dự án và số liệu trả về luôn khớp, không cộng dồn sai.
+    id_nguoi_da_hoan = set()
+    tong_gop_da_hoan = 0.0
+    tong_phi_hoan = 0.0
+    tong_net_da_hoan = 0.0
+
+    for ten_collection in collection_gop:
+        cursor = database[ten_collection].find({
+            "id_bai_dang": id_object,
+            "trang_thai": "Da_Hoan_Tra",
+        })
+        async for khoan in cursor:
+            so_gop = _so(khoan.get("so_tien"))
+            phi = _so(khoan.get("phi_hoan_tra"))
+            net = _so(
+                khoan.get("so_tien_hoan"),
+                round(so_gop - phi, 2),
+            )
+            id_nguoi_gop = khoan.get("id_nguoi_gop")
+            if id_nguoi_gop:
+                id_nguoi_da_hoan.add(str(id_nguoi_gop))
+            tong_gop_da_hoan += so_gop
+            tong_phi_hoan += phi
+            tong_net_da_hoan += net
+
+    # Đếm NGƯỜI được hoàn (một người góp nhiều lần vẫn là 1 người)
+    so_nguoi_hoan = len(id_nguoi_da_hoan)
+
     await database[COLLECTION].update_one(
         {"_id": vi["_id"]},
         {
@@ -405,18 +573,22 @@ async def hoan_tra(id_bai_dang: str, id_nguoi_duyet: ObjectId) -> dict:
                 "trang_thai": "Da_hoan_tra",
                 "ngay_hoan_tra": now,
                 "ngay_cap_nhat": now,
-            },
-            "$inc": {"so_tien_da_hoan_tra": round(so_tien_hoan, 2)},
+                # da_hoan_tra giữ số GỘP; phí + thực nhận theo dõi riêng
+                "so_tien_da_hoan_tra": round(tong_gop_da_hoan, 2),
+                "phi_hoan_tra": round(tong_phi_hoan, 2),
+                "so_tien_hoan_nguoi_gop": round(tong_net_da_hoan, 2),
+            }
         },
     )
 
     # Tiến độ huy động của bài về 0 — tiền đã trả lại hết cho người ủng hộ.
-    # Dùng $inc trừ đúng số hoàn (giữ kiểu Decimal128 của so_tien_da_gop)
     await database["bai_dang"].update_one(
         {"_id": id_object},
         {
-            "$inc": {"so_tien_da_gop": -round(so_tien_hoan, 2)},
-            "$set": {"ngay_cap_nhat": now},
+            "$set": {
+                "so_tien_da_gop": 0.0,
+                "ngay_cap_nhat": now,
+            }
         },
     )
 
@@ -430,16 +602,38 @@ async def hoan_tra(id_bai_dang: str, id_nguoi_duyet: ObjectId) -> dict:
                 tieu_de="Dự án hết hạn — đã hoàn tiền người ủng hộ",
                 noi_dung=(
                     f"Dự án \"{tieu_de}\" kết thúc chưa đạt mục tiêu. "
-                    f"Toàn bộ {so_tien_hoan:,.0f} VND đã hoàn lại cho "
-                    "người ủng hộ."
+                    f"Tổng {tong_gop_da_hoan:,.0f} VND đã được hoàn lại "
+                    f"cho người ủng hộ ({tong_net_da_hoan:,.0f} VND sau "
+                    f"phí xử lý {TY_LE_PHI_HOAN_TRA:.0%}: "
+                    f"{tong_phi_hoan:,.0f} VND)."
                 ),
                 loai_doi_tuong=f"bai_dang:{id_bai_dang}",
             )
     except Exception:
         pass
 
+    # Nhật ký quản trị: đối soát tổng hoàn / phí / thực nhận
+    try:
+        await database["nhat_ky_quan_tri"].insert_one({
+            "id_quan_tri_vien": id_nguoi_duyet,
+            "hanh_dong": "Hoan_Tra",
+            "loai_doi_tuong": f"bai_dang:{id_bai_dang}",
+            "ly_do": (
+                f"Hoàn trả {so_nguoi_hoan} khoản; tổng góp "
+                f"{tong_gop_da_hoan:,.0f} VND; phí hoàn trả "
+                f"{TY_LE_PHI_HOAN_TRA:.0%} {tong_phi_hoan:,.0f} VND; "
+                f"người góp thực nhận {tong_net_da_hoan:,.0f} VND"
+            ),
+            "ngay_tao": now,
+        })
+    except Exception:
+        pass
+
     return {
         "so_nguoi_hoan": so_nguoi_hoan,
-        "so_tien_hoan": round(so_tien_hoan, 2),
+        "so_tien_hoan": round(tong_net_da_hoan, 2),
+        "so_tien_gop_da_hoan": round(tong_gop_da_hoan, 2),
+        "phi_hoan_tra": round(tong_phi_hoan, 2),
+        "ty_le_phi_hoan_tra": TY_LE_PHI_HOAN_TRA,
         "vi": await xem_vi(id_bai_dang),
     }
