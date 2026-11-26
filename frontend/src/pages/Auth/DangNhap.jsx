@@ -46,6 +46,12 @@ export default function DangNhap() {
       return;
     }
 
+    // Tên tài khoản không được chứa dấu cách ở giữa (vd "ten tk")
+    if (/\s/.test(taiKhoan)) {
+      tb.loiModal("Tên tài khoản không được chứa dấu cách!");
+      return;
+    }
+
     if (!matKhau) {
       tb.loiModal("Bạn chưa nhập mật khẩu!");
       return;

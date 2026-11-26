@@ -449,8 +449,11 @@ export default function NapSoDu() {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
           onMouseDown={(e) => {
+            // Click ra ngoài chỉ ĐÓNG modal — KHÔNG huỷ yêu cầu nạp tiền.
+            // Người dùng có thể mở lại QR từ lịch sử; muốn huỷ phải bấm
+            // nút "Huỷ yêu cầu" bên trong modal.
             if (e.target === e.currentTarget && !dang_huy) {
-              handleHuyYeuCau();
+              setYeuCau(null);
             }
           }}
         >

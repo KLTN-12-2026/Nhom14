@@ -2,7 +2,7 @@ import ViewCard from "./ViewCard";
 
 // Lưới thẻ bài đăng: 1 cột trên điện thoại, 2 cột trên máy tính bảng,
 // 3 cột trên màn hình lớn — khớp lưới card của trang chủ.
-const ViewList = ({ posts = [] }) => {
+const ViewList = ({ posts = [], trangThaiVi = {} }) => {
   if (!posts.length) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 p-16 text-center">
@@ -20,7 +20,7 @@ const ViewList = ({ posts = [] }) => {
   return (
     <div className="grid gap-6 p-4 sm:grid-cols-2 sm:p-6 xl:grid-cols-3">
       {posts.map((post) => (
-        <ViewCard key={post._id || post.id} post={post} />
+        <ViewCard key={post._id || post.id} post={post} trangThaiVi={trangThaiVi} />
       ))}
     </div>
   );

@@ -15,6 +15,7 @@ import { taoToCao, LY_DO_TO_CAO } from "../../services/toCaoService";
 import { tb } from "../../services/thongBaoService";
 import { themThongBao } from "../../services/chuongService";
 import { ghiNhatKyQuanLy } from "../../services/adminService";
+import { layDanhSachTaiLieu, urlTaiLieu } from "../../services/taiLieuService";
 import {
   giaiNgan as giaiNganBE,
   hoanTra as hoanTraBE,
@@ -136,6 +137,29 @@ const ChiTietBaiDang = () => {
   // Danh sách người góp: tải bản thật từ BE (nếu là bài MongoDB) vào cache
   // — chạy khi mở trang và mỗi lần góp thành công (lanLamMoi tăng).
   const postIdHienTai = layMaBaiDang(baiDang);
+
+  // Tài liệu đính kèm (PDF/Word) lưu trên BE qua GridFS — chỉ lấy metadata
+  // (tên file + link tải), không kéo nội dung file vào trang.
+  const [taiLieu, setTaiLieu] = useState([]);
+
+  useEffect(() => {
+    if (!postIdHienTai) return undefined;
+
+    let tiepTuc = true;
+    // Bài demo không có ví/tài liệu trên BE -> API trả lỗi, tự set rỗng
+    layDanhSachTaiLieu(postIdHienTai)
+      .then((danhSach) => {
+        if (tiepTuc) setTaiLieu(Array.isArray(danhSach) ? danhSach : []);
+      })
+      .catch(() => {
+        // BE tắt / chưa có tài liệu -> không hiện khối này
+        if (tiepTuc) setTaiLieu([]);
+      });
+
+    return () => {
+      tiepTuc = false;
+    };
+  }, [postIdHienTai, lanLamMoi]);
 
   useEffect(() => {
     if (!postIdHienTai || laBaiDangDemo(baiDang)) return;
@@ -307,7 +331,7 @@ const ChiTietBaiDang = () => {
       <div className="flex min-h-screen flex-col bg-slate-50">
         <Navbar />
 
-        <main className="flex flex-1 flex-col items-center justify-center gap-4 p-16 text-center">
+        <main className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center sm:p-16">
           <span className="text-5xl" aria-hidden="true">🏗️</span>
           <h1 className="text-xl font-bold text-gray-900">
             Không tìm thấy bài đăng
@@ -683,6 +707,52 @@ const ChiTietBaiDang = () => {
                 {layNoiDung(baiDang)}
               </p>
             </section>
+
+            {/* Tài liệu dự án — đặt ngay sau mô tả, trước danh sách góp vốn /
+                quyên góp. Bài Đầu Tư không có danh sách góp nên cũng hiện ở đây. */}
+            {taiLieu.length > 0 && (
+              <section className="mt-6 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="text-sm font-bold text-gray-900">
+                  Tài liệu dự án
+                  <span className="ml-2 font-semibold text-gray-500">
+                    ({taiLieu.length})
+                  </span>
+                </h2>
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Tài liệu do người gọi vốn đính kèm để bạn tìm hiểu thêm.
+                </p>
+
+                <ul className="mt-3 space-y-2">
+                  {taiLieu.map((tep) => (
+                    <li key={tep.id}>
+                      <a
+                        href={urlTaiLieu(tep.id)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-slate-50 px-4 py-3 transition hover:border-amber-300 hover:bg-amber-50/50"
+                      >
+                        <span className="text-xl" aria-hidden="true">📕</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-bold text-gray-900">
+                            {tep.ten_file}
+                          </span>
+                          <span className="text-[11px] text-gray-500">
+                            {String(tep.loai_file).toUpperCase()} ·{" "}
+                            {new Intl.NumberFormat("vi-VN").format(
+                              Math.round(tep.kich_thuoc / 1024)
+                            )}{" "}
+                            KB
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-xs font-bold text-amber-600">
+                          Tải xuống ↓
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
             {/* Danh sách người đã góp — chỉ cho Góp vốn / Quyên góp.
                 Loại Đầu Tư liên hệ trực tiếp nên không có danh sách góp. */}

@@ -6,6 +6,10 @@ import { nenAnh, ANH_TOI_DA_BYTES } from '../../utils/anh';
 
 const ANH_TOI_DA = 10;
 
+// Tài liệu đính kèm trong phần mô tả — chỉ nhận PDF, upload qua BE/GridFS
+const LOAI_TAI_LIEU = ['application/pdf'];
+const TAI_LIEU_TOI_DA_BYTES = 10 * 1024 * 1024; // 10 MB
+
 const emptyForm = {
   title: '',
   type: 'crowdfund',
@@ -14,6 +18,8 @@ const emptyForm = {
   goal: '',
   deadline: '',
   images: [],
+  taiLieu: '',
+  tenTaiLieu: '',
 };
 
 function chuanHoaDanhSachAnh(data) {
@@ -67,6 +73,8 @@ export default function PostForm({
   // không cần useEffect (tránh lỗi react-hooks/set-state-in-effect).
   const [form, setForm] = useState(() => khoiTaoForm(initialData));
   const [error, setError] = useState('');
+  // File PDF thật — caller upload qua BE sau khi bài có id (không đọc base64)
+  const [tepTaiLieu, setTepTaiLieu] = useState(null);
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -129,6 +137,37 @@ export default function PostForm({
     });
   }
 
+  function handleTaiLieuChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const hopLe =
+      LOAI_TAI_LIEU.includes(file.type) || /\.pdf$/i.test(file.name);
+    if (!hopLe) {
+      setError('Vui lòng chọn tệp PDF (.pdf).');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > TAI_LIEU_TOI_DA_BYTES) {
+      setError('Tài liệu phải có dung lượng không quá 10 MB.');
+      event.target.value = '';
+      return;
+    }
+
+    setTepTaiLieu(file);
+    setForm((current) => ({ ...current, tenTaiLieu: file.name }));
+    setError('');
+  }
+
+  function xoaTaiLieu(event) {
+    setTepTaiLieu(null);
+    setForm((current) => ({ ...current, taiLieu: '', tenTaiLieu: '' }));
+    if (event.currentTarget.form?.elements?.taiLieuFile) {
+      event.currentTarget.form.elements.taiLieuFile.value = '';
+    }
+  }
+
   function handleSubmit(event) {
     event.preventDefault();
     setError('');
@@ -148,6 +187,7 @@ export default function PostForm({
     onSubmit({
       ...form,
       goal,
+      tepTaiLieu,
     });
   }
 
@@ -238,6 +278,39 @@ export default function PostForm({
         <p className="mt-1 text-right text-xs text-gray-500">
           {form.description.length}/5000 ký tự
         </p>
+
+        {/* Tài liệu đính kèm: bổ sung cho phần mô tả, chỉ nhận PDF */}
+        <div className="mt-4 rounded-xl border border-dashed border-gray-300 bg-slate-50/60 p-4">
+          <label
+            htmlFor="taiLieuFile"
+            className="mb-2 block text-sm font-semibold text-gray-800"
+          >
+            Tài liệu đính kèm (PDF)
+          </label>
+          <input
+            id="taiLieuFile"
+            name="taiLieuFile"
+            type="file"
+            accept=".pdf,application/pdf"
+            onChange={handleTaiLieuChange}
+            className="block w-full text-sm text-gray-600 file:mr-4 file:rounded-md file:border-0 file:bg-yellow-100 file:px-4 file:py-2 file:font-semibold hover:file:bg-yellow-200"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Tùy chọn — chỉ nhận file PDF (kế hoạch, báo cáo...), tối đa 10 MB.
+          </p>
+
+          {tepTaiLieu && (
+            <div className="mt-3 flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2">
+              <span className="text-lg" aria-hidden="true">📕</span>
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-800">
+                {form.tenTaiLieu}
+              </span>
+              <Button variant="link" type="button" onClick={xoaTaiLieu}>
+                Xóa tệp
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div>

@@ -44,7 +44,6 @@ function ThongTinCaNhan() {
   );
   const [nguon_be, setNguonBe] = useState(false); // đúng hồ sơ từ MongoDB
   const [dang_luu, setDangLuu] = useState(false);
-  const [loi, setLoi] = useState("");
 
   // Mở trang: hồ sơ chuẩn từ BE (MongoDB) + số dư chuẩn từ module Ví
   useEffect(() => {
@@ -81,24 +80,36 @@ function ThongTinCaNhan() {
       ...form,
       [e.target.name]: e.target.value,
     });
-    setLoi("");
   };
 
   async function handleSubmit(e) {
     e.preventDefault();
 
     if (Object.values(form).some((value) => !value || !value.trim())) {
-      setLoi("Vui lòng nhập đầy đủ thông tin!");
+      tb.loiModal("Vui lòng nhập đầy đủ thông tin!");
+      return;
+    }
+
+    // Dấu cách thừa ở đầu/cuối các ô text — báo bằng modal cho đồng bộ với
+    // luồng Đăng ký/Đăng nhập (không âm thầm trim như trước).
+    if (
+      ["ho_ten", "email", "dien_thoai"].some(
+        (k) => form[k] !== form[k].trim()
+      )
+    ) {
+      tb.loiModal(
+        "Thông tin có chứa dấu cách thừa ở đầu hoặc cuối. Vui lòng kiểm tra lại!"
+      );
       return;
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      setLoi("Email không hợp lệ!");
+      tb.loiModal("Email không hợp lệ (ví dụ: ten@gmail.com)!");
       return;
     }
 
     if (!/^[0-9]{10,11}$/.test(form.dien_thoai)) {
-      setLoi("Số điện thoại phải có 10 hoặc 11 chữ số!");
+      tb.loiModal("Số điện thoại phải có 10 hoặc 11 chữ số!");
       return;
     }
 
@@ -111,7 +122,7 @@ function ThongTinCaNhan() {
       namSinh.getFullYear() < 1900 ||
       namSinh.getFullYear() >= namHienTai - 10
     ) {
-      setLoi("Năm sinh không hợp lệ! Người dùng phải trên 10 tuổi.");
+      tb.loiModal("Năm sinh không hợp lệ! Người dùng phải trên 10 tuổi.");
       return;
     }
 
@@ -121,7 +132,7 @@ function ThongTinCaNhan() {
       const ket_qua = await capNhatHoSo(form);
 
       if (!ket_qua.thanhCong) {
-        setLoi(ket_qua.loi);
+        tb.loiModal(ket_qua.loi);
         return;
       }
 
@@ -129,7 +140,7 @@ function ThongTinCaNhan() {
       setUser(getUser());
       tb.thanhCong("Cập nhật thông tin thành công!");
     } catch (error) {
-      setLoi(`Cập nhật thất bại: ${error?.message || "lỗi không xác định"}`);
+      tb.loiModal(`Cập nhật thất bại: ${error?.message || "lỗi không xác định"}`);
     } finally {
       setDangLuu(false);
     }
@@ -321,15 +332,6 @@ function ThongTinCaNhan() {
               className={inputClass}
             />
           </div>
-
-          {loi && (
-            <p
-              className="mt-5 rounded-xl bg-rose-50 px-4 py-2.5 text-center text-sm font-semibold text-rose-600"
-              role="alert"
-            >
-              {loi}
-            </p>
-          )}
 
           <Button
             type="submit"

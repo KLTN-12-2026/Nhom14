@@ -1,4 +1,5 @@
 
+import re
 from datetime import datetime, time, timezone
 
 from bson import ObjectId
@@ -17,6 +18,10 @@ class InvalidCredentialsError(Exception):
     pass
 
 
+class ThongTinKhongHopLeError(Exception):
+    """Định dạng tên tài khoản / email không hợp lệ."""
+
+
 class TaiKhoanBiKhoaError(Exception):
     """Đăng nhập bị chặn vì tài khoản bị khóa (PB17)."""
     pass
@@ -24,6 +29,19 @@ class TaiKhoanBiKhoaError(Exception):
 
 async def register_user(user_data: dict) -> dict:
     collection = database["nguoi_dung"]
+
+    # Khớp FE: tên tài khoản không chứa dấu cách, email đúng định dạng —
+    # FE báo modal, BE cũng chặn để API trực tiếp không lọt dữ liệu rác.
+    ten = str(user_data.get("ten_tk") or "").strip()
+    mail = str(user_data.get("email") or "").strip()
+    if not ten or any(c.isspace() for c in ten):
+        raise ThongTinKhongHopLeError(
+            "Tên tài khoản không được chứa dấu cách!"
+        )
+    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", mail):
+        raise ThongTinKhongHopLeError(
+            "Email chưa đúng định dạng (ví dụ: ten@gmail.com)!"
+        )
 
     checks = [
         ("email", user_data["email"], "Email đã được sử dụng."),

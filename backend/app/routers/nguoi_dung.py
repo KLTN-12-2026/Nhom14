@@ -18,7 +18,8 @@ from app.services.nguoi_dung import (
     change_password,
     DuplicateUserError,
     InvalidCredentialsError,
-    TaiKhoanBiKhoaError
+    TaiKhoanBiKhoaError,
+    ThongTinKhongHopLeError,
 )
 
 from app.utils.auth import get_current_user
@@ -56,6 +57,12 @@ async def register(user_data: NguoiDungRegister):
     except DuplicateUserError as error:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
+            detail=str(error)
+        )
+
+    except ThongTinKhongHopLeError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(error)
         )
 

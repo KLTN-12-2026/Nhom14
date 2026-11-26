@@ -462,7 +462,12 @@ export default function QuanLyBaiDang() {
                   {nhat_ky.slice(0, 10).map((dong) => (
                     <tr key={dong.id} className="border-t border-slate-100">
                       <td className="p-4">{new Date(dong.ngay_tao).toLocaleString('vi-VN')}</td>
-                      <td className="p-4">@{dong.id_quan_tri_vien || '—'}</td>
+                      <td className="p-4">
+                        {dong.ho_ten_quan_tri_vien ||
+                          (dong.id_quan_tri_vien
+                            ? `@${dong.id_quan_tri_vien}`
+                            : '—')}
+                      </td>
                       <td className="p-4 font-semibold">{dong.hanh_dong}</td>
                       <td className="p-4">{dong.loai_doi_tuong}</td>
                       <td className="p-4 text-slate-600">{dong.ly_do || '—'}</td>

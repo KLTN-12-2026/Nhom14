@@ -240,7 +240,7 @@ const ChatbotAI = () => {
         <div
           role="dialog"
           aria-label="Trợ lý AI Rising Bot"
-          className="fixed bottom-24 right-6 z-50 flex h-[540px] w-[380px] max-w-[92vw] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+          className="fixed bottom-24 right-6 z-50 flex h-[min(680px,calc(100vh-8rem))] w-[460px] max-w-[94vw] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
         >
           {/* Đầu khung */}
           <div className="flex items-center gap-2.5 border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur">

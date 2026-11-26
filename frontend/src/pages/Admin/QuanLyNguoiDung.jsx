@@ -300,7 +300,12 @@ export default function QuanLyNguoiDung() {
                   {nhat_ky.map((dong) => (
                     <tr key={dong.id} className="border-t border-slate-100">
                       <td className="p-4">{ngay(dong.ngay_tao)}</td>
-                      <td className="p-4">@{dong.id_quan_tri_vien || '—'}</td>
+                      <td className="p-4">
+                        {dong.ho_ten_quan_tri_vien ||
+                          (dong.id_quan_tri_vien
+                            ? `@${dong.id_quan_tri_vien}`
+                            : '—')}
+                      </td>
                       <td className="p-4 font-semibold">{dong.hanh_dong}</td>
                       <td className="p-4">{dong.loai_doi_tuong}</td>
                       <td className="p-4 text-slate-600">{dong.ly_do || '—'}</td>

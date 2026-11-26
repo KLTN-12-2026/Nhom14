@@ -235,16 +235,38 @@ async def mo_khoa_tai_khoan(
 
 
 async def doc_nhat_ky() -> list:
-    """Nhật ký quản trị (nhat_ky_quan_tri) mới nhất trước."""
+    """Nhật ký quản trị (nhat_ky_quan_tri) mới nhất trước.
+
+    Trả thêm ho_ten_quan_tri_vien để FE hiển thị tên người đã thao tác
+    thay vì ObjectId (@6af0...). Dùng 1 query lấy bản đồ id -> họ tên.
+    """
     cursor = database["nhat_ky_quan_tri"].find({}).sort("ngay_tao", -1)
 
+    dong_list = await cursor.to_list(length=None)
+
+    # Bản đồ id người dùng -> họ tên / tên tài khoản (dự phòng)
+    id_can = [
+        dong["id_quan_tri_vien"]
+        for dong in dong_list
+        if isinstance(dong.get("id_quan_tri_vien"), ObjectId)
+    ]
+    ban_do_ten = {}
+    if id_can:
+        async for nguoi in database["nguoi_dung"].find(
+            {"_id": {"$in": list(set(id_can))}},
+            {"ho_ten": 1, "ten_tk": 1},
+        ):
+            ban_do_ten[nguoi["_id"]] = (
+                nguoi.get("ho_ten") or nguoi.get("ten_tk") or ""
+            )
+
     ket_qua = []
-    async for dong in cursor:
+    for dong in dong_list:
+        id_admin = dong.get("id_quan_tri_vien")
         ket_qua.append({
             "id": str(dong["_id"]),
-            "id_quan_tri_vien": str(dong["id_quan_tri_vien"])
-            if dong.get("id_quan_tri_vien")
-            else None,
+            "id_quan_tri_vien": str(id_admin) if id_admin else None,
+            "ho_ten_quan_tri_vien": ban_do_ten.get(id_admin, ""),
             "hanh_dong": dong["hanh_dong"],
             "loai_doi_tuong": dong.get("loai_doi_tuong", ""),
             "ly_do": dong.get("ly_do", ""),

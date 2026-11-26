@@ -6,6 +6,7 @@ import PostForm from '../../components/Post/PostForm';
 import { taoBaiDang } from '../../services/postService';
 import { tb } from '../../services/thongBaoService';
 import { themThongBao } from '../../services/chuongService';
+import { uploadTaiLieu } from '../../services/taiLieuService';
 
 export default function TaoBaiDang() {
   const navigate = useNavigate();
@@ -14,10 +15,23 @@ export default function TaoBaiDang() {
   async function handleCreate(formData) {
     if (dangGui) return;
 
+    const { tepTaiLieu, ...duLieuBai } = formData;
     setDangGui(true);
 
     try {
-      const { tu_be, baiDang } = await taoBaiDang(formData); // BE-first, BE tắt tự lưu cục bộ
+      const { tu_be, baiDang } = await taoBaiDang(duLieuBai); // BE-first, BE tắt tự lưu cục bộ
+
+      // Tài liệu đính kèm: upload lên BE sau khi bài đã có id thật.
+      // Bài lưu cục bộ (BE tắt) thì giữ lại file trong trình duyệt.
+      // tu_be = true nghĩa là bài ĐÃ lưu vào BE (xem postService)
+      if (tepTaiLieu && baiDang?.id && tu_be) {
+        try {
+          await uploadTaiLieu(baiDang.id, tepTaiLieu);
+        } catch (loiUpload) {
+          tb.loi(`Đã tạo bài nhưng upload tài liệu thất bại: ${loiUpload.message}`);
+        }
+      }
+
       tb.thanhCong(
         tu_be
           ? 'Tạo bài đăng thành công! Bài đang chờ quản trị viên duyệt.'

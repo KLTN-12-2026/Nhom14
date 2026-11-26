@@ -74,3 +74,38 @@ export async function goiApi(path, { method = 'GET', body, token = true, thoiGia
 
   return du_lieu;
 }
+
+// Upload file (multipart/form-data) — KHÔNG tự set Content-Type: trình duyệt
+// phải tự thêm boundary. Dùng cho API tài liệu đính kèm của bài đăng.
+export async function goiApiForm(path, form, { thoiGian = 30000 } = {}) {
+  const headers = {};
+  const tokenGiaTri = layToken();
+  if (tokenGiaTri) headers.Authorization = `Bearer ${tokenGiaTri}`;
+
+  let signal;
+  if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
+    signal = AbortSignal.timeout(thoiGian);
+  }
+
+  let response;
+  try {
+    response = await fetch(`${BASE_URL}${path}`, {
+      method: 'POST',
+      headers,
+      body: form,
+      signal,
+    });
+  } catch {
+    throw new Error(LOI_KHONG_KET_NOI);
+  }
+
+  const du_lieu = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error = new Error(
+      du_lieu?.detail || `Lỗi máy chủ (${response.status})`
+    );
+    error.statusCode = response.status;
+    throw error;
+  }
+  return du_lieu;
+}

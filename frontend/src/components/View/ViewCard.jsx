@@ -7,6 +7,7 @@ import {
   layNoiDung,
   layTienDaGop,
   layTienDoPhanTram,
+  layMaBaiDang,
   layThoiGian,
   layTieuDe,
   layTrangThai,
@@ -25,8 +26,11 @@ const ANH_MOI = "https://placehold.co/600x400/e5e7eb/9ca3af?text=Rising+Idea";
 // Thẻ bài đăng dạng ảnh (dung trong lưới danh mục dự án).
 // Thống nhất hình thức "nhịp đọc" với trang chủ:
 //   ảnh + nhãn loại → tiêu đề → mô tả → tiến độ → hạn góp vốn.
-const ViewCard = ({ post }) => {
+const ViewCard = ({ post, trangThaiVi = {} }) => {
   const loaiInfo = layLoaiInfo(post);
+  // Pin trạng thái tiền (escrow): giải ngân = xanh, hoàn trả = xám.
+  // Chỉ hiện khi BE có ví cho bài này (bài demo/localStorage -> không có).
+  const tinhTrangVi = trangThaiVi[String(layMaBaiDang(post))];
   const tienDo = Math.min(layTienDoPhanTram(post), 100);
   const { ketThuc } = layThoiGian(post);
   const danhSachAnh = layDanhSachHinhAnh(post);
@@ -53,6 +57,18 @@ const ViewCard = ({ post }) => {
         >
           {loaiInfo.label}
         </span>
+
+        {/* Pin trạng thái tiền: người dùng biết ngay dự án đã chốt tiền */}
+        {tinhTrangVi === "Da_giai_ngan" && (
+          <span className="absolute left-3 top-11 rounded-full bg-emerald-500 px-2.5 py-1 text-[11px] font-extrabold text-white shadow-md">
+            ✅ Đã giải ngân
+          </span>
+        )}
+        {tinhTrangVi === "Da_hoan_tra" && (
+          <span className="absolute left-3 top-11 rounded-full bg-slate-500 px-2.5 py-1 text-[11px] font-extrabold text-white shadow-md">
+            ↩ Đã hoàn trả
+          </span>
+        )}
 
         {loaiInfo.value !== "invest" && (
           <span className="absolute right-3 bottom-3 rounded-full bg-gray-950/70 px-2.5 py-1 text-xs font-bold text-white backdrop-blur">

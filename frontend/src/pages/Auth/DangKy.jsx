@@ -27,13 +27,27 @@ export default function DangKy() {
     // Kiểm tra thủ trước khi gửi — báo lỗi bằng modal popup (tự tắt sau
     // vài giây hoặc bấm OK), giống trang Đăng nhập, thay khung báo lỗi
     // mặc định của trình duyệt.
-    const hoTen = String(formData.get("name") || "").trim();
-    const tenTk = String(formData.get("username") || "").trim();
-    const email = String(formData.get("email") || "").trim();
-    const namSinh = String(formData.get("nam_sinh") || "").trim();
-    const dienThoai = String(formData.get("dien_thoai") || "").trim();
-    const password = String(formData.get("password") || "");
-    const xacNhanMatKhau = String(formData.get("confirmPassword") || "");
+    const raw = (name) => String(formData.get(name) || "");
+    const coDauCachThua = (name) => raw(name) !== raw(name).trim();
+
+    const hoTen = raw("name").trim();
+    const tenTk = raw("username").trim();
+    const email = raw("email").trim();
+    const namSinh = raw("nam_sinh").trim();
+    const dienThoai = raw("dien_thoai").trim();
+    const password = raw("password");
+    const xacNhanMatKhau = raw("confirmPassword");
+
+    // Báo lỗi nếu người dùng nhập thừa dấu cách ở đầu/cuối ô (trim tự cắt
+    // khiến họ không biết mình gõ sai) — riêng mật khẩu giữ nguyên.
+    if (
+      ["name", "username", "email", "dien_thoai"].some(coDauCachThua)
+    ) {
+      tb.loiModal(
+        "Thông tin có chứa dấu cách thừa ở đầu hoặc cuối. Vui lòng kiểm tra lại!"
+      );
+      return;
+    }
 
     if (!hoTen) {
       tb.loiModal("Bạn chưa nhập họ và tên!");

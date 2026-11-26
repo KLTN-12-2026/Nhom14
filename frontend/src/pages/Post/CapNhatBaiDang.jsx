@@ -9,7 +9,8 @@ import {
   capNhatBaiDang,
 } from '../../services/postService';
 import { tb } from '../../services/thongBaoService';
-import { tachIdBaiTuDuongDan } from '../../services/contributionService';
+import { layMaBaiDang, tachIdBaiTuDuongDan } from '../../services/contributionService';
+import { uploadTaiLieu } from '../../services/taiLieuService';
 
 export default function CapNhatBaiDang() {
   // Link sửa bài dùng chung dạng link bài đăng: <slug>-<id> hoặc <id> cũ
@@ -46,12 +47,25 @@ export default function CapNhatBaiDang() {
   }, [id, Boolean(post)]);
 
   async function handleUpdate(formData) {
+    const { tepTaiLieu, ...duLieuBai } = formData;
     try {
-      const { baiDang, tu_be } = await capNhatBaiDang(id, formData);
+      const { baiDang, tu_be } = await capNhatBaiDang(id, duLieuBai);
 
       if (!baiDang) {
         tb.loi('Không tìm thấy bài đăng cần cập nhật.');
         return;
+      }
+
+      // Upload tài liệu mới sau khi bài đã lưu xong vào BE.
+      // LƯU Ý: tu_be = true nghĩa là ĐÃ lưu vào BE (xem postService);
+      // tu_be = false là bài cục bộ khi BE tắt -> không có id BE để upload.
+      if (tepTaiLieu && tu_be) {
+        const maBai = layMaBaiDang(baiDang) || id;
+        try {
+          await uploadTaiLieu(maBai, tepTaiLieu);
+        } catch (loiUpload) {
+          tb.loi(`Đã cập nhật bài nhưng upload tài liệu thất bại: ${loiUpload.message}`);
+        }
       }
 
       if (tu_be) {

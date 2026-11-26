@@ -14,8 +14,11 @@ import {
   layNoiDung,
   layThoiGian,
   layTieuDe,
+  layTienDoPhanTram,
 } from "../../services/contributionService";
 import { dongBoTuBe } from "../../services/postService";
+import { layViBaiDang } from "../../services/viBaiDangService";
+import { layMaBaiDang } from "../../services/contributionService";
 
 // Các mục lọc khớp với menu bên ViewSidebar
 const LOAI_MENU = ["Tất cả", "Gọi Vốn", "Quyên Góp", "Đầu Tư"];
@@ -83,8 +86,17 @@ const XemBaiDang = () => {
       );
     }
 
-    return sauTim;
+    // "Phù hợp nhất": bài có % tiến độ gây quỹ CAO NHẤT lên đầu.
+    // Dùng bản sao (không mutation) để không làm xáo trộn mảng gốc.
+    return [...sauTim].sort(
+      (a, b) => layTienDoPhanTram(b) - layTienDoPhanTram(a)
+    );
   }, [danhSachGoc, loaiChon, tuKhoa, sapXep]);
+
+  // Trạng thái ví (escrow) của các bài đang hiển thị — để gắn pin
+  // "Đã giải ngân" / "Đã hoàn trả" lên thẻ. Nạp công khai qua BE;
+  // bài demo/localStorage không có ví -> không có pin.
+  const [trangThaiVi, setTrangThaiVi] = useState({});
 
   // Phân trang: chéo trang không vượt quá tổng số trang sau khi lọc
   const soTrang = Math.max(1, Math.ceil(danhSach.length / SO_TRANG_KICH_THUOC));
@@ -93,6 +105,32 @@ const XemBaiDang = () => {
     (trangChot - 1) * SO_TRANG_KICH_THUOC,
     trangChot * SO_TRANG_KICH_THUOC
   );
+
+  // Khoá ổn định theo danh sách bài trên trang — đổi bộ lọc/sắp xếp mới nạp lại
+  const idTrang = danhSachTrang
+    .map((post) => String(layMaBaiDang(post)))
+    .join("|");
+
+  useEffect(() => {
+    if (!idTrang) return undefined;
+
+    let conGan = true;
+    const cacId = idTrang.split("|");
+
+    Promise.all(
+      cacId.map(async (id) => {
+        const vi = await layViBaiDang(id);
+        return [id, vi?.trang_thai || null];
+      })
+    ).then((cap) => {
+      // setState trong .then (bất đồng bộ) — không vi phạm rule react-hooks
+      if (conGan) setTrangThaiVi(Object.fromEntries(cap));
+    });
+
+    return () => {
+      conGan = false;
+    };
+  }, [idTrang]);
 
   // Đổi lọc/tìm/sắp xếp luôn về trang 1 (danh sách thay đổi đột ngột)
   const chonLoaiVaVeTrang = (loai) => {
@@ -160,7 +198,7 @@ const XemBaiDang = () => {
             onSapXep={chonSapXepVaVeTrang}
           />
 
-          <ViewList posts={danhSachTrang} />
+          <ViewList posts={danhSachTrang} trangThaiVi={trangThaiVi} />
 
           <PhanTrang
             trang={trangChot}

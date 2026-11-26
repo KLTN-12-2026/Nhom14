@@ -8,6 +8,7 @@ const mucLuc = [
   { nhan: 'Xem bài đăng', to: '/xem-bai-dang' },
   { nhan: 'Tạo bài đăng', to: '/bai-dang/tao-moi' },
   { nhan: 'Đăng nhập', to: '/dang-nhap' },
+  { nhan: 'Tài nguyên & FAQ', to: '/tai-nguyen/faq' },
 ];
 
 const FooterTrangChu = () => {

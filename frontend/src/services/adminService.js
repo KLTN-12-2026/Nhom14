@@ -285,6 +285,7 @@ export function ghiNhatKyQuanLy(hanh_dong, loai_doi_tuong, ly_do = '') {
         // hanh_dong, loai_doi_tuong, ly_do, ngay_tao)
         id: `NK-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
         id_quan_tri_vien: getSession()?.ten_tk || null,
+        ho_ten_quan_tri_vien: getSession()?.ho_ten || getSession()?.ten_tk || null,
         hanh_dong,
         loai_doi_tuong,
         ly_do,
