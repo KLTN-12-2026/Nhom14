@@ -163,6 +163,14 @@ function beSangFe(baiDang) {
 // Đưa formData của form (PostForm) sang JSON BE cần (BaiDangCreate / Update).
 // Form không có ô thời gian bắt đầu — để BE tự xử lý null.
 function feSangBe(formData) {
+  const danhSachAnh = (
+    Array.isArray(formData.images) && formData.images.length
+      ? formData.images
+      : formData.image
+        ? [formData.image]
+        : []
+  ).filter(Boolean);
+
   return {
     loai_bai_dang:
       {
@@ -175,7 +183,7 @@ function feSangBe(formData) {
     muc_tieu: Number(formData.goal),
     don_vi_tien_te: 'VND',
     thoi_gian_ket_thuc: formData.deadline,
-    hinh_anh: formData.image ? [formData.image] : [],
+    hinh_anh: danhSachAnh,
   };
 }
 

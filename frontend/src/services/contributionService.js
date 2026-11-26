@@ -249,9 +249,36 @@ export function layDanhSachHinhAnh(post) {
       (a, b) => (a.thu_tu_hien_thi || 0) - (b.thu_tu_hien_thi || 0)
     );
   }
-  return post?.image
-    ? [{ _id: 'anh-moc-mot', duong_dan_hinh_anh: post.image, thu_tu_hien_thi: 1 }]
-    : [];
+
+  const nguon = Array.isArray(post?.images) && post.images.length
+    ? post.images
+    : Array.isArray(post?.hinh_anh) && post.hinh_anh.length
+      ? post.hinh_anh
+      : post?.image
+        ? [post.image]
+        : [];
+
+  return nguon
+    .map((anh, index) => {
+      if (typeof anh === 'string') {
+        return {
+          _id: `anh-${index}`,
+          duong_dan_hinh_anh: anh,
+          thu_tu_hien_thi: index + 1,
+        };
+      }
+      if (anh && typeof anh === 'object') {
+        const duongDan = anh.duong_dan_hinh_anh || anh.url || '';
+        if (!duongDan) return null;
+        return {
+          _id: anh._id || anh.id || `anh-${index}`,
+          duong_dan_hinh_anh: duongDan,
+          thu_tu_hien_thi: anh.thu_tu_hien_thi || index + 1,
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
 }
 
 // Danh sách người góp của một bài đăng, lưu riêng theo mã bài đăng.

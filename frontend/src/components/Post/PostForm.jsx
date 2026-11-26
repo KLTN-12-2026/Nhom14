@@ -4,6 +4,8 @@ import Button from '../Button/Button';
 import { TYPE_OPTIONS } from '../../data/mockPosts';
 import { nenAnh, ANH_TOI_DA_BYTES } from '../../utils/anh';
 
+const ANH_TOI_DA = 10;
+
 const emptyForm = {
   title: '',
   type: 'crowdfund',
@@ -11,8 +13,31 @@ const emptyForm = {
   description: '',
   goal: '',
   deadline: '',
-  image: '',
+  images: [],
 };
+
+function chuanHoaDanhSachAnh(data) {
+  if (!data) return [];
+
+  const nguon = Array.isArray(data.images) && data.images.length
+    ? data.images
+    : Array.isArray(data.hinh_anh) && data.hinh_anh.length
+      ? data.hinh_anh
+      : data.image
+        ? [data.image]
+        : [];
+
+  return nguon
+    .map((anh) => {
+      if (typeof anh === 'string') return anh;
+      if (anh && typeof anh === 'object') {
+        return anh.duong_dan_hinh_anh || anh.url || '';
+      }
+      return '';
+    })
+    .filter(Boolean)
+    .slice(0, ANH_TOI_DA);
+}
 
 // Đưa dữ liệu bài đăng vào form (dùng khi cập nhật bài đã đăng).
 function khoiTaoForm(data) {
@@ -20,11 +45,15 @@ function khoiTaoForm(data) {
     return { ...emptyForm };
   }
 
+  const images = chuanHoaDanhSachAnh(data);
+
   return {
     ...emptyForm,
     ...data,
     type: data.type || emptyForm.type,
     goal: data.goal ?? '',
+    images,
+    image: images[0] || '',
   };
 }
 
@@ -52,31 +81,52 @@ export default function PostForm({
     }));
   }
 
-  function handleImageChange(event) {
-    const file = event.target.files?.[0];
+  async function handleImageChange(event) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (!files.length) return;
 
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setError('Vui lòng chọn một tệp hình ảnh.');
-      event.target.value = '';
+    const choPhep = form.images.length;
+    const conTrong = ANH_TOI_DA - choPhep;
+    if (conTrong <= 0) {
+      setError(`Mỗi bài đăng chỉ được tối đa ${ANH_TOI_DA} ảnh.`);
       return;
     }
 
-    if (file.size > ANH_TOI_DA_BYTES) {
-      setError('Ảnh phải có dung lượng không quá 5 MB.');
-      event.target.value = '';
-      return;
+    const filesHopLe = [];
+    for (const file of files.slice(0, conTrong)) {
+      if (!file.type.startsWith('image/')) {
+        setError('Vui lòng chỉ chọn tệp hình ảnh.');
+        return;
+      }
+      if (file.size > ANH_TOI_DA_BYTES) {
+        setError('Mỗi ảnh phải có dung lượng không quá 5 MB.');
+        return;
+      }
+      filesHopLe.push(file);
     }
 
-    nenAnh(file)
-      .then((dataUrl) => {
-        setForm((current) => ({ ...current, image: dataUrl }));
-        setError('');
-      })
-      .catch(() => {
-        setError('Không thể đọc ảnh. Vui lòng thử lại.');
+    try {
+      const anhMoi = await Promise.all(filesHopLe.map((file) => nenAnh(file)));
+      setForm((current) => {
+        const images = [...current.images, ...anhMoi].slice(0, ANH_TOI_DA);
+        return { ...current, images, image: images[0] || '' };
       });
+      if (files.length > conTrong) {
+        setError(`Chỉ thêm được ${conTrong} ảnh nữa (tối đa ${ANH_TOI_DA} ảnh).`);
+      } else {
+        setError('');
+      }
+    } catch {
+      setError('Không thể đọc ảnh. Vui lòng thử lại.');
+    }
+  }
+
+  function xoaAnh(taiViTri) {
+    setForm((current) => {
+      const images = current.images.filter((_, i) => i !== taiViTri);
+      return { ...current, images, image: images[0] || '' };
+    });
   }
 
   function handleSubmit(event) {
@@ -237,39 +287,51 @@ export default function PostForm({
 
       <div>
         <label
-          htmlFor="image"
+          htmlFor="images"
           className="mb-2 block text-sm font-semibold text-gray-800"
         >
-          Ảnh đại diện dự án
+          Ảnh dự án
         </label>
         <input
-          id="image"
-          name="imageFile"
+          id="images"
+          name="imageFiles"
           type="file"
           accept="image/*"
+          multiple
           onChange={handleImageChange}
           className="block w-full rounded-lg border border-gray-300 p-3 text-sm file:mr-4 file:rounded-md file:border-0 file:bg-yellow-100 file:px-4 file:py-2 file:font-semibold hover:file:bg-yellow-200"
         />
         <p className="mt-1 text-xs text-gray-500">
-          Chọn ảnh từ máy tính, tối đa 5 MB.
+          Có thể chọn nhiều ảnh, tối đa {ANH_TOI_DA} ảnh, mỗi ảnh tối đa 5 MB.
+          Ảnh đầu tiên sẽ là ảnh đại diện.
         </p>
 
-        {form.image && (
-          <div className="mt-4">
-            <img
-              src={form.image}
-              alt="Xem trước ảnh dự án"
-              className="max-h-64 w-full rounded-lg border border-gray-200 object-contain"
-            />
-            <Button
-              variant="link"
-              className="mt-2"
-              onClick={() =>
-                setForm((current) => ({ ...current, image: '' }))
-              }
-            >
-              Xóa ảnh
-            </Button>
+        {form.images.length > 0 && (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {form.images.map((anh, index) => (
+              <div
+                key={`${index}-${anh.slice(0, 24)}`}
+                className="overflow-hidden rounded-lg border border-gray-200 bg-slate-50"
+              >
+                <img
+                  src={anh}
+                  alt={`Ảnh dự án ${index + 1}`}
+                  className="h-40 w-full object-cover"
+                />
+                <div className="flex items-center justify-between px-3 py-2 text-xs">
+                  <span className="font-semibold text-gray-600">
+                    {index === 0 ? 'Ảnh đại diện' : `Ảnh ${index + 1}`}
+                  </span>
+                  <Button
+                    variant="link"
+                    className="text-xs"
+                    onClick={() => xoaAnh(index)}
+                  >
+                    Xóa ảnh
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
