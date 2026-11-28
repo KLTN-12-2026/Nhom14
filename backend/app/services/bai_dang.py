@@ -2,47 +2,95 @@
 from datetime import date, datetime, time, timezone
 import base64
 import binascii
-import uuid
+import re
 from pathlib import Path
 
 from bson import ObjectId
+from bson.errors import InvalidId
+from gridfs import AsyncGridFSBucket
 from pymongo.errors import InvalidDocument
 
 from app.config.database import database
 
-# Ảnh người dùng upload dạng base64 (data URL) được GIẢI MÃ ra file trong
-# thư mục media và DB chỉ giữ đường dẫn /api/media/... — không lưu chuỗi
-# base64 (1 ảnh có thể >1.5MB, làm response + cache FE vượt quota localStorage).
+# Ảnh bài đăng lưu trong GridFS (MongoDB Atlas) để máy nào cũng xem được.
+# DB chỉ giữ đường dẫn /api/media/<gridfs_id> — không lưu base64.
+BUCKET_ANH = AsyncGridFSBucket(database, bucket_name="hinh_anh_bai_dang")
+
+# Thư mục ảnh cũ (trước khi chuyển GridFS) — vẫn phục vụ để không gãy ảnh.
 MEDIA_DIR = Path(__file__).resolve().parents[2] / "media"
 
-# data:image/<kiểu>;base64,<dữ liệu>
 _TIEN_TO_DATA_URL = "data:image/"
 
 
-def _tinh_duong_dan_luu(gia_tri: str) -> str:
-    """Ảnh data URL -> lưu file, trả về đường dẫn công khai /api/media/....
+def _kieu_anh_tu_data_url(dau_phan: str) -> str:
+    kieu = dau_phan[len(_TIEN_TO_DATA_URL):].split(";", 1)[0] or "jpeg"
+    kieu = kieu.lower().strip()
+    if kieu in ("png", "gif", "webp", "jpeg", "jpg"):
+        return "jpeg" if kieu == "jpg" else kieu
+    return "jpeg"
+
+
+async def luu_anh_data_url(gia_tri: str) -> str:
+    """Ảnh data URL -> lưu GridFS, trả về đường dẫn công khai /api/media/<id>.
     Ảnh đã là URL (http... hoặc /api/media/...) giữ nguyên."""
     if not gia_tri.startswith(_TIEN_TO_DATA_URL):
         return gia_tri
 
-    # Tách phần header (xác định đuôi file) và dữ liệu base64
     dau_phan, _, du_lieu = gia_tri.partition(",")
     if not du_lieu:
         return gia_tri
 
-    kieu = dau_phan[len(_TIEN_TO_DATA_URL):].split(";", 1)[0] or "jpeg"
-    duoi = kieu if kieu in ("png", "gif", "webp") else "jpg"
-
+    kieu = _kieu_anh_tu_data_url(dau_phan)
     try:
         noi_dung = base64.b64decode(du_lieu)
     except (binascii.Error, ValueError):
         return gia_tri
 
-    MEDIA_DIR.mkdir(parents=True, exist_ok=True)
-    ten_file = f"{uuid.uuid4().hex}.{duoi}"
-    (MEDIA_DIR / ten_file).write_bytes(noi_dung)
+    if not noi_dung:
+        return gia_tri
 
-    return f"/api/media/{ten_file}"
+    id_gridfs = await BUCKET_ANH.upload_from_stream(
+        f"anh-bai-dang.{kieu}",
+        noi_dung,
+        metadata={"loai_file": kieu, "content_type": f"image/{kieu}"},
+    )
+    return f"/api/media/{str(id_gridfs)}"
+
+
+async def doc_anh_media(ten_file: str) -> tuple[bytes, str] | None:
+    """Đọc ảnh từ GridFS theo ObjectId, hoặc từ thư mục media cũ theo tên file."""
+    ten_file = (ten_file or "").strip()
+    if not ten_file:
+        return None
+
+    if ObjectId.is_valid(ten_file):
+        try:
+            grid_out = await BUCKET_ANH.open_download_stream(ObjectId(ten_file))
+            du_lieu = await grid_out.read()
+            meta = grid_out.metadata or {}
+            content_type = meta.get("content_type") or f"image/{meta.get('loai_file', 'jpeg')}"
+            return du_lieu, content_type
+        except Exception:
+            # Không có trong GridFS ảnh -> thử file cũ trên đĩa
+            pass
+
+    an_toan = re.fullmatch(r"[A-Za-z0-9._-]+", ten_file)
+    if not an_toan:
+        return None
+
+    tep = MEDIA_DIR / ten_file
+    if not tep.is_file():
+        return None
+
+    duoi = tep.suffix.lower().lstrip(".")
+    content_type = {
+        "jpg": "image/jpeg",
+        "jpeg": "image/jpeg",
+        "png": "image/png",
+        "gif": "image/gif",
+        "webp": "image/webp",
+    }.get(duoi, "application/octet-stream")
+    return tep.read_bytes(), content_type
 
 
 # Trạng thái bài đăng dùng chuẩn snake_case không dấu (đúng tài liệu database)
@@ -185,14 +233,14 @@ async def _luu_hinh_anh(id_bai_dang: ObjectId, hinh_anh: list[str]):
     if not hinh_anh:
         return
 
-    tai_lieu = [
-        {
+    tai_lieu = []
+    for thu_tu, duong_dan in enumerate(hinh_anh):
+        duong_dan_luu = await luu_anh_data_url(duong_dan)
+        tai_lieu.append({
             "id_bai_dang": id_bai_dang,
-            "duong_dan_hinh_anh": _tinh_duong_dan_luu(duong_dan),
-            "thu_tu_hien_thi": ngay_tu + 1,
-        }
-        for ngay_tu, duong_dan in enumerate(hinh_anh)
-    ]
+            "duong_dan_hinh_anh": duong_dan_luu,
+            "thu_tu_hien_thi": thu_tu + 1,
+        })
 
     await database["hinh_anh_bai_dang"].insert_many(tai_lieu)
 

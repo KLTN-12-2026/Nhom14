@@ -1,10 +1,10 @@
 # Rising Idea — Backend
 
 > Phần backend của nền tảng gọi vốn cộng đồng tích hợp trợ lý AI — **Nhóm 14**.
-> ✅ **Đã hoàn thành các module của Sprint**: tài khoản (kèm khôi phục mật khẩu qua Gmail thật),
-> ví số dư, **nạp tiền qua QR ngân hàng + quản trị viên duyệt**, bài đăng, góp vốn, tố cáo,
-> thông báo, kiểm duyệt/ẩn–hiện bài và **trợ lý AI Rising Bot (Google Gemini)** — dữ liệu
-> thật lưu trong **MongoDB Atlas**.
+> ✅ **Đã hoàn thành các module**: tài khoản (kèm khôi phục mật khẩu qua Gmail thật),
+> ví số dư, **nạp tiền qua QR ngân hàng + quản trị viên duyệt**, bài đăng (nhiều ảnh + tài
+> liệu PDF), góp vốn, ví dự án escrow, tố cáo, thông báo, kiểm duyệt/ẩn–hiện bài và
+> **trợ lý AI Rising Bot (Google Gemini)** — dữ liệu thật lưu trong **MongoDB Atlas**.
 
 ## 1. Mục tiêu
 
@@ -49,10 +49,11 @@ backend/
 │   │   ├── admin.py          # /api/admin/bai-dang — duyệt bài, ẩn/hiện bài
 │   │   ├── admin_nguoi_dung.py # /api/admin/nguoi-dung — quản lý người dùng, nhật ký
 │   │   ├── admin_nap_tien.py # /api/admin/nap-tien — duyệt / từ chối nạp tiền
-│   │   └── chatbot.py        # /api/chatbot        — hội thoại + tin nhắn trợ lý AI
+│   │   ├── chatbot.py        # /api/chatbot        — hội thoại + tin nhắn trợ lý AI
+│   │   └── tai_lieu.py       # /api/bai-dang/{id}/tai-lieu, /api/tai-lieu — tài liệu PDF
 │   ├── services/             # Lớp nghiệp vụ (truy vấn MongoDB, kiểm tra dữ liệu)
 │   │   ├── nguoi_dung.py, nguoi_dung_admin.py, bai_dang.py, so_du.py,
-│   │   ├── khoan_gop.py, to_cao.py, thong_bao.py,
+│   │   ├── khoan_gop.py, to_cao.py, thong_bao.py, tai_lieu.py,
 │   │   ├── quen_mat_khau.py  # Mã 6 số TTL 10 phút, 1 lần dùng + gửi email trong thread riêng
 │   │   └── chatbot.py        # cuoc_hoi_thoai + tin_nhan_chatbot, gửi ngữ cảnh 12 tin gần nhất cho AI
 │   ├── schemas/              # Pydantic — kiểm tra dữ liệu vào/ra
@@ -91,6 +92,10 @@ Database mặc định `crowdfunding_db` (đổi được bằng biến `DATABAS
 | `tin_nhan_chatbot` | Tin nhắn trong hội thoại (loai_nguoi_gui: Nguoi_Dung / Chatbot) |
 | `thong_bao` | Thông báo đẩy trong chuông (duyệt bài, ẩn bài, tố cáo…) |
 | `nhat_ky_quan_tri` | Nhật ký thao tác quản trị |
+| `tai_lieu_bai_dang` | Metadata tài liệu đính kèm của bài đăng (PDF) |
+| `fs.files` / `fs.chunks` | GridFS — lưu nội dung file tài liệu (chia chunk, không giới hạn 16 MB/document) |
+| `hinh_anh_bai_dang` | Metadata ảnh bài đăng (đường dẫn, thứ tự hiển thị) |
+| `hinh_anh_bai_dang.files` / `.chunks` | GridFS — lưu nội dung ảnh bài đăng (chia chunk, xem được từ mọi máy) |
 
 ## 5. API endpoints
 
@@ -259,6 +264,21 @@ Database mặc định `crowdfunding_db` (đổi được bằng biến `DATABAS
 > - AI gặp sự cố cũng trả `200` với `tin_chatbot` mang lời xin lỗi + trường `canh_bao`
 >   mô tả lỗi — tin nhắn của người dùng **không bao giờ bị mất**.
 > - Hội thoại chỉ chủ sở hữu đọc được (kiểm tra owner ở tầng service).
+
+### Tài liệu bài đăng — `/api/bai-dang/{id}/tai-lieu` & `/api/tai-lieu`
+| Phương thức + đường dẫn | Chức năng |
+|---|---|
+| `POST /api/bai-dang/{id}/tai-lieu` | Upload tài liệu PDF cho bài đăng (chủ bài / admin) |
+| `GET /api/bai-dang/{id}/tai-lieu` | Danh sách metadata tài liệu của bài đăng (công khai) |
+| `GET /api/tai-lieu/{id}/tai` | Xem/tải nội dung tài liệu từ GridFS |
+| `DELETE /api/tai-lieu/{id}` | Xóa tài liệu (chủ bài / người tải / admin) |
+
+> - Chỉ chấp nhận **PDF** (`.pdf`), tối đa **10 MB**. Nội dung lưu trong
+>   **GridFS** (`fs.files`/`fs.chunks`), metadata lưu ở `tai_lieu_bai_dang`.
+> - Bài đăng hỗ trợ **nhiều ảnh** (tối đa 10, ảnh đầu là ảnh đại diện). Ảnh upload được
+>   lưu vào **GridFS** bucket `hinh_anh_bai_dang` (MongoDB Atlas), DB chỉ giữ đường dẫn
+>   `/api/media/<id>` nên máy nào chạy backend cũng xem được. Ảnh cũ trong `backend/media/`
+>   vẫn được phục vụ để tương thích.
 
 ## 6. Biến môi trường & chạy máy chủ
 

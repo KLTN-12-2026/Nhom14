@@ -19,8 +19,9 @@ người dùng tra cứu và sử dụng nền tảng.
 **Hiện trạng:** Frontend đã nối API với backend theo nguyên tắc **BE-first** — dữ liệu thật
 lưu trong **MongoDB Atlas**, frontend chỉ rơi về dữ liệu demo cục bộ khi backend tắt. Backend
 Python + FastAPI đã hoàn thành các module của Sprint: tài khoản (kèm khôi phục mật khẩu qua
-Gmail thật), ví số dư, bài đăng, góp vốn, tố cáo, thông báo, kiểm duyệt/ẩn–hiện bài, quản trị
-người dùng và trợ lý AI Rising Bot — chi tiết xem [`backend/Readme.md`](backend/Readme.md).
+Gmail thật), ví số dư, nạp tiền QR, bài đăng, góp vốn, ví dự án escrow, tố cáo, thông báo,
+kiểm duyệt/ẩn–hiện bài, quản trị người dùng, tài liệu PDF đính kèm và trợ lý AI Rising Bot —
+chi tiết xem [`backend/Readme.md`](backend/Readme.md).
 
 ## 2. Tính năng
 
@@ -33,7 +34,9 @@ người dùng và trợ lý AI Rising Bot — chi tiết xem [`backend/Readme.m
   tùy chọn "Không hiển thị lại trong 1 ngày" (lưu theo tài khoản).
 - **Bài đăng**: tạo bài mới (kèm chọn **loại bài đăng**), cập nhật/xóa bài, quản lý
   **Bài đăng của tôi**, xem danh sách bài công khai và chi tiết (ảnh, mô tả, tiến độ/hạn gây quỹ).
-  Bài **Đầu Tư** chỉ hiển thị số tiền cần đầu tư và hướng dẫn liên hệ trực tiếp.
+  Hỗ trợ **nhiều ảnh** (tối đa 10, ảnh đầu là ảnh đại diện, lưu GridFS nên xem được từ
+  mọi máy) và đính kèm **tài liệu PDF**. Bài **Đầu Tư** chỉ hiển thị số tiền cần đầu tư và
+  hướng dẫn liên hệ trực tiếp.
 - **Ví Rising Idea**: nạp số dư qua **QR ngân hàng** (chờ admin xác nhận), xem lịch sử giao dịch
 - **Góp vốn / Quyên góp**: góp bằng số dư ví (quy trình 3 bước: nhập tiền → xác nhận → hoàn tất),
   trừ ví, cập nhật tiến độ, ghi lịch sử; danh sách người ủng hộ gộp theo tài khoản (nhiều lần góp
@@ -41,6 +44,7 @@ người dùng và trợ lý AI Rising Bot — chi tiết xem [`backend/Readme.m
 - **Tố cáo**: báo cáo bài vi phạm ngay trên trang chi tiết bài (chặn tố cáo trùng)
 - **Chuông thông báo**: nhận thông báo khi bài được duyệt/từ chối/bị ẩn, khi có người góp…
   (đánh dấu đã đọc từng thông báo hoặc tất cả)
+- **Tài nguyên / FAQ**: trang câu hỏi thường gặp tại `/tai-nguyen/faq`.
 
 ### Quản trị viên
 - **Duyệt bài đăng**: danh sách chờ duyệt, xem chi tiết, phê duyệt hoặc từ chối kèm lý do;
@@ -121,8 +125,8 @@ npm run dev
      hình) → bài ở trạng thái chờ duyệt, chưa hiện công khai
    - Đăng nhập **quản trị viên** → `/admin/duyet-bai` → duyệt bài → người đăng nhận 🔔 thông báo,
      bài hiện trong danh sách công khai
-   - Tài khoản thường → mở bài đã duyệt → **Góp vốn / Quyên góp / Đầu tư** bằng số dư ví →
-     tiến độ huy động và số dư cập nhật ngay
+   - Tài khoản thường → mở bài đã duyệt → **Góp vốn / Quyên góp** bằng số dư ví (tiến độ và
+     số dư cập nhật ngay). Bài **Đầu Tư** xem số tiền cần đầu tư và liên hệ trực tiếp.
    - Thử **Tố cáo** bài vi phạm → admin xử lý tại `/admin/xu-ly-to-cao` (hợp lệ có thể ẩn bài)
    - Bấm nút 🤖 góc phải trang chủ → hỏi **Rising Bot**: *"Làm sao để nạp tiền?"*,
      *"Đăng dự án thế nào?"*… — AI trả lời thật bằng Google Gemini
@@ -140,6 +144,7 @@ npm run dev
 | `http://localhost:5173/nap-so-du` | Nạp số dư ví |
 | `http://localhost:5173/lich-su-so-du` | Lịch sử giao dịch ví |
 | `http://localhost:5173/xem-bai-dang` | Danh sách bài đăng công khai |
+| `http://localhost:5173/tai-nguyen/faq` | Tài nguyên — câu hỏi thường gặp (FAQ) |
 | `http://localhost:5173/bai-dang/tao-moi` | Tạo bài đăng |
 | `http://localhost:5173/bai-dang-cua-toi` | Bài đăng của tôi |
 | `http://localhost:5173/bai-dang/:id` | Chi tiết bài đăng (góp vốn / quyên góp / đầu tư) |

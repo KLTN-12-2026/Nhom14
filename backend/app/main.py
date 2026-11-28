@@ -2,6 +2,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.database import (
@@ -70,15 +71,22 @@ app.include_router(tai_lieu_router)
 app.include_router(vi_bai_dang_router)
 app.include_router(vi_bai_dang_admin_router)
 
-# Ảnh bài đăng lưu trên đĩa (backend/media) — phục vụ trực tiếp qua URL,
-# DB không giữ base64 (tránh response lớn làm tràn cache FE).
-from pathlib import Path as _Path
+# Ảnh bài đăng: lưu mới trong GridFS (MongoDB Atlas) để máy nào cũng xem được.
+# Vẫn hỗ trợ đọc file cũ trong backend/media/ để không gãy ảnh đã upload trước đó.
+from app.services.bai_dang import doc_anh_media
 
-from fastapi.staticfiles import StaticFiles
 
-_media = _Path(__file__).resolve().parents[1] / "media"
-_media.mkdir(exist_ok=True)
-app.mount("/api/media", StaticFiles(directory=_media), name="media")
+@app.get("/api/media/{ten_file}")
+async def phuc_vu_anh_media(ten_file: str):
+    ket_qua = await doc_anh_media(ten_file)
+    if not ket_qua:
+        return Response(status_code=404)
+    du_lieu, content_type = ket_qua
+    return Response(
+        content=du_lieu,
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
 
 
 @app.get("/")
