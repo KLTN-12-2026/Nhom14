@@ -138,7 +138,11 @@ async def _boi_canh_du_an(id_bai_dang: str | None) -> str:
 
 
 def _iso(thoi_gian):
-    return thoi_gian.isoformat() if thoi_gian else None
+    if not thoi_gian:
+        return None
+    if thoi_gian.tzinfo is None:
+        thoi_gian = thoi_gian.replace(tzinfo=timezone.utc)
+    return thoi_gian.isoformat()
 
 
 def _chuan_hoa_hoi_thoai(doc: dict) -> dict:

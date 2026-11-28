@@ -25,7 +25,7 @@ if not MONGODB_URI:
 parsed_uri = urlparse(MONGODB_URI)
 print("MongoDB Host đang kết nối:", parsed_uri.hostname)
 
-client = AsyncMongoClient(MONGODB_URI)
+client = AsyncMongoClient(MONGODB_URI, tz_aware=True)
 database = client[DATABASE_NAME]
 
 

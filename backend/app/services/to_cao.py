@@ -24,7 +24,11 @@ class ToCaoTrungError(Exception):
 
 
 def _iso(thoi_gian):
-    return thoi_gian.isoformat() if thoi_gian else None
+    if not thoi_gian:
+        return None
+    if thoi_gian.tzinfo is None:
+        thoi_gian = thoi_gian.replace(tzinfo=timezone.utc)
+    return thoi_gian.isoformat()
 
 
 async def _chuan_hoa_nhieu(docs: list) -> list:

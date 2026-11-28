@@ -11,7 +11,11 @@ LOAI_HOP_LE = {"He_Thong", "Su_Kien", "Ket_Qua_Duyet", "Vi"}
 
 
 def _iso(thoi_gian):
-    return thoi_gian.isoformat() if thoi_gian else None
+    if not thoi_gian:
+        return None
+    if thoi_gian.tzinfo is None:
+        thoi_gian = thoi_gian.replace(tzinfo=timezone.utc)
+    return thoi_gian.isoformat()
 
 
 def _chuan_hoa(doc: dict) -> dict:
