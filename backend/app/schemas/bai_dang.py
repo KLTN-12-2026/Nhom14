@@ -43,3 +43,10 @@ class DuyetBaiDangRequest(BaseModel):
 
     hanh_dong: Literal["Duyet", "Tu_Choi"]
     ly_do: str = Field(default="", max_length=1000)
+
+
+class AnHienBaiDangRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    hanh_dong: Literal["An", "Hien"]
+    ly_do: str = Field(default="", max_length=1000)

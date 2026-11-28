@@ -366,14 +366,17 @@ export function layDanhSachQuanLy() {
   // BE đang chạy -> cộng thêm bài thật từ cache quản trị (source: Atlas)
   const baiBe = docCache(KEY_BE_ADMIN).map(chuanHoaBaiBe);
 
-  // BE đã có bài thật: bỏ bài mẫu POST_DEMO (trùng nội dung với bài thật
-  // trong Atlas) + bỏ bản cục bộ trùng id — trang quản lý không hiện 2 dòng
-  // cùng một bài như trước.
+  // BE đã có bài thật: chỉ hiển thị bài từ DB để tránh trùng/bài demo/local
+  // không tồn tại trong database gây lỗi khi thao tác quản trị.
+  // Khi BE chưa có dữ liệu (BE tắt/lỗi), fallback demo + cục bộ như cũ.
   const idBe = new Set(baiBe.map((p) => String(p.id)));
-  const baiDemo = baiBe.length ? [] : POST_DEMO.map(chuanHoaBaiDemo);
-  const baiCucBo = getAllPostsForReview()
-    .filter((p) => !idBe.has(String(p.id)))
-    .map(chuanHoaBaiForm);
+  const coDuLieuBe = baiBe.length > 0;
+  const baiDemo = coDuLieuBe ? [] : POST_DEMO.map(chuanHoaBaiDemo);
+  const baiCucBo = coDuLieuBe
+    ? []
+    : getAllPostsForReview()
+        .filter((p) => !idBe.has(String(p.id)))
+        .map(chuanHoaBaiForm);
 
   const danh_sach = [...baiBe, ...baiDemo, ...baiCucBo];
 
@@ -389,7 +392,8 @@ export function layDanhSachQuanLy() {
 // Ẩn bài: BE-first (PUT /api/admin/bai-dang/{id}/an-hien, trạng thái
 // Da_An) — BE tắt hoặc bài là bản demo cục bộ -> xử lý local như cũ.
 export async function anBaiDang(id, ly_do = '') {
-  if (coToken()) {
+  const laIdBe = /^[0-9a-f]{24}$/i.test(String(id || ''));
+  if (coToken() && laIdBe) {
     try {
       await goiApi(
         `/api/admin/bai-dang/${encodeURIComponent(id)}/an-hien`,
@@ -423,7 +427,8 @@ export async function anBaiDang(id, ly_do = '') {
 
 // Hiện lại bài đã ẩn: BE-first (Da_Duyet) + fallback local
 export async function hienBaiDang(id) {
-  if (coToken()) {
+  const laIdBe = /^[0-9a-f]{24}$/i.test(String(id || ''));
+  if (coToken() && laIdBe) {
     try {
       await goiApi(
         `/api/admin/bai-dang/${encodeURIComponent(id)}/an-hien`,

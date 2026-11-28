@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.schemas.bai_dang import DuyetBaiDangRequest
+from app.schemas.bai_dang import AnHienBaiDangRequest, DuyetBaiDangRequest
 from app.services import bai_dang as dich_vu
 from app.services.bai_dang import KhongTimThayBaiDangError
 from app.utils.auth import get_current_admin_user
@@ -67,7 +67,7 @@ async def duyet_bai_dang(
 @router.put("/{id_bai_dang}/an-hien")
 async def an_hien_bai_dang(
     id_bai_dang: str,
-    yeu_cau: DuyetBaiDangRequest,
+    yeu_cau: AnHienBaiDangRequest,
     current_user: dict = Depends(get_current_admin_user)
 ):
     """Ẩn (Da_An) / Hiện lại (Da_Duyet) bài đã duyệt - PB18.
